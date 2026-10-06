@@ -5,7 +5,17 @@
  * migrate.mjs enthalten sind. Einträge nie ändern oder umsortieren – nur neue
  * anhängen. Ausgeführt von deploy.sh vor dem Umschalten (`node migrate.mjs`).
  */
-export const migrations: { name: string; statements: string[] }[] = [
+import type { Conn } from './db.ts';
+import { insertDemoBrands } from './demo.ts';
+
+export interface Migration {
+  name: string;
+  statements?: string[];
+  /** Für Daten-Migrationen, die mehr als SQL-Anweisungen brauchen */
+  run?: (conn: Conn) => Promise<void>;
+}
+
+export const migrations: Migration[] = [
   {
     name: '001_init',
     statements: [
@@ -132,5 +142,10 @@ export const migrations: { name: string; statements: string[] }[] = [
         ADD COLUMN brand_id INT UNSIGNED NULL AFTER title,
         ADD CONSTRAINT fk_presentations_brand FOREIGN KEY (brand_id) REFERENCES brands (id) ON DELETE SET NULL`,
     ],
+  },
+  {
+    // Demo-Brandings für den ersten Start (fiktive Namen, verschiedene Farbschemata)
+    name: '003_demo_brands',
+    run: insertDemoBrands,
   },
 ];

@@ -11,7 +11,7 @@ import {
   type SlideType,
 } from '@slides/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft, ArrowUp, Archive, Copy, Palette, Play, Plus, Radio, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowUp, Archive, Copy, Palette, Play, Plus, Radio, Sparkles, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
@@ -63,6 +63,11 @@ export default function EditorPage() {
       await refresh();
       setSelectedId(newId);
     },
+    onError,
+  });
+  const loadDemo = useMutation({
+    mutationFn: () => api(`/api/presentations/${id}/demo-slides`, { body: {} }),
+    onSuccess: refresh,
     onError,
   });
   const removeSlide = useMutation({
@@ -218,8 +223,11 @@ export default function EditorPage() {
         {selected ? (
           <SlideEditor key={selected.id} slide={selected} presentation={pres.data} index={slides.indexOf(selected)} />
         ) : (
-          <div className="empty" style={{ gridColumn: 'span 2' }}>
-            Noch keine Folien. Füge links die erste hinzu.
+          <div className="empty stack" style={{ gridColumn: 'span 2', justifyItems: 'center' }}>
+            <p>Noch keine Folien. Füge links die erste hinzu – oder lade den Demo-Foliensatz mit allen Funktionen.</p>
+            <button className="btn btn-primary" onClick={() => loadDemo.mutate()} disabled={loadDemo.isPending}>
+              <Sparkles /> Demo-Folien laden
+            </button>
           </div>
         )}
       </div>

@@ -21,7 +21,8 @@ export async function migrate(db: Pool, log: (msg: string) => void = console.log
   for (const m of migrations) {
     if (done.has(m.name)) continue;
     log(`Migration ${m.name}`);
-    for (const statement of m.statements) await exec(db, statement);
+    for (const statement of m.statements ?? []) await exec(db, statement);
+    if (m.run) await m.run(db);
     await exec(db, 'INSERT INTO schema_migrations (name) VALUES (?)', [m.name]);
     applied++;
   }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Pencil, Play, Plus, Radio, Trash2 } from 'lucide-react';
+import { Copy, Pencil, Play, Plus, Radio, Sparkles, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
@@ -35,6 +35,11 @@ export default function PresentationsPage() {
 
   const create = useMutation({
     mutationFn: () => api<{ id: number }>('/api/presentations', { body: { title, template } }),
+    onSuccess: ({ id }) => navigate(`/admin/p/${id}`),
+    onError: (err) => toast(errorMessage(err), 'error'),
+  });
+  const loadDemo = useMutation({
+    mutationFn: () => api<{ id: number }>('/api/presentations/demo', { body: {} }),
     onSuccess: ({ id }) => navigate(`/admin/p/${id}`),
     onError: (err) => toast(errorMessage(err), 'error'),
   });
@@ -78,8 +83,11 @@ export default function PresentationsPage() {
       {list.isLoading ? (
         <Spinner />
       ) : list.data?.length === 0 ? (
-        <div className="empty">
-          Noch keine Präsentation. Leg oben die erste an – mit Startfolien bekommst du Begrüßung, die beiden Satz-Spiele, Q&A und Feedback.
+        <div className="empty stack" style={{ justifyItems: 'center' }}>
+          <p>Noch keine Präsentation. Leg oben die erste an – oder schau dir zuerst alle Funktionen an.</p>
+          <button className="btn btn-primary" onClick={() => loadDemo.mutate()} disabled={loadDemo.isPending}>
+            <Sparkles /> Demo-Präsentation laden
+          </button>
         </div>
       ) : (
         <ul className="pres-list">

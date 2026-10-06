@@ -4,6 +4,7 @@ import { z, ZodError } from 'zod';
 import { requireHost } from './auth.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { exec, one, query, transaction, type Conn, type Db } from './db.ts';
+import { DEMO_TITLE, insertDemoSlides } from './demo.ts';
 import type { LiveHub } from './live.ts';
 import { loadSlides } from './snapshot.ts';
 
@@ -77,6 +78,32 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       return result.insertId;
     });
     return { id };
+  });
+
+  /** Neue Präsentation mit dem Demo-Foliensatz (alle Funktionen). */
+  app.post('/api/presentations/demo', host, async () => {
+    const id = await transaction(db, async (conn) => {
+      const result = await exec(conn, 'INSERT INTO presentations (title) VALUES (?)', [DEMO_TITLE]);
+      await insertDemoSlides(conn, result.insertId);
+      return result.insertId;
+    });
+    return { id };
+  });
+
+  /** Demo-Folien in eine leere Präsentation laden. */
+  app.post('/api/presentations/:id/demo-slides', host, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const pres = await one<{ id: number }>(db, 'SELECT id FROM presentations WHERE id = ?', [id]);
+    if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
+    const added = await transaction(db, async (conn) => {
+      const count = await one<{ n: number }>(conn, 'SELECT COUNT(*) AS n FROM slides WHERE presentation_id = ? FOR UPDATE', [id]);
+      if (Number(count?.n ?? 0) > 0) return false;
+      await insertDemoSlides(conn, id);
+      return true;
+    });
+    if (!added) return reply.code(409).send({ error: 'Die Präsentation hat schon Folien' });
+    await touch(id);
+    return { ok: true };
   });
 
   app.get('/api/presentations/:id', host, async (request, reply) => {
