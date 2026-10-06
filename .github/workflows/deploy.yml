@@ -1,0 +1,138 @@
+# Prüft, baut und liefert bei jedem Push auf main an den Uberspace aus.
+#
+# Ein Job: prüfen (Typen, Lint, Tests), bauen, packen, hochladen, ausrollen.
+# Ein roter Schritt bricht vor dem Upload ab. Auf dem Server wird nichts gebaut –
+# der Server ist mit esbuild zu einer Datei gebündelt (CentOS 7 hat ein zu altes
+# glibc für native Module), die Web-App liegt fertig daneben.
+#
+# Geheimnisse in der GitHub-Umgebung "production":
+#   DEPLOY_HOST       z. B. <host>.uberspace.de
+#   DEPLOY_USER       Uberspace-Benutzername
+#   SSH_PRIVATE_KEY   privater Deploy-Schlüssel (nur für dieses Repo)
+#   SSH_KNOWN_HOSTS   Ausgabe von: ssh-keyscan <DEPLOY_HOST>
+# Variable (optional): DEPLOY_DOMAIN, Standard takepart.philipp-kasten.de
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+      - 'deploy/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.nvmrc'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+# Ein Deployment nach dem anderen, nie mittendrin abbrechen.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://${{ vars.DEPLOY_DOMAIN || 'takepart.philipp-kasten.de' }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Secrets prüfen
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          missing=""
+          for name in DEPLOY_HOST DEPLOY_USER SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+            [ -z "${!name}" ] && missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Fehlende Secrets:$missing – Einrichtung siehe docs/deployment.md"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Prüfen (Typen, Lint, Tests)
+        run: |
+          npm run typecheck
+          npm run lint
+          npm test
+
+      - name: Bauen
+        run: npm run build
+
+      - name: Release-Archiv packen
+        run: |
+          set -euo pipefail
+          R=release
+          mkdir -p $R/server $R/web $R/deploy
+          cp apps/server/dist/server.mjs apps/server/dist/migrate.mjs $R/server/
+          cp -r apps/web/dist/. $R/web/
+          cp -r deploy/uberspace $R/deploy/
+          echo "${GITHUB_SHA}" > $R/REVISION
+          tar -czf release.tgz -C $R .
+          ls -lh release.tgz
+
+      - name: SSH einrichten
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Fest hinterlegt statt beim ersten Kontakt akzeptiert
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host uberspace
+            HostName $DEPLOY_HOST
+            User $DEPLOY_USER
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      - name: Hochladen
+        run: |
+          set -euo pipefail
+          ssh uberspace 'mkdir -p ~/slides/incoming'
+          scp release.tgz "uberspace:slides/incoming/release-${GITHUB_SHA}.tgz"
+          scp deploy/uberspace/deploy.sh "uberspace:slides/incoming/deploy.sh"
+
+      - name: Ausrollen
+        run: ssh uberspace "bash ~/slides/incoming/deploy.sh ~/slides/incoming/release-${GITHUB_SHA}.tgz ${GITHUB_SHA::12}"
+
+      # Der Health-Check in deploy.sh ist maßgeblich. Dieser Schritt prüft zusätzlich
+      # den Weg von außen (DNS, Zertifikat, Web-Backend) und warnt nur, bis DNS steht.
+      - name: Nachsehen, ob es von außen lebt
+        env:
+          DOMAIN: ${{ vars.DEPLOY_DOMAIN || 'takepart.philipp-kasten.de' }}
+        run: |
+          if curl -fsS --retry 3 --retry-delay 5 "https://$DOMAIN/api/health"; then
+            echo
+            echo "https://$DOMAIN antwortet."
+          else
+            echo "::warning::https://$DOMAIN ist von außen (noch) nicht erreichbar – DNS und Zertifikat prüfen."
+          fi
+
+      - name: SSH-Schlüssel entfernen
+        if: always()
+        run: rm -f ~/.ssh/id_deploy

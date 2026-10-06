@@ -1,0 +1,240 @@
+/* Balken: höchstens 24px (1.5em bei 16px) dick, 4px runde Spitze, eckig an der Grundlinie. */
+.bars {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.85em;
+}
+.bar-row {
+  display: grid;
+  gap: 0.3em;
+  transition: opacity 300ms var(--ease);
+}
+.bars-inline {
+  gap: 0.45em;
+}
+.bars-inline .bar-row {
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6em;
+}
+.bars-inline .bar-label {
+  justify-content: flex-end;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+.bar-row.is-dim {
+  opacity: 0.45;
+}
+.bar-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45em;
+  font-weight: 600;
+  line-height: 1.25;
+  min-width: 0;
+}
+.bar-text {
+  overflow-wrap: anywhere;
+}
+.bar-mark {
+  width: 1.2em;
+  height: 1.2em;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.bar-mark.ok {
+  border-color: var(--good);
+  background: var(--good);
+  color: #fff;
+}
+.bar-mark svg {
+  width: 0.8em;
+  height: 0.8em;
+  stroke-width: 3.5;
+}
+.bar-track {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 5.5em;
+  align-items: center;
+  gap: 0.6em;
+  min-height: 1.5em;
+}
+.bar-area {
+  min-width: 0;
+}
+.bar-fill {
+  height: 1.25em;
+  max-height: 24px;
+  min-height: 12px;
+  border-radius: 0 4px 4px 0;
+  background: var(--chart);
+  transition: width 500ms var(--ease);
+}
+.is-correct .bar-fill {
+  background: var(--good);
+}
+.bar-value {
+  color: var(--ink-2);
+  font-weight: 600;
+  font-size: 0.9em;
+  white-space: nowrap;
+}
+
+/* Skala: Säulen + Durchschnitt als Hero-Zahl */
+.scale-results,
+.feedback-results {
+  display: grid;
+  gap: 1.2em;
+}
+.hero-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  flex-wrap: wrap;
+}
+.hero-value {
+  font-family: var(--font);
+  font-size: 3em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.hero-label {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.columns {
+  display: grid;
+  gap: 0.5em;
+  align-items: end;
+  height: 9em;
+}
+.column {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  height: 100%;
+  justify-items: center;
+  gap: 0.25em;
+}
+.column-track {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  border-bottom: 1px solid var(--border-strong);
+}
+.column-fill {
+  width: min(100%, 2.4em);
+  border-radius: 4px 4px 0 0;
+  background: var(--chart);
+  transition: height 500ms var(--ease);
+  min-height: 0;
+}
+.column-value {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--ink-2);
+  min-height: 1.2em;
+}
+.column-label {
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.scale-ends {
+  color: var(--ink-3);
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+/* Wortwolke: Größe trägt die Häufigkeit, Text bleibt Tinte */
+.wordcloud {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15em 0.7em;
+  line-height: 1.1;
+  padding: 0.5em 0;
+}
+.cloud-word {
+  font-weight: 650;
+  color: var(--ink-2);
+  animation: pop 300ms var(--ease) both;
+  transition: font-size 400ms var(--ease);
+  overflow-wrap: anywhere;
+}
+.cloud-word.is-top {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.12em;
+}
+
+.stars {
+  display: inline-flex;
+  gap: 0.1em;
+  color: var(--border-strong);
+}
+.stars svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+.stars .on {
+  color: var(--warn);
+  fill: currentColor;
+}
+.stars .half {
+  color: var(--warn);
+  fill: color-mix(in srgb, currentColor 45%, transparent);
+}
+
+.comment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5em;
+}
+.comment-list li {
+  padding: 0.6em 0.9em;
+  border-radius: var(--radius-s);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+
+.qr {
+  background: #fff;
+  border-radius: 12px;
+  padding: 6px;
+  flex-shrink: 0;
+}
+.qr svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.connection-badge {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-2);
+  animation: rise 240ms var(--ease);
+}

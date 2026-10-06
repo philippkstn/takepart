@@ -1,0 +1,20 @@
+.display-page {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+}
+.display-page.is-idle {
+  cursor: none;
+}
+.display-fs {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: opacity 300ms;
+  z-index: 20;
+}
+.display-page.is-idle .display-fs {
+  opacity: 0;
+}

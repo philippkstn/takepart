@@ -1,0 +1,613 @@
+/*
+ * Bühne. Die Schriftgröße hängt an der Fläche (Container Query Units), alles
+ * andere in em – so sieht die kleine Vorschau im Steuerpult aus wie der Beamer.
+ */
+.stage {
+  container-type: size;
+  width: 100%;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  overflow: hidden;
+  position: relative;
+}
+.stage-inner {
+  font-size: min(2.25cqw, 4cqh);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  padding: 1.4em 2.2em 1.6em;
+  gap: 0.8em;
+}
+
+.stage-top {
+  display: flex;
+  gap: 0.8em;
+  align-items: center;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.stage-join {
+  display: inline-flex;
+  gap: 0.5em;
+  align-items: center;
+  padding: 0.35em 0.9em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.stage-join strong {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+.stage-stats {
+  display: inline-flex;
+  gap: 1em;
+  margin-left: auto;
+}
+.stage-logo {
+  height: 2.1em;
+  width: auto;
+  max-width: 9em;
+  object-fit: contain;
+  border-radius: 0.2em;
+}
+.stage-stats > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+}
+.stage-stats svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.stage-main {
+  position: relative;
+  min-height: 0;
+}
+.stage-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1em;
+  min-height: 0;
+}
+.stage-empty {
+  margin: auto;
+  color: var(--ink-3);
+}
+
+.stage-head {
+  display: grid;
+  gap: 0.3em;
+  min-width: 0;
+}
+.stage-head-row {
+  align-items: flex-start;
+  flex-wrap: nowrap;
+}
+.stage-kicker {
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.stage-title {
+  font-size: 1.9em;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.stage-title-xl {
+  font-size: 3em;
+}
+.stage-body {
+  font-size: 1.2em;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  max-width: 34em;
+}
+.stack-l {
+  display: grid;
+  gap: 0.8em;
+  align-content: center;
+}
+.stage-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.25em 0.75em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.75em;
+  font-weight: 650;
+  color: var(--ink-2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.stage-pill svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+.stage-results {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  /* safe: zu hohe Inhalte wachsen nach unten statt über die Überschrift */
+  justify-content: safe center;
+  overflow: hidden;
+  font-size: 1.05em;
+  max-width: 46em;
+  width: 100%;
+}
+.stage-results .bars {
+  gap: 0.75em;
+}
+.stage-results .bar-fill {
+  max-height: none;
+  height: 1.1em;
+}
+.stage-results .columns {
+  height: 7.5em;
+}
+.stage-results .wordcloud {
+  font-size: 1.1em;
+}
+
+.stage-waiting {
+  margin: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.8em 1.4em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.stage-waiting svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+.stage-footer-note {
+  text-align: center;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* Textfolie mit Beitritt */
+.stage-content {
+  flex: 1;
+  display: grid;
+  align-items: center;
+  gap: 2em;
+}
+.stage-content.with-join {
+  grid-template-columns: 1fr auto;
+}
+.join-panel {
+  display: flex;
+  align-items: center;
+  gap: 1.6em;
+  padding: 1.4em;
+  border-radius: 0.6em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+}
+.join-qr {
+  width: 8.5em;
+  height: 8.5em;
+  flex-shrink: 0;
+}
+.join-qr .qr {
+  width: 100%;
+  height: 100%;
+  border-radius: 0.6em;
+}
+.join-text {
+  display: grid;
+  gap: 0.15em;
+}
+.join-step {
+  color: var(--ink-2);
+  font-size: 0.8em;
+  font-weight: 600;
+}
+.join-host {
+  font-weight: 700;
+  font-size: 1.15em;
+  margin-bottom: 0.4em;
+}
+.join-code {
+  font-size: 2.6em;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1;
+}
+.join-overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  z-index: 5;
+}
+.join-overlay .join-panel {
+  font-size: 1.3em;
+}
+
+/* Satz-Spiel */
+.stage-sentence {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.8em;
+  min-height: 0;
+}
+.sentence-big {
+  font-size: 2.3em;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  /* nur umbrechen, wenn ein einzelnes Wort allein nicht in die Zeile passt */
+  overflow-wrap: break-word;
+}
+.sentence-big.is-done {
+  font-size: 2.6em;
+}
+.sentence-gap {
+  display: inline-block;
+  min-width: 2.5ch;
+  margin-left: 0.26em;
+  border-bottom: 0.08em solid var(--accent);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+.sentence-word {
+  display: inline;
+}
+/* Angehängte Wörter: außen Text (echtes Leerzeichen), innen eine Box für die Animation */
+.sentence-token {
+  display: inline;
+}
+.sentence-box {
+  display: inline-block;
+  border-radius: 0.2em;
+}
+.sentence-box.is-new {
+  animation: word-land 1.8s var(--ease) both;
+}
+@keyframes word-land {
+  0%,
+  30% {
+    background: var(--accent-soft);
+    box-shadow: 0 0 0 0.12em var(--accent-soft);
+    color: var(--accent);
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 0.12em transparent;
+    color: inherit;
+  }
+}
+/* Satz fertig: eine Welle läuft einmal über alle Wörter */
+.sentence-big.is-done .sentence-word,
+.sentence-big.is-done .sentence-box {
+  animation: done-wave 900ms var(--ease) both;
+  animation-delay: calc(var(--i) * 110ms + 150ms);
+}
+@keyframes done-wave {
+  0% {
+    color: inherit;
+  }
+  40% {
+    color: var(--accent);
+  }
+  100% {
+    color: inherit;
+  }
+}
+.sentence-big.is-done {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.18em;
+}
+.sentence-cloud-area {
+  position: relative;
+  min-height: 6em;
+  display: grid;
+  align-items: center;
+}
+.sentence-cloud {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: baseline;
+  gap: 0.15em 0.8em;
+  line-height: 1.1;
+  font-size: 1.05em;
+}
+.sentence-cloud .cloud-word {
+  animation: none;
+  display: inline-block;
+}
+.cloud-count {
+  font-family: var(--font);
+  font-size: 0.4em;
+  font-weight: 700;
+  color: var(--ink-3);
+  margin-left: 0.15em;
+  vertical-align: super;
+}
+.sentence-cloud .cloud-word.is-top {
+  color: var(--ink);
+}
+
+/* Quiz */
+.quiz-timer {
+  width: 3.4em;
+  height: 3.4em;
+  border-radius: 50%;
+  background: conic-gradient(var(--accent) var(--p), var(--surface-3) 0);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.quiz-timer span {
+  width: 2.7em;
+  height: 2.7em;
+  border-radius: 50%;
+  background: var(--bg);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1em;
+}
+.quiz-options {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7em;
+}
+.quiz-options li {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.7em 1em;
+  border-radius: 0.45em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-weight: 600;
+}
+.quiz-letter {
+  width: 1.8em;
+  height: 1.8em;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.85em;
+  flex-shrink: 0;
+}
+
+/* Beiträge */
+.post-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 3 14em;
+  column-gap: 0.8em;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.post-cards .stage-post {
+  break-inside: avoid;
+  margin-bottom: 0.8em;
+}
+.post-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6em;
+  align-content: start;
+  min-height: 0;
+  overflow: hidden;
+}
+.stage-post {
+  display: grid;
+  gap: 0.35em;
+  padding: 0.75em 1em;
+  border-radius: 0.45em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+}
+.post-rows .stage-post {
+  grid-template-columns: 1fr auto;
+  align-items: center;
+}
+.stage-post-text {
+  font-weight: 550;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.stage-post-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+  font-size: 0.75em;
+  color: var(--ink-3);
+  font-weight: 600;
+  justify-self: start;
+}
+.post-rows .stage-post-meta {
+  justify-self: end;
+}
+
+.pinboard {
+  flex: 1;
+  display: grid;
+  gap: 1em;
+  min-height: 0;
+}
+.pinboard-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  min-height: 0;
+  padding: 0.8em;
+  border-radius: 0.5em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.pinboard-title {
+  font-size: 1em;
+}
+.pinboard-col .stage-post {
+  font-size: 0.85em;
+  grid-template-columns: 1fr;
+}
+
+/* Spotlight: ein Beitrag groß */
+.spotlight {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 3em;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  z-index: 6;
+}
+.spotlight-card {
+  width: min(100%, 38em);
+  padding: 1.6em 2em;
+  border-radius: 0.6em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  display: grid;
+  gap: 0.8em;
+}
+.spotlight-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.spotlight-kicker svg {
+  width: 1.2em;
+  height: 1.2em;
+}
+.spotlight-text {
+  font-size: 2.1em;
+  font-weight: 600;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.spotlight-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+/* Rangliste */
+.leaderboard {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45em;
+  max-width: 40em;
+  width: 100%;
+}
+.leaderboard li {
+  display: grid;
+  grid-template-columns: 2em minmax(6em, 12em) 1fr auto;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.35em 0.8em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  animation: rise 320ms var(--ease) both;
+}
+.leaderboard li.is-first {
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+  background: var(--accent-soft);
+}
+.lb-rank {
+  font-weight: 700;
+  text-align: center;
+}
+.lb-name {
+  font-weight: 650;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-bar {
+  height: 0.7em;
+  display: flex;
+}
+.lb-bar span {
+  background: var(--chart);
+  border-radius: 0 4px 4px 0;
+  transition: width 500ms var(--ease);
+}
+.lb-points {
+  font-weight: 700;
+  text-align: right;
+  min-width: 4em;
+}
+
+/* Feedback auf der Bühne: Durchschnitt links, Verteilung rechts, Kommentare darunter */
+.stage-results .feedback-results {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 2.5em;
+}
+.stage-results .feedback-results .hero-figure {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3em;
+}
+.stage-results .comment-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+  gap: 0.6em;
+  font-size: 0.85em;
+}
+.stage-results .comment-list li {
+  background: var(--surface);
+}
+.stage-results .comment-list li {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+.stage-results .bars-inline {
+  gap: 0.3em;
+}
