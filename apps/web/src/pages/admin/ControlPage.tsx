@@ -549,7 +549,7 @@ function ModItem({
             <Check /> Freigeben
           </button>
         )}
-        {(post.status === 'visible' || post.status === 'answered') && (
+        {post.status === 'visible' && (
           <button
             className={`btn btn-small ${isSpot ? 'btn-ink' : ''}`}
             onClick={() => command({ action: 'spotlight', postId: isSpot ? null : post.id })}
@@ -559,12 +559,11 @@ function ModItem({
         )}
         {qa && post.status === 'visible' && (
           <button
-            className="icon-btn"
-            title="Als beantwortet markieren"
-            aria-label="Als beantwortet markieren"
+            className="btn btn-small"
+            title="Als beantwortet markieren – verschwindet auch aus dem Großformat"
             onClick={() => command({ action: 'post-status', postId: post.id, status: 'answered' })}
           >
-            <Check />
+            <Check /> Beantwortet
           </button>
         )}
         {post.status !== 'hidden' ? (

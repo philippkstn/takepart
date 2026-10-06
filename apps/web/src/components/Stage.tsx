@@ -33,17 +33,6 @@ export function Stage({ view, offset = 0 }: { view: DisplayView; offset?: number
         <div className="stage-inner">
           <header className="stage-top">
             {view.run.brand?.logoUrl && <img className="stage-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />}
-            <span className="stage-join">
-              <span className="faint">{joinHost()}</span>
-              {view.run.code && (
-                <>
-                  <span className="faint">·</span>
-                  <span>
-                    Code <strong className="tabular">{formatCode(view.run.code)}</strong>
-                  </span>
-                </>
-              )}
-            </span>
             <span className="stage-stats">
               <span title="Verbunden">
                 <Users /> <span className="tabular">{view.participants}</span>
@@ -201,7 +190,7 @@ function SlideStage({ view, slide, offset }: { view: DisplayView; slide: PublicS
           </div>
           {view.posts.length === 0 ? (
             <div className="stage-waiting">
-              <MessageCircleQuestion /> <span>Stellt eure Fragen über {joinHost()}</span>
+              <MessageCircleQuestion /> <span>Noch keine Fragen – stellt sie gern über euer Handy</span>
             </div>
           ) : (
             <PostGrid posts={view.posts.filter((p) => p.status !== 'answered').slice(0, 8)} layout="list" showVotes />

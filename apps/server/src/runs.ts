@@ -212,7 +212,8 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
         if (cmd.action === 'post-status') {
           const result = await exec(db, 'UPDATE posts SET status = ? WHERE id = ? AND run_id = ?', [cmd.status, cmd.postId, id]);
           if (result.affectedRows === 0) throw new CommandError('Beitrag nicht gefunden');
-          if ((cmd.status === 'hidden' || cmd.status === 'pending') && run.state.spotlight === cmd.postId) {
+          // Beantwortet, ausgeblendet oder zurückgestellt: nicht mehr groß auf dem Beamer
+          if (cmd.status !== 'visible' && run.state.spotlight === cmd.postId) {
             await saveRunState(db, id, { ...run.state, spotlight: null });
           }
           return;
@@ -243,12 +244,11 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           return;
         }
         if (cmd.action === 'spotlight' && cmd.postId !== null) {
-          const post = await one<{ id: number }>(
-            db,
-            "SELECT id FROM posts WHERE id = ? AND run_id = ? AND status IN ('visible', 'answered')",
-            [cmd.postId, id],
-          );
-          if (!post) throw new CommandError('Nur freigegebene Beiträge können eingeblendet werden');
+          const post = await one<{ id: number }>(db, "SELECT id FROM posts WHERE id = ? AND run_id = ? AND status = 'visible'", [
+            cmd.postId,
+            id,
+          ]);
+          if (!post) throw new CommandError('Nur freigegebene, offene Beiträge können eingeblendet werden');
         }
         await saveRunState(
           db,

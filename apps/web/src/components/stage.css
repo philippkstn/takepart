@@ -29,19 +29,6 @@
   font-weight: 600;
   color: var(--ink-2);
 }
-.stage-join {
-  display: inline-flex;
-  gap: 0.5em;
-  align-items: center;
-  padding: 0.35em 0.9em;
-  border-radius: 0.4em;
-  background: var(--surface);
-  border: 1px solid var(--border);
-}
-.stage-join strong {
-  color: var(--ink);
-  letter-spacing: 0.04em;
-}
 .stage-stats {
   display: inline-flex;
   gap: 1em;
