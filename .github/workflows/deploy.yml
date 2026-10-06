@@ -1,9 +1,11 @@
-# Prüft, baut und liefert bei jedem Push auf main an den Uberspace aus.
+# Baut und liefert bei jedem Push auf main an den Uberspace aus.
 #
-# Ein Job: prüfen (Typen, Lint, Tests), bauen, packen, hochladen, ausrollen.
-# Ein roter Schritt bricht vor dem Upload ab. Auf dem Server wird nichts gebaut –
-# der Server ist mit esbuild zu einer Datei gebündelt (CentOS 7 hat ein zu altes
-# glibc für native Module), die Web-App liegt fertig daneben.
+# Geprüft wird lokal, nicht hier: der pre-push-Hook (.githooks/pre-push) führt
+# Typecheck, Lint und Tests aus, bevor überhaupt gepusht wird – das spart
+# Actions-Minuten. Dieser Job baut nur noch, packt und rollt aus. Auf dem Server
+# wird nichts gebaut: der Server ist mit esbuild zu einer Datei gebündelt
+# (CentOS 7 hat ein zu altes glibc für native Module), die Web-App liegt daneben.
+# Reine Doku-Änderungen lösen dank des Pfadfilters keinen Lauf aus.
 #
 # Geheimnisse in der GitHub-Umgebung "production":
 #   DEPLOY_HOST       z. B. <host>.uberspace.de
@@ -66,12 +68,6 @@ jobs:
           cache: npm
 
       - run: npm ci
-
-      - name: Prüfen (Typen, Lint, Tests)
-        run: |
-          npm run typecheck
-          npm run lint
-          npm test
 
       - name: Bauen
         run: npm run build

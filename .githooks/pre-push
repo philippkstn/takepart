@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Prüft vor jedem Push auf main lokal – die GitHub Action baut und liefert nur noch aus.
+# Einmalig aktivieren: git config core.hooksPath .githooks
+# Notfalls überspringen: git push --no-verify
+set -euo pipefail
+
+pushes_main=false
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+  [[ "$remote_ref" == "refs/heads/main" ]] && pushes_main=true
+done
+$pushes_main || exit 0
+
+echo "▸ Prüfe vor dem Push (Typecheck, Lint, Tests) …"
+npm run --silent check
+echo "✓ Alles grün"

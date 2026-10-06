@@ -37,3 +37,5 @@ Optional pro Präsentation (`presentations.brand_id`, Tabelle `brands`): Name, A
 ## Deployment
 
 Push auf `main` → `.github/workflows/deploy.yml` → `deploy/uberspace/deploy.sh` auf den Uberspace. Details in `docs/deployment.md`.
+
+**Actions-Minuten sparen:** Prüfungen nur lokal (`npm run check`, läuft automatisch im pre-push-Hook, `git config core.hooksPath .githooks`). Die Action baut und liefert nur aus. Commits bündeln statt viele Einzel-Pushes; Doku-Änderungen lösen keinen Lauf aus.

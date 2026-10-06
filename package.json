@@ -20,7 +20,8 @@
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "oxlint packages/shared/src apps/server/src apps/web/src",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "check": "npm run typecheck && npm run lint && npm test"
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

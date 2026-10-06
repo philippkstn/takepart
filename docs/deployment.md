@@ -33,7 +33,7 @@ Ziel: ein Uberspace-7-Konto (`<user>@<host>.uberspace.de`), Domain z. B. `slides
 
 ## Ablauf eines Deployments
 
-Push auf `main` → GitHub Action: Typecheck, Lint, Tests, Build → `release.tgz` → `scp` → `deploy.sh`:
+Lokal prüft der pre-push-Hook Typecheck, Lint und Tests. Push auf `main` → GitHub Action: Build → `release.tgz` → `scp` → `deploy.sh`:
 entpacken → `node migrate.mjs` → Symlink `current` umschalten → `supervisorctl restart slides` → Health-Check auf `http://localhost:<PORT>/api/health` → bei Fehler automatisch zurück auf die vorige Version. Fünf Versionen bleiben liegen.
 
 Teilnehmende verbinden sich nach einem Neustart automatisch neu; der Live-Zustand liegt in der Datenbank. Ein Deployment mitten im Vortrag kostet also nur eine Sekunde Reconnect – trotzdem besser nicht.

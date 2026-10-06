@@ -50,13 +50,14 @@ npm run dev                                     # API :3000 + Web http://localho
 Erster Login: `/login` → Setup-Token aus `apps/server/.env` (`SETUP_TOKEN`) → Passkey anlegen.
 
 ```bash
-npm run typecheck && npm run lint && npm test
+git config core.hooksPath .githooks   # einmalig: prüft vor jedem Push auf main
+npm run check                          # Typecheck, Lint, Tests
 npm run build
 ```
 
 ## Deployment
 
-Jeder Push auf `main` wird geprüft, gebaut und auf den Uberspace ausgeliefert (`.github/workflows/deploy.yml`).
+Geprüft wird lokal (pre-push-Hook), jeder Push auf `main` wird dann gebaut und auf den Uberspace ausgeliefert (`.github/workflows/deploy.yml`).
 Einrichtung und Betrieb: [docs/deployment.md](docs/deployment.md).
 
 ## Lizenz
