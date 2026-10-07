@@ -1,7 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { Navigate, useNavigate } from 'react-router';
+import { Link, Navigate, useNavigate } from 'react-router';
+import { SiteFooter } from '../components/LegalLinks.tsx';
 import { BrandMark, FullScreenSpinner } from '../components/ui.tsx';
 import { authStatus, loginWithPasskey, passkeyError, registerPasskey } from '../lib/passkey.ts';
 import './participant.css';
@@ -88,6 +89,9 @@ export default function LoginPage() {
           </div>
         )}
       </main>
+      <SiteFooter>
+        <Link to="/">Zur Teilnahme</Link>
+      </SiteFooter>
     </div>
   );
 }

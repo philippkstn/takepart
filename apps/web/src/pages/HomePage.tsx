@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { LegalLinks } from '../components/LegalLinks.tsx';
+import { SiteFooter } from '../components/LegalLinks.tsx';
 import { Link, useNavigate } from 'react-router';
 import { BrandMark } from '../components/ui.tsx';
 import './participant.css';
@@ -46,10 +46,9 @@ export function HomePage() {
           </button>
         </form>
       </main>
-      <footer className="p-footer">
-        <LegalLinks />
+      <SiteFooter>
         <Link to="/login">Für Vortragende</Link>
-      </footer>
+      </SiteFooter>
     </div>
   );
 }
