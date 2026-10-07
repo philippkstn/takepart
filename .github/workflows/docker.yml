@@ -1,0 +1,59 @@
+# Veröffentlicht das Docker-Image auf ghcr.io/philippkstn/takepart.
+#
+# Läuft nur bei Versions-Tags (v1.2.3) oder von Hand – nicht bei jedem Push, um
+# Actions-Minuten zu sparen. Geprüft wird vorher lokal (pre-push-Hook).
+#
+# Multi-Arch (amd64 + arm64) ohne Emulation: die Build-Stufe im Dockerfile läuft
+# auf der Runner-Plattform, die Laufzeit-Stufe kopiert nur fertige Dateien.
+#
+# Neue Version veröffentlichen:  git tag v0.2.0 && git push origin v0.2.0
+name: Docker-Image
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: docker-image
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      # Actions auf Commit-SHAs gepinnt (siehe deploy.yml)
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/takepart
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short
+
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: REVISION=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

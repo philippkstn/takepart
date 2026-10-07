@@ -1,0 +1,21 @@
+# Nur für die Entwicklung: lokale Datenbank (gleiche Version wie in Produktion, MariaDB 10.11).
+# TakePart selbst als Container starten: docker-compose.yml
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: slides
+      MARIADB_USER: slides
+      MARIADB_PASSWORD: slides
+    ports:
+      - "127.0.0.1:3307:3306"   # nur lokal erreichbar
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      retries: 20
+volumes:
+  db:

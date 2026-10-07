@@ -61,6 +61,12 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     return reply.code(status).send({ error: status >= 500 ? 'Da ist etwas schiefgegangen' : (err as Error).message });
   });
 
+  /** Öffentliche Einstellungen für die Web-App (Fußzeilen-Links) */
+  app.get('/api/config', async (_request, reply) => {
+    reply.header('Cache-Control', 'public, max-age=300');
+    return { imprintUrl: config.IMPRINT_URL ?? null, privacyUrl: config.PRIVACY_URL ?? null, sourceUrl: config.SOURCE_URL };
+  });
+
   app.get('/api/health', async () => {
     await one(db, 'SELECT 1');
     return { status: 'ok', release: config.RELEASE };

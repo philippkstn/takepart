@@ -11,7 +11,13 @@ const schema = z.object({
   DB_USER: z.string(),
   DB_PASSWORD: z.string().default(''),
   DB_NAME: z.string(),
+  /** Einmal-Token für den ersten Passkey. Fehlt er, erzeugt der Server beim ersten Start selbst einen und schreibt ihn ins Log. */
   SETUP_TOKEN: z.string().optional(),
+  /** Rechtliche Links in der Fußzeile (leer = nicht anzeigen) */
+  IMPRINT_URL: z.url().optional(),
+  PRIVACY_URL: z.url().optional(),
+  /** Quellcode-Link (AGPL § 13). Wer TakePart verändert betreibt, verlinkt hier den eigenen Code. */
+  SOURCE_URL: z.url().default('https://github.com/philippkstn/takepart'),
   /** Gebaute Web-App; in der Entwicklung liefert Vite sie aus */
   STATIC_DIR: z.string().optional(),
   RELEASE: z.string().default('dev'),
@@ -26,7 +32,9 @@ const schema = z.object({
 export type Config = z.infer<typeof schema> & { rpId: string; secureCookies: boolean };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
-  const parsed = schema.safeParse(env);
+  // Leere Werte (z. B. `PRIVACY_URL=` in Docker Compose) gelten als nicht gesetzt.
+  const cleaned = Object.fromEntries(Object.entries(env).filter(([, v]) => v !== undefined && v !== ''));
+  const parsed = schema.safeParse(cleaned);
   if (!parsed.success) {
     const fields = parsed.error.issues.map((i) => i.path.join('.')).join(', ');
     throw new Error(`Konfiguration unvollständig oder ungültig: ${fields}`);

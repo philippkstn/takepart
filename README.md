@@ -1,65 +1,105 @@
-# TakePart
+<p align="center"><img src="apps/web/public/favicon.svg" width="72" height="72" alt=""></p>
 
-Interaktive Vorträge für großes Online-Publikum – selbst gehostet.
+<h1 align="center">TakePart</h1>
 
-**Live:** https://takepart.philipp-kasten.de
+<p align="center">Interactive presentations with live audience participation – self-hosted.<br>
+<strong>English</strong> · <a href="README.de.md">Deutsch</a></p>
 
-## Was es kann
+---
 
-| Aktivität | Kurz |
+Your audience joins with a 6-digit code or QR code – no account, no app. You run the show from a control panel (laptop or phone) while a separate presenter view shows the results live. The interface is in German.
+
+| Activity | What it does |
 |---|---|
-| Textfolie | Titel, Text, auf Wunsch Beitritts-Code und QR-Code groß |
-| Auswahl | eine oder mehrere Antworten, Balken mit Anzahl und Prozent |
-| Offene Antworten | Freitext, einzeln groß einblendbar |
-| Skala | 1–5 / 1–7 / 1–10 mit Durchschnitt und Verteilung |
-| Wortwolke | 1–3 Begriffe pro Person |
-| Ranking | Optionen antippen in Reihenfolge, Auswertung nach Borda |
-| Quizfrage | Zeitlimit, 500 + bis zu 500 Punkte für Tempo, Rangliste |
-| Brainstorming | Ideen sammeln, Publikum votet |
-| Pinnwand | gemeinsame Notizen in Spalten |
-| Feedback | Sterne + Kommentar |
-| Fragen (Q&A) | mit Namen, Upvotes, Freigabe durch dich, einzeln groß einblenden |
-| Satz vervollständigen | Satzanfang vorgeben, alle tippen ein Wort, du blendest ein und hängst das häufigste an |
+| Text slide | Title, text and – on the title slide – join code and QR code |
+| Multiple choice | Single or multiple answers, live bar chart |
+| Open answers | Free text, show single answers full screen |
+| Scale | 1–5 / 1–7 / 1–10 with average and distribution |
+| Word cloud | 1–3 terms per person |
+| Ranking | Tap options in order, Borda count |
+| Quiz | Timer, points for speed, leaderboard |
+| Brainstorming | Collect ideas, audience upvotes |
+| Pinboard | Shared sticky notes in columns |
+| Feedback | Star rating plus comment |
+| Q&A | Named questions, upvotes, moderation, show one question full screen |
+| Complete the sentence | Everyone types the most likely next word; you reveal the answers and append the most popular one |
 
-Drei Ansichten pro Durchführung:
+Plus: optional branding per presentation (logo, accent and chart colour), passkey login for the presenter, an archive of every session with CSV export, and a demo deck that shows every feature.
 
-- **Teilnehmende** (`/123456` oder Code auf der Startseite) – ohne Anmeldung, ohne Namen (außer Q&A und Quiz)
-- **Steuerpult** (`/admin/live/:id`) – Folien wechseln, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen; auch am Handy
-- **Beamer** (`/d/:token`) – geheimer Anzeige-Link, nur lesend. Bist du im selben Browser angemeldet, blättern Pfeiltasten/Presenter-Fernbedienung. `F` = Vollbild.
+## Quick start (Docker)
 
-Optional bekommt jede Präsentation ein **Branding** (Logo, Akzent- und Diagrammfarbe, verwaltet unter Einstellungen) – oder bleibt neutral.
+You need Docker with Compose.
 
-Präsentationen werden vorbereitet und beliebig oft live gestartet; jede Durchführung bleibt mit Ergebnissen im Archiv (CSV-Export).
+```bash
+curl -O https://raw.githubusercontent.com/philippkstn/takepart/main/docker-compose.yml
+docker compose up -d
+docker compose logs app | grep Setup-Token
+```
 
-## Technik
+1. Open **http://localhost:8080/login** and enter the setup token from the log.
+2. Create your passkey (fingerprint, face or device PIN). That's your login from now on.
+3. Click **“Demo-Präsentation laden”** to load a demo deck with every feature, then **“Live starten”**.
 
-- `apps/web` – React 19, Vite, React Router, TanStack Query, motion, plain CSS
-- `apps/server` – Fastify 5, WebSockets, MariaDB (mysql2), Passkeys (SimpleWebAuthn); mit esbuild zu **einer Datei** gebündelt
-- `packages/shared` – Zod-Schemas, Auswertungen, Satz-/Quiz-Logik (mit Tests)
+The setup token is only needed once and changes on every restart until the first passkey exists.
 
-## Lokal entwickeln
+> **Running it on the internet?** Passkeys require HTTPS. Put TakePart behind a reverse proxy with TLS (e.g. Caddy or Traefik) and set `APP_ORIGIN` to the public address – see [Configuration](#configuration).
+
+### Presenting
+
+- **Control panel:** switch slides, show/hide results, approve questions, append words. Works on a phone.
+- **Presenter view:** “Beamer öffnen” opens a read-only link for the screen you share. `F` toggles full screen; when you're logged in in the same browser, arrow keys and presenter remotes advance the slides. Keep that window visible while sharing – browsers stop painting covered windows.
+- **Audience:** opens your address and enters the code, or scans the QR code on the title slide.
+
+## Configuration
+
+Set these as environment variables (with Compose, e.g. in a `.env` file next to `docker-compose.yml`).
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `APP_ORIGIN` | `http://localhost:8080` | Public address in the browser. Passkeys are bound to it. |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | see compose file | MariaDB/MySQL connection. **Change `DB_PASSWORD`.** |
+| `TRUST_PROXY_HOPS` | `0` (compose) | Number of proxies in front of TakePart: none `0`, reverse proxy `1`, reverse proxy + Cloudflare `2`. Too high lets clients fake their IP. |
+| `SETUP_TOKEN` | generated | Fixed token for the first passkey instead of the generated one. |
+| `IMPRINT_URL`, `PRIVACY_URL` | – | Legal links in the footer (shown only if set). |
+| `SOURCE_URL` | this repository | Source code link in the footer. If you run a modified version, link your code (AGPL). |
+| `TAKEPART_PORT` | `8080` | Host port in `docker-compose.yml`. |
+
+Example `.env` for a public instance:
+
+```env
+APP_ORIGIN=https://takepart.example.org
+DB_PASSWORD=a-long-random-password
+TRUST_PROXY_HOPS=1
+IMPRINT_URL=https://example.org/imprint
+PRIVACY_URL=https://example.org/privacy
+```
+
+The reverse proxy must pass WebSockets through (Caddy and Traefik do by default). Example Caddyfile:
+
+```
+takepart.example.org {
+  reverse_proxy localhost:8080
+}
+```
+
+**Backup:** `docker compose exec db mariadb-dump -u takepart -p takepart > takepart.sql`
+
+## Development
 
 ```bash
 npm install
-npm run db:up                                   # MariaDB 10.11 in Docker (Port 3307)
-cp apps/server/.env.example apps/server/.env    # einmalig
+npm run db:up                                   # MariaDB 10.11 in Docker (port 3307)
+cp apps/server/.env.example apps/server/.env
 npm run db:migrate
-npm run dev                                     # API :3000 + Web http://localhost:5180
+npm run dev                                     # API :3000 + web http://localhost:5180
+git config core.hooksPath .githooks             # run checks before every push to main
+npm run check                                   # typecheck, lint, tests
 ```
 
-Erster Login: `/login` → Setup-Token aus `apps/server/.env` (`SETUP_TOKEN`) → Passkey anlegen.
+Stack: React 19 + Vite (`apps/web`), Fastify 5 + WebSockets + MariaDB (`apps/server`, bundled into a single file with esbuild), shared Zod schemas and logic (`packages/shared`).
 
-```bash
-git config core.hooksPath .githooks   # einmalig: prüft vor jedem Push auf main
-npm run check                          # Typecheck, Lint, Tests
-npm run build
-```
+The reference instance runs at **https://takepart.philipp-kasten.de** (Uberspace, auto-deploy from `main`, see [docs/deployment.md](docs/deployment.md), German). Docker images are published to `ghcr.io/philippkstn/takepart` for version tags.
 
-## Deployment
+## License
 
-Geprüft wird lokal (pre-push-Hook), jeder Push auf `main` wird dann gebaut und auf den Uberspace ausgeliefert (`.github/workflows/deploy.yml`).
-Einrichtung und Betrieb: [docs/deployment.md](docs/deployment.md).
-
-## Lizenz
-
-TakePart ist freie Software unter der [GNU Affero General Public License v3.0](LICENSE) (oder einer späteren Version). Wer TakePart verändert und als Webdienst anbietet, muss den geänderten Quellcode den Nutzenden zur Verfügung stellen.
+TakePart is free software under the [GNU Affero General Public License v3.0](LICENSE) or later. If you modify TakePart and offer it as a web service, you must make your modified source code available to its users.

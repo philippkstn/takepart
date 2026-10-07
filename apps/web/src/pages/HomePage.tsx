@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { LegalLinks } from '../components/LegalLinks.tsx';
 import { Link, useNavigate } from 'react-router';
 import { BrandMark } from '../components/ui.tsx';
 import './participant.css';
@@ -46,15 +47,7 @@ export function HomePage() {
         </form>
       </main>
       <footer className="p-footer">
-        <a href="https://philipp-kasten.de/impressum" rel="noopener">
-          Impressum
-        </a>
-        <a href="https://philipp-kasten.de/datenschutz" rel="noopener">
-          Datenschutz
-        </a>
-        <a href="https://github.com/philippkstn/takepart" rel="noopener">
-          Quellcode
-        </a>
+        <LegalLinks />
         <Link to="/login">Für Vortragende</Link>
       </footer>
     </div>

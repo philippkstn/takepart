@@ -62,7 +62,8 @@ export default function LoginPage() {
             <div className="stack-s">
               <h1>Einrichten</h1>
               <p className="muted">
-                Noch ist kein Passkey hinterlegt. Gib den Setup-Token aus der Server-Konfiguration ein und lege deinen ersten Passkey an.
+                Noch ist kein Passkey hinterlegt. Gib den Setup-Token ein – er steht im Server-Log (oder als SETUP_TOKEN in der
+                Konfiguration) – und lege deinen ersten Passkey an.
               </p>
             </div>
             <label className="field">

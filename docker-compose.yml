@@ -1,20 +1,51 @@
-# Lokale Datenbank – gleiche Version wie auf dem Uberspace (MariaDB 10.11)
+# TakePart starten:   docker compose up -d
+# Setup-Token holen:  docker compose logs app | grep Setup-Token
+# Dann öffnen:        http://localhost:8080/login
+#
+# Für den Betrieb im Internet: TakePart hinter einen Reverse-Proxy mit HTTPS
+# stellen (Passkeys brauchen HTTPS) und APP_ORIGIN auf die öffentliche Adresse
+# setzen, z. B. in einer .env-Datei neben dieser Datei.
+name: takepart
+
 services:
+  app:
+    image: ghcr.io/philippkstn/takepart:latest
+    build: .
+    ports:
+      - "${TAKEPART_PORT:-8080}:3000"
+    environment:
+      # Adresse, unter der TakePart im Browser aufgerufen wird (Passkeys hängen daran)
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8080}
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: takepart
+      DB_PASSWORD: ${DB_PASSWORD:-takepart-change-me}
+      DB_NAME: takepart
+      # Proxys vor TakePart: direkt erreichbar 0, hinter einem Reverse-Proxy 1, zusätzlich hinter Cloudflare 2
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-0}
+      # Optional: eigene Rechtstexte in der Fußzeile
+      IMPRINT_URL: ${IMPRINT_URL:-}
+      PRIVACY_URL: ${PRIVACY_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
   db:
     image: mariadb:10.11
     environment:
-      MARIADB_ROOT_PASSWORD: root
-      MARIADB_DATABASE: slides
-      MARIADB_USER: slides
-      MARIADB_PASSWORD: slides
-    ports:
-      - "127.0.0.1:3307:3306"   # nur lokal erreichbar
+      MARIADB_DATABASE: takepart
+      MARIADB_USER: takepart
+      MARIADB_PASSWORD: ${DB_PASSWORD:-takepart-change-me}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
     command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
     volumes:
-      - db:/var/lib/mysql
+      - takepart-db:/var/lib/mysql
     healthcheck:
       test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
       interval: 5s
-      retries: 20
+      retries: 30
+    restart: unless-stopped
+
 volumes:
-  db:
+  takepart-db:

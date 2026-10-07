@@ -34,6 +34,10 @@ Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale F
 
 Optional pro Präsentation (`presentations.brand_id`, Tabelle `brands`): Name, Akzentfarbe, Diagrammfarbe, Logo. `lib/brand.ts` (`brandStyle`) setzt daraus `--accent`, `--primary`, `--chart` usw. auf Bühne und Teilnehmer-Ansicht. Logos liegen in der DB und kommen über `/api/brands/:id/logo?v=…` (versioniert, gecacht), nie in den Live-Ansichten selbst. Rot als Diagrammfarbe vermeiden (wirkt wie „schlecht“) – dann die Zweitfarbe der Marke für Balken nehmen.
 
+## Docker
+
+`Dockerfile` (zweistufig: Build auf `$BUILDPLATFORM`, Laufzeit kopiert nur `server.mjs`, `migrate.mjs`, `web/` – kein node_modules, Benutzer `node`), `docker/entrypoint.sh` (Migrationen mit Wartezeit, dann Server), `docker-compose.yml` (App + MariaDB, für Nutzer:innen). Die Dev-Datenbank liegt in `docker-compose.dev.yml`. Images: `.github/workflows/docker.yml`, nur bei Tags `v*`. Ohne `SETUP_TOKEN` erzeugt der Server beim ersten Start selbst einen und schreibt ihn ins Log. Impressum/Datenschutz/Quellcode-Links kommen über `/api/config` aus der Konfiguration – nie fest im Code.
+
 ## Deployment
 
 Push auf `main` → `.github/workflows/deploy.yml` → `deploy/uberspace/deploy.sh` auf den Uberspace. Details in `docs/deployment.md`.

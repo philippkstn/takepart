@@ -1,5 +1,6 @@
 import type { ParticipantView } from '@slides/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { LegalLinks } from '../components/LegalLinks.tsx';
 import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
@@ -108,12 +109,7 @@ export default function ParticipantPage({ code }: { code: string }) {
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
       </main>
       <footer className="p-footer">
-        <a href="https://philipp-kasten.de/datenschutz" rel="noopener">
-          Datenschutz
-        </a>
-        <a href="https://github.com/philippkstn/takepart" rel="noopener">
-          Quellcode
-        </a>
+        <LegalLinks imprint={false} />
       </footer>
     </div>
   );
