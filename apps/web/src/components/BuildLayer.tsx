@@ -64,13 +64,34 @@ export function BuildLayer({
                 className="build-mask build-cut"
                 style={{ ...box, ...timing, '--at': `${r.at + r.dur}ms`, background: r.fill } as CSSProperties}
               />
-              {/* fliegt über allem ein und verschwindet danach – sonst zeigte der Ausschnitt
-                  auch Elemente späterer Schritte, die in seinem Bereich liegen */}
+              {/* Der Ausschnitt stammt aus dem Endzustand und enthielte auch Elemente, die
+                  erst später erscheinen (z. B. Text in einem hereinfliegenden Kasten). Deren
+                  Abdeckungen fliegen deshalb im Ausschnitt mit. Nach der Landung verschwindet
+                  er; dann übernehmen die regulären Abdeckungen darunter. */}
               <div
                 className={`build-crop build-${r.effect}`}
                 style={{ ...box, ...timing, ...cropStyle(r, image), zIndex: total + 1 }}
-                onAnimationEnd={(e) => (e.currentTarget.style.visibility = 'hidden')}
-              />
+                onAnimationEnd={(e) => {
+                  if (e.target === e.currentTarget) e.currentTarget.style.visibility = 'hidden';
+                }}
+              >
+                {ordered.map(({ r: o, i: j }, innerOrder) =>
+                  j !== i && revealedAfter(o, r) && intersects(o, r) ? (
+                    <div
+                      key={j}
+                      className="build-mask"
+                      style={{
+                        left: pct((o.x - r.x) / r.w),
+                        top: pct((o.y - r.y) / r.h),
+                        width: pct(o.w / r.w),
+                        height: pct(o.h / r.h),
+                        zIndex: total - innerOrder,
+                        background: o.fill,
+                      }}
+                    />
+                  ) : null,
+                )}
+              </div>
             </div>
           );
         }
@@ -87,6 +108,11 @@ export function BuildLayer({
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
+
+/** Erscheint `o` erst nach dem Start von `r`? */
+const revealedAfter = (o: BuildRegion, r: BuildRegion) => o.step > r.step || (o.step === r.step && o.at > r.at);
+
+const intersects = (a: BuildRegion, b: BuildRegion) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 /** Bildausschnitt des Elements und Startposition außerhalb der Folie. */
 function cropStyle(r: BuildRegion, image: string): CSSProperties {
