@@ -52,7 +52,7 @@ In the editor, click **“PDF importieren”** and choose the PDF export of your
 
 ### Presenting
 
-- **Presenter view (control panel):** current slide with laser pointer and pen, next slide, speaker notes, elapsed time against a target duration, clock; step through slides and animations, black or white screen, show/hide results, approve questions, append words. Works on a phone.
+- **Presenter view (control panel):** current slide with laser pointer and pen, next slide, speaker notes (resizable sidebar, adjustable font size; the next-slide preview collapses to its title when space runs short), elapsed time against a target duration, clock; step through slides and animations, black or white screen, show/hide results, approve questions, append words. Works on a phone.
 - **Presenter view:** “Beamer öffnen” opens a read-only link for the screen you share. `F` toggles full screen; when you're logged in in the same browser, the keys work like in PowerPoint: → ↓ PageDown Space Enter N next, ← ↑ PageUp Backspace P back, `B`/`.` black screen, `W`/`,` white screen, Home/End, number + Enter jumps to a slide. Presenter remotes (clickers) work the same way, including their blank-screen button. Keep that window visible while sharing – browsers stop painting covered windows.
 - **Audience:** opens your address and enters the code, or scans the QR code on the title slide.
 - **After the talk:** “Folien freigeben” creates a link with the slides and aggregated results (no names, free texts or questions). Participants see it on their phones; it can be printed or saved as PDF.

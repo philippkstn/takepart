@@ -29,18 +29,19 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { InkInput, InkOverlay, type InkTool } from '../../components/Ink.tsx';
 import { Stage } from '../../components/Stage.tsx';
-import { staticPreview } from '../../components/staticPreview.ts';
 import { ConnectionBadge, formatCode, FullScreenSpinner, joinHost, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useLive } from '../../lib/live.ts';
+import { isNumber, usePref } from '../../lib/prefs.ts';
 import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
+import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import './admin.css';
 
 export default function ControlPage() {
@@ -51,6 +52,7 @@ export default function ControlPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [panelWidth, setPanelWidth] = usePref('panel-width', 380, (v): v is number => isNumber(v) && v >= PANEL_MIN && v <= PANEL_MAX);
 
   const command = async (cmd: HostCommand) => {
     setBusy(true);
@@ -149,7 +151,7 @@ export default function ControlPage() {
         </div>
       </header>
 
-      <div className="control-grid">
+      <div className="control-grid" style={{ '--panel-w': `${panelWidth}px` } as CSSProperties}>
         <aside className="control-slides">
           <ol>
             {view.slides.map((s, i) => (
@@ -278,48 +280,10 @@ export default function ControlPage() {
           </div>
         </section>
 
-        <aside className="control-panel card">
-          {slide && build < builds ? (
-            <div className="next-slide">
-              <span className="label">Als Nächstes · Animation {build + 1}</span>
-              <div className="preview-frame">
-                <Stage
-                  view={staticPreview(slide, {
-                    title: view.run.title,
-                    brand: view.run.brand,
-                    index: view.slideIndex,
-                    count: view.slideCount,
-                    code: view.run.code,
-                    buildStep: build + 1,
-                  })}
-                />
-              </div>
-            </div>
-          ) : (
-            view.nextSlide && (
-              <div className="next-slide">
-                <span className="label">Als Nächstes</span>
-                <div className="preview-frame">
-                  <Stage
-                    view={staticPreview(view.nextSlide, {
-                      title: view.run.title,
-                      brand: view.run.brand,
-                      index: view.slideIndex + 1,
-                      count: view.slideCount,
-                      code: view.run.code,
-                      buildStep: 0,
-                    })}
-                  />
-                </div>
-              </div>
-            )
-          )}
-          <div className="notes-box">
-            <span className="label">Notizen</span>
-            {view.notes ? <p className="notes-text">{view.notes}</p> : <p className="small faint">Keine Notizen zu dieser Folie.</p>}
-          </div>
+        <PanelResizer width={panelWidth} onWidth={setPanelWidth} />
+        <PresenterSidebar view={view} build={build} builds={builds}>
           {slide ? <Panel view={view} command={command} busy={busy} /> : <p className="muted">Keine Folie ausgewählt.</p>}
-        </aside>
+        </PresenterSidebar>
       </div>
     </div>
   );

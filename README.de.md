@@ -54,7 +54,7 @@ Im Editor **„PDF importieren“** klicken und den PDF-Export deiner Präsentat
 
 ### Im Vortrag
 
-- **Referentenansicht (Steuerpult):** aktuelle Folie mit Laserpointer und Stift, nächste Folie, Sprechernotizen, Vortragszeit gegen eine Ziel-Dauer, Uhrzeit; durch Folien und Animationen blättern, Schwarz-/Weißbild, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen – auch am Handy.
+- **Referentenansicht (Steuerpult):** aktuelle Folie mit Laserpointer und Stift, nächste Folie, Sprechernotizen (Seitenleiste in der Breite ziehbar, Schriftgröße einstellbar; reicht der Platz nicht, schrumpft die Vorschau auf den Titel), Vortragszeit gegen eine Ziel-Dauer, Uhrzeit; durch Folien und Animationen blättern, Schwarz-/Weißbild, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen – auch am Handy.
 - **Beamer:** „Beamer öffnen“ öffnet einen nur lesenden Link für den geteilten Bildschirm. `F` = Vollbild; bist du im selben Browser angemeldet, gelten die Tasten wie in PowerPoint: → ↓ Bild↓ Leertaste Enter N weiter, ← ↑ Bild↑ Rücktaste P zurück, `B`/`.` Schwarzbild, `W`/`,` Weißbild, Pos1/Ende, Nummer + Enter springt zur Folie. Presenter (Clicker) funktionieren genauso, auch ihre „Bildschirm aus“-Taste. Das Fenster beim Teilen nicht verdecken – Browser zeichnen verdeckte Fenster nicht neu.
 - **Publikum:** ruft deine Adresse auf und gibt den Code ein oder scannt den QR-Code auf der Titelfolie.
 - **Nach dem Vortrag:** „Folien freigeben“ erzeugt einen Link mit Folien und zusammengefassten Ergebnissen (ohne Namen, Freitexte oder Fragen). Teilnehmende sehen ihn auf dem Handy; er lässt sich drucken oder als PDF speichern.
