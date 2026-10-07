@@ -311,9 +311,10 @@ export default function EditorPage() {
           presentationId={id}
           afterId={selected?.id ?? null}
           onClose={() => setImporting(false)}
-          onDone={async (count) => {
+          onDone={async (count, note) => {
             setImporting(false);
-            toast(`${count} ${count === 1 ? 'Folie' : 'Folien'} importiert`);
+            const text = `${count} ${count === 1 ? 'Folie' : 'Folien'} importiert`;
+            toast(note ? `${text}. ${note}` : text, note?.includes('prüfen') ? 'error' : 'info');
             await refresh();
           }}
         />

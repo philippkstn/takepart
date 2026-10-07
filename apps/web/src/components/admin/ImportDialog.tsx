@@ -1,13 +1,15 @@
 import { FileText, Presentation as PptIcon, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
+import { planNotes, type NotesPlan, type PptxSlideInfo } from '@slides/shared';
 import { extractPptxNotes, renderPdfPages } from '../../lib/importDeck.ts';
 
 interface Props {
   presentationId: number;
   afterId: number | null;
   onClose: () => void;
-  onDone: (count: number) => void;
+  /** `note`: Hinweis zur Zuordnung der Notizen (übersprungene/abweichende Folien) */
+  onDone: (count: number, note: string | null) => void;
 }
 
 type Phase = { step: 'idle' } | { step: 'notes' } | { step: 'pages'; done: number; total: number } | { step: 'saving' };
@@ -32,41 +34,52 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
   const [pptx, setPptx] = useState<File | null>(null);
   const [phase, setPhase] = useState<Phase>({ step: 'idle' });
   const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
+  const [includeHidden, setIncludeHidden] = useState(false);
   const busy = phase.step !== 'idle';
 
   const start = async () => {
     if (!pdf) return;
     if (pdf.size > MAX_PDF_BYTES) return setError('Die PDF ist zu groß (höchstens 150 MB).');
     setError(null);
-    setWarning(null);
     try {
-      let notes: string[] = [];
+      let slides: PptxSlideInfo[] | null = null;
       if (pptx) {
         setPhase({ step: 'notes' });
-        notes = await extractPptxNotes(pptx);
+        slides = await extractPptxNotes(pptx);
       }
+      let plan: NotesPlan | null = null;
       const items: { asset: string; width: number; height: number; title: string; notes: string }[] = [];
       setPhase({ step: 'pages', done: 0, total: 0 });
-      for await (const page of renderPdfPages(pdf)) {
-        setPhase({ step: 'pages', done: page.index, total: page.total });
+      const select = (total: number) => {
+        plan = planNotes(slides, total, includeHidden);
+        const p = plan;
+        return (i: number) => p.pages[i]?.include ?? true;
+      };
+      for await (const page of renderPdfPages(pdf, select)) {
+        const wanted = plan!.pages.filter((p) => p.include).length;
+        setPhase({ step: 'pages', done: items.length, total: wanted });
         const { asset } = await uploadImage(
           `/api/presentations/${presentationId}/assets?width=${page.width}&height=${page.height}`,
           page.full,
         );
         await uploadImage(`/api/assets/${asset}/thumb`, page.thumb, 'PUT');
-        items.push({ asset, width: page.width, height: page.height, title: page.title, notes: notes[page.index] ?? '' });
-        setPhase({ step: 'pages', done: page.index + 1, total: page.total });
+        items.push({ asset, width: page.width, height: page.height, title: page.title, notes: plan!.pages[page.index]?.notes ?? '' });
+        setPhase({ step: 'pages', done: items.length, total: wanted });
       }
-      if (pptx && notes.length !== items.length) {
-        setWarning(
-          `Die PowerPoint hat ${notes.length} sichtbare Folien, das PDF ${items.length} Seiten. Die Notizen wurden der Reihe nach zugeordnet – bitte kurz prüfen.`,
-        );
+      const done = plan as NotesPlan | null;
+      let note: string | null = null;
+      if (done && slides) {
+        const visible = slides.filter((x) => !x.hidden).length;
+        if (done.mode === 'mismatch') {
+          note = `Die PowerPoint hat ${slides.length} Folien (${visible} sichtbar), das PDF ${done.pages.length} Seiten. Die Notizen wurden der Reihe nach zugeordnet – bitte kurz prüfen.`;
+        } else if (done.skippedHidden > 0) {
+          note = `${done.skippedHidden} ausgeblendete Folien wurden übersprungen.`;
+        }
       }
       setPhase({ step: 'saving' });
       await api(`/api/presentations/${presentationId}/slides/import`, { body: { afterId, items } });
       setPhase({ step: 'idle' });
-      onDone(items.length);
+      onDone(items.length, note);
     } catch (err) {
       setPhase({ step: 'idle' });
       setError(errorMessage(err));
@@ -123,6 +136,18 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
           />
         </label>
 
+        {pptx && (
+          <label className="switch small">
+            <input type="checkbox" checked={includeHidden} disabled={busy} onChange={(e) => setIncludeHidden(e.target.checked)} />
+            <span>
+              Ausgeblendete Folien mit importieren
+              <span className="faint" style={{ display: 'block' }}>
+                Nur relevant, wenn das PDF sie enthält (z. B. Export aus Google Slides)
+              </span>
+            </span>
+          </label>
+        )}
+
         {phase.step !== 'idle' && (
           <div className="stack-s" aria-live="polite">
             <span className="small muted">
@@ -137,11 +162,6 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
           </div>
         )}
         {error && <div className="error-box">{error}</div>}
-        {warning && (
-          <p className="small" style={{ color: 'var(--warn)' }}>
-            {warning}
-          </p>
-        )}
 
         <div className="row">
           <button className="btn btn-primary" onClick={start} disabled={!pdf || busy}>

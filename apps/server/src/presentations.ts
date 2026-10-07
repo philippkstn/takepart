@@ -307,7 +307,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
    * Importierte Folien (PDF-Seiten als zuvor hochgeladene Bilder) als Folgen von
    * Bild-Folien einfügen – hinter `afterId` oder am Ende.
    */
-  app.post('/api/presentations/:id/slides/import', host, async (request, reply) => {
+  // Eigenes Limit: 100+ Folien mit Sprechernotizen sprengen die üblichen 64 KB.
+  app.post('/api/presentations/:id/slides/import', { ...host, bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z
       .object({

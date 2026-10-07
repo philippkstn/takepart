@@ -10,6 +10,8 @@
  * für Teilnehmende.
  */
 
+import type { PptxSlideInfo } from '@slides/shared';
+
 /** Lange Seite der Folienbilder in Pixeln – scharf auf Full-HD-Beamern, klein genug für Handys. */
 const FULL_SIZE = 1920;
 const THUMB_WIDTH = 400;
@@ -39,7 +41,14 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   });
 }
 
-export async function* renderPdfPages(file: File): AsyncGenerator<RenderedPage> {
+/**
+ * Rendert die Seiten eines PDFs. `select` bekommt die Seitenzahl und entscheidet
+ * je Seite, ob sie gebraucht wird – übersprungene Seiten werden nicht gerendert.
+ */
+export async function* renderPdfPages(
+  file: File,
+  select: (total: number) => (index: number) => boolean = () => () => true,
+): AsyncGenerator<RenderedPage> {
   const pdfjs = await import('pdfjs-dist');
   const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
@@ -53,9 +62,11 @@ export async function* renderPdfPages(file: File): AsyncGenerator<RenderedPage> 
     iccUrl: '/pdfjs/iccs/',
   });
   const doc = await task.promise;
+  const wanted = select(doc.numPages);
 
   try {
     for (let i = 1; i <= doc.numPages; i++) {
+      if (!wanted(i - 1)) continue;
       const page = await doc.getPage(i);
       const base = page.getViewport({ scale: 1 });
       const scale = FULL_SIZE / Math.max(base.width, base.height);
@@ -110,11 +121,11 @@ async function pageTitle(page: { getTextContent: () => Promise<{ items: unknown[
 }
 
 /**
- * Sprechernotizen aus einer PPTX in Folienreihenfolge. Ausgeblendete Folien
- * werden übersprungen – der PDF-Export von PowerPoint lässt sie ebenfalls weg,
- * sonst wären die Notizen ab dort verschoben.
+ * Sprechernotizen aus einer PPTX in Folienreihenfolge – mit Kennzeichen für
+ * ausgeblendete Folien. Ob ein PDF-Export diese enthält, hängt vom Programm ab
+ * (PowerPoint: nein, Google Slides: ja); die Zuordnung macht `planNotes`.
  */
-export async function extractPptxNotes(file: File): Promise<string[]> {
+export async function extractPptxNotes(file: File): Promise<PptxSlideInfo[]> {
   const JSZip = (await import('jszip')).default;
   const zip = await JSZip.loadAsync(await file.arrayBuffer());
   const xml = async (path: string) => {
@@ -141,7 +152,7 @@ export async function extractPptxNotes(file: File): Promise<string[]> {
   const presentation = await xml('ppt/presentation.xml');
   if (!presentation) throw new Error('Keine gültige PowerPoint-Datei');
   const presRels = await rels('ppt/_rels/presentation.xml.rels');
-  const notes: string[] = [];
+  const notes: PptxSlideInfo[] = [];
 
   for (const sldId of Array.from(presentation.getElementsByTagNameNS('*', 'sldId'))) {
     const rid =
@@ -150,12 +161,12 @@ export async function extractPptxNotes(file: File): Promise<string[]> {
     if (!target) continue;
     const slidePath = resolve('ppt/presentation.xml', target);
     const slide = await xml(slidePath);
-    if (slide?.documentElement.getAttribute('show') === '0') continue; // ausgeblendete Folie
+    const hidden = slide?.documentElement.getAttribute('show') === '0';
 
     const slideRels = await rels(slidePath.replace(/([^/]+)$/, '_rels/$1.rels'));
     const notesRel = [...slideRels.values()].find((r) => r.type.endsWith('/notesSlide'));
     if (!notesRel) {
-      notes.push('');
+      notes.push({ notes: '', hidden });
       continue;
     }
     const notesDoc = await xml(resolve(slidePath, notesRel.target));
@@ -173,12 +184,13 @@ export async function extractPptxNotes(file: File): Promise<string[]> {
         );
       }
     }
-    notes.push(
-      paragraphs
+    notes.push({
+      notes: paragraphs
         .join('\n')
         .replace(/\n{3,}/g, '\n\n')
         .trim(),
-    );
+      hidden,
+    });
   }
   return notes;
 }

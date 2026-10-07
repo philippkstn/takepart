@@ -43,6 +43,23 @@ export async function deleteOrphanAssets(conn: Conn, presentationId: number) {
   );
 }
 
+/**
+ * Bilder abgebrochener Importe aufräumen: älter als einen Tag und von keiner
+ * Folie verwendet. Läuft beim Start und danach alle sechs Stunden.
+ */
+export async function deleteAllOrphanAssets(conn: Conn): Promise<number> {
+  const result = await exec(
+    conn,
+    `DELETE a FROM assets a
+      WHERE a.created_at < UTC_TIMESTAMP(3) - INTERVAL 1 DAY
+        AND NOT EXISTS (
+          SELECT 1 FROM slides s
+           WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
+             AND JSON_VALUE(s.config, '$.asset') = a.public_id)`,
+  );
+  return result.affectedRows;
+}
+
 /** Alle Bilder einer Präsentation in eine andere kopieren; liefert alte → neue Kennung. */
 export async function copyAssets(conn: Conn, fromId: number, toId: number): Promise<Map<string, string>> {
   const rows = await conn.query<import('mysql2').RowDataPacket[]>('SELECT public_id FROM assets WHERE presentation_id = ?', [fromId]);

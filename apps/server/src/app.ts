@@ -6,7 +6,7 @@ import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError, z } from 'zod';
-import { assetRoutes } from './assets.ts';
+import { assetRoutes, deleteAllOrphanAssets } from './assets.ts';
 import { authRoutes, isHost } from './auth.ts';
 import { brandRoutes } from './brands.ts';
 import type { Config } from './config.ts';
@@ -42,6 +42,18 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     bodyLimit: 64 * 1024,
   });
   const live = new LiveHub(db, app.log);
+  const cleanup = async () => {
+    try {
+      const removed = await deleteAllOrphanAssets(db);
+      if (removed > 0) app.log.info({ removed }, 'Verwaiste Folienbilder entfernt');
+    } catch (err) {
+      app.log.warn({ err }, 'Aufräumen der Folienbilder fehlgeschlagen');
+    }
+  };
+  const cleanupTimer = setInterval(() => void cleanup(), 6 * 60 * 60 * 1000);
+  cleanupTimer.unref();
+  app.addHook('onReady', async () => void cleanup());
+  app.addHook('onClose', async () => clearInterval(cleanupTimer));
   const csp = contentSecurityPolicy(config.APP_ORIGIN);
   app.addHook('onClose', async () => live.close());
 
@@ -60,7 +72,18 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     if (err instanceof ZodError) return reply.code(400).send({ error: err.issues[0]?.message ?? 'Ungültige Eingabe' });
     const status = (err as { statusCode?: number }).statusCode ?? 500;
     if (status >= 500) request.log.error({ err }, 'Unerwarteter Fehler');
-    return reply.code(status).send({ error: status >= 500 ? 'Da ist etwas schiefgegangen' : (err as Error).message });
+    if (status >= 500) return reply.code(status).send({ error: 'Da ist etwas schiefgegangen' });
+    // Fastify-Meldungen sind englisch – die häufigen auf Deutsch übersetzen
+    const code = (err as { code?: string }).code;
+    const message =
+      code === 'FST_ERR_CTP_BODY_TOO_LARGE'
+        ? 'Die Daten sind zu groß für eine Anfrage'
+        : code === 'FST_ERR_CTP_INVALID_MEDIA_TYPE'
+          ? 'Unbekanntes Datenformat'
+          : code === 'FST_ERR_CTP_EMPTY_JSON_BODY' || code === 'FST_ERR_CTP_INVALID_JSON_BODY'
+            ? 'Ungültige Anfrage'
+            : (err as Error).message;
+    return reply.code(status).send({ error: message });
   });
 
   /** Öffentliche Einstellungen für die Web-App (Fußzeilen-Links) */
