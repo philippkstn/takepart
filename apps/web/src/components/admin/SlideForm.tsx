@@ -349,6 +349,22 @@ function ImageForm({ value, onChange }: FormProps<'image'>) {
       <p className="small faint">
         Importierte Folie, {value.width} × {value.height} px. Inhalt ändern: Folie in PowerPoint anpassen und neu importieren.
       </p>
+      {value.builds && value.builds.regions.length > 0 && (
+        <label className="switch small">
+          <input
+            type="checkbox"
+            checked={value.builds.enabled}
+            onChange={(e) => onChange({ ...value, builds: { ...value.builds!, enabled: e.target.checked } })}
+          />
+          <span>
+            Animationen abspielen
+            <span className="faint" style={{ display: 'block' }}>
+              {value.builds.regions.length} Elemente, {value.builds.steps === 0 ? 'ohne Klick' : `${value.builds.steps} Klicks`}. Bleibt
+              beim Aufdecken eine falsche Fläche stehen (überlappende Elemente), hier abschalten.
+            </span>
+          </span>
+        </label>
+      )}
     </>
   );
 }

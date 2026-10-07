@@ -51,7 +51,7 @@ export default function ParticipantPage({ code }: { code: string }) {
 
   if (joinError) {
     return (
-      <div className="p-shell">
+      <div className="p-shell takepart-scope">
         <main className="p-main home">
           <div className="card card-pad stack anim-rise">
             <h1>Das hat nicht geklappt</h1>
@@ -72,7 +72,7 @@ export default function ParticipantPage({ code }: { code: string }) {
 
   if (status === 'ended' || status === 'rejected' || view?.run.ended) {
     return (
-      <div className="p-shell">
+      <div className="p-shell takepart-scope">
         <main className="p-main home">
           <div className="card card-pad stack anim-rise" style={{ textAlign: 'center' }}>
             <h1>Danke fürs Mitmachen!</h1>
@@ -94,7 +94,7 @@ export default function ParticipantPage({ code }: { code: string }) {
   if (!view || !token) return <FullScreenSpinner />;
 
   return (
-    <div className="p-shell" style={brandStyle(view.run.brand)}>
+    <div className="p-shell takepart-scope" style={brandStyle(view.run.brand)}>
       <header className="p-header">
         <span className="p-brand">
           {view.run.brand?.logoUrl ? (

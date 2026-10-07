@@ -1,9 +1,10 @@
 import { assetUrl, SLIDE_TYPE_LABELS, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
 import { ChevronUp, EyeOff, MessageCircleQuestion, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
+import { BuildLayer } from './BuildLayer.tsx';
 import { SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
@@ -34,7 +35,7 @@ export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset
       <div className="stage" style={brandStyle(view.run.brand)}>
         <div className="stage-inner">
           {image ? (
-            <ImageStage key="image" slide={image} animate={visible} />
+            <ImageStage key="image" slide={image} step={view.buildStep} animate={visible} />
           ) : (
             <>
               <header className="stage-top">
@@ -111,35 +112,58 @@ export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset
             )}
           </AnimatePresence>
           {overlay}
+          <BlankScreen mode={view.blank} />
         </div>
       </div>
     </MotionConfig>
   );
 }
 
-/** Importierte Folie: Bild im 16:9-Rahmen, Folienwechsel als kurze Überblendung. */
-function ImageStage({ slide, animate }: { slide: Extract<PublicSlide, { type: 'image' }>; animate: boolean }) {
+/**
+ * Importierte Folie: Bild im Seitenverhältnis der Folie, darüber die
+ * Aufbau-Animationen; Folienwechsel als kurze Überblendung.
+ */
+function ImageStage({ slide, step, animate }: { slide: Extract<PublicSlide, { type: 'image' }>; step: number; animate: boolean }) {
   const src = assetUrl(slide.config.asset);
   const alt = slide.config.title || 'Folie';
+  const frame = (
+    <>
+      <img src={src} alt={alt} />
+      <BuildLayer builds={slide.config.builds} step={step} image={src} animate={animate} slideId={slide.id} />
+    </>
+  );
+  const ratio = { '--ar': `${slide.config.width} / ${slide.config.height}` } as CSSProperties;
   return (
     <div className="stage-image">
       {animate ? (
         <AnimatePresence initial={false}>
-          <motion.img
+          <motion.div
             key={slide.id}
-            src={src}
-            alt={alt}
+            className="slide-frame"
+            style={ratio}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-          />
+          >
+            {frame}
+          </motion.div>
         </AnimatePresence>
       ) : (
-        <img key={slide.id} src={src} alt={alt} />
+        <div key={slide.id} className="slide-frame" style={ratio}>
+          {frame}
+        </div>
       )}
     </div>
   );
+}
+
+/** Schwarz- bzw. Weißbild (Taste B / W) – liegt über allem, auch über Zeichnungen. */
+function BlankScreen({ mode }: { mode: DisplayView['blank'] }) {
+  // Farbe beim Ausblenden behalten, sonst würde Weiß über Schwarz verblassen
+  const last = useRef<'black' | 'white'>('black');
+  if (mode) last.current = mode;
+  return <div className={`stage-blank tone-${last.current}${mode ? ' is-on' : ''}`} aria-hidden={!mode} />;
 }
 
 function usePageVisible(): boolean {

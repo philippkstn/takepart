@@ -21,6 +21,7 @@ describe('Notizen zuordnen', () => {
     expect(plan.mode).toBe('all-slides');
     expect(plan.pages.map((p) => p.include)).toEqual([true, false, true, true]);
     expect(plan.pages[2]!.notes).toBe('drei');
+    expect(plan.pages[2]!.slide).toBe(slides[2]);
     expect(plan.skippedHidden).toBe(1);
   });
 
@@ -34,8 +35,8 @@ describe('Notizen zuordnen', () => {
     expect(planNotes(null, 2)).toEqual({
       mode: 'none',
       pages: [
-        { include: true, notes: '' },
-        { include: true, notes: '' },
+        { include: true, notes: '', slide: null },
+        { include: true, notes: '', slide: null },
       ],
       skippedHidden: 0,
     });
@@ -44,6 +45,7 @@ describe('Notizen zuordnen', () => {
   it('passt nichts, wird der Reihe nach zugeordnet und gemeldet', () => {
     const plan = planNotes(slides, 5);
     expect(plan.mode).toBe('mismatch');
+    expect(plan.pages.every((p) => p.slide === null)).toBe(true);
     expect(plan.pages.map((p) => p.notes)).toEqual(['eins', 'drei', '', '', '']);
   });
 });

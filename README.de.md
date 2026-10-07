@@ -26,7 +26,7 @@ Das Publikum macht mit einem 6-stelligen Code oder per QR-Code mit – ohne Kont
 | Fragen (Q&A) | mit Namen, Upvotes, Freigabe, einzeln groß einblenden |
 | Satz vervollständigen | Satzanfang vorgeben, alle tippen ein Wort, du blendest ein und hängst das häufigste an |
 
-**Der ganze Vortrag läuft in TakePart:** Folien als PDF importieren (Export aus PowerPoint, Keynote oder Google Slides) und interaktive Folien dazwischen setzen. Sprechernotizen kommen mit, wenn du die `.pptx` dazugibst. Eine Referentenansicht zeigt Notizen, nächste Folie, Timer und Uhrzeit; Laserpointer und Stift zeichnen auf den geteilten Bildschirm; nach dem Vortrag teilst du Folien und zusammengefasste Ergebnisse per Link.
+**Der ganze Vortrag läuft in TakePart:** Folien als PDF importieren (Export aus PowerPoint, Keynote oder Google Slides) und interaktive Folien dazwischen setzen. Sprechernotizen und Aufbau-Animationen (Elemente erscheinen Klick für Klick) kommen mit, wenn du die `.pptx` dazugibst. Eine Referentenansicht zeigt Notizen, nächste Folie, Timer und Uhrzeit; Laserpointer und Stift zeichnen auf den geteilten Bildschirm; nach dem Vortrag teilst du Folien und zusammengefasste Ergebnisse per Link.
 
 Dazu: optionales Branding pro Präsentation (Logo, Akzent- und Diagrammfarbe), Passkey-Login für dich, ein Archiv jeder Durchführung mit CSV-Export und ein Demo-Foliensatz mit allen Funktionen.
 
@@ -50,12 +50,12 @@ Der Setup-Token wird nur einmal gebraucht und ändert sich bei jedem Neustart, b
 
 ### Folien importieren
 
-Im Editor **„PDF importieren“** klicken und den PDF-Export deiner Präsentation wählen. Optional dieselbe Präsentation als `.pptx` dazu – TakePart liest daraus nur die Sprechernotizen (ausgeblendete Folien werden übersprungen, wie beim PDF-Export von PowerPoint). Die Seiten werden im Browser gerendert und als Bilder hochgeladen; Animationen und Videos werden nicht übernommen. Unter „Folien auf Handys zeigen“ legst du fest, ob das Publikum auf dem Handy mitlesen kann.
+Im Editor **„PDF importieren“** klicken und den PDF-Export deiner Präsentation wählen. Optional dieselbe Präsentation als `.pptx` dazu – TakePart liest daraus Sprechernotizen und Eingangsanimationen (ausgeblendete Folien werden übersprungen, wie beim PDF-Export von PowerPoint). Die Seiten werden im Browser gerendert und als Bilder hochgeladen. Später erscheinende Elemente werden in der gemessenen Hintergrundfarbe abgedeckt und pro Klick aufgedeckt (Verblassen, Erscheinen, Hineinfliegen, Zoom); Ausgangs-, Betonungs- und Pfadeffekte, Folienübergänge und Videos werden nicht übernommen. Überlappen sich Elemente, kann eine Fläche sichtbar bleiben – dann im Editor für diese Folie abschalten; dort zeigt ein Stepper jeden Klick. Unter „Folien auf Handys zeigen“ legst du fest, ob das Publikum auf dem Handy mitlesen kann.
 
 ### Im Vortrag
 
-- **Referentenansicht (Steuerpult):** aktuelle Folie mit Laserpointer und Stift, nächste Folie, Sprechernotizen, Vortragszeit gegen eine Ziel-Dauer, Uhrzeit; Folien wechseln, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen – auch am Handy.
-- **Beamer:** „Beamer öffnen“ öffnet einen nur lesenden Link für den geteilten Bildschirm. `F` = Vollbild; bist du im selben Browser angemeldet, blättern Pfeiltasten und Presenter-Fernbedienung. Das Fenster beim Teilen nicht verdecken – Browser zeichnen verdeckte Fenster nicht neu.
+- **Referentenansicht (Steuerpult):** aktuelle Folie mit Laserpointer und Stift, nächste Folie, Sprechernotizen, Vortragszeit gegen eine Ziel-Dauer, Uhrzeit; durch Folien und Animationen blättern, Schwarz-/Weißbild, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen – auch am Handy.
+- **Beamer:** „Beamer öffnen“ öffnet einen nur lesenden Link für den geteilten Bildschirm. `F` = Vollbild; bist du im selben Browser angemeldet, gelten die Tasten wie in PowerPoint: → ↓ Bild↓ Leertaste Enter N weiter, ← ↑ Bild↑ Rücktaste P zurück, `B`/`.` Schwarzbild, `W`/`,` Weißbild, Pos1/Ende, Nummer + Enter springt zur Folie. Presenter (Clicker) funktionieren genauso, auch ihre „Bildschirm aus“-Taste. Das Fenster beim Teilen nicht verdecken – Browser zeichnen verdeckte Fenster nicht neu.
 - **Publikum:** ruft deine Adresse auf und gibt den Code ein oder scannt den QR-Code auf der Titelfolie.
 - **Nach dem Vortrag:** „Folien freigeben“ erzeugt einen Link mit Folien und zusammengefassten Ergebnissen (ohne Namen, Freitexte oder Fragen). Teilnehmende sehen ihn auf dem Handy; er lässt sich drucken oder als PDF speichern.
 

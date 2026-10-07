@@ -17,7 +17,7 @@ export function HomePage() {
   };
 
   return (
-    <div className="p-shell">
+    <div className="p-shell takepart-scope">
       <main className="p-main home">
         <div className="home-brand anim-rise">
           <BrandMark size={40} />

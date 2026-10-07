@@ -4,7 +4,7 @@
  * keine farbigen Balken am linken Rand. Animationen kurz, prefers-reduced-motion
  * wird beachtet.
  *
- * Farben ohne Branding: Tinte für Primär-Aktionen, ein ruhiges Blau für Auswahl
+ * Farben ohne Branding: Tinte für Primär-Aktionen (Teilnehmer-Seiten: TakePart-Orange), ein ruhiges Blau für Auswahl
  * und Diagramme (mit dem dataviz-Validator geprüft, hell und dunkel).
  * Ein Branding überschreibt --accent, --chart und --primary (siehe lib/brand.ts).
  */
@@ -41,6 +41,17 @@
   --radius-l: 14px;
   --font: 'Figtree Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/*
+ * Teilnehmer-Seiten ohne Branding: Hauptknöpfe im TakePart-Orange. Bewusst etwas
+ * dunkler als das Logo (#e0532f), damit weiße Schrift den Kontrast 4.5:1 schafft.
+ * Ein Branding überschreibt --primary per Inline-Style.
+ */
+.takepart-scope {
+  --primary: #cc4521;
+  --primary-hover: #b03a1a;
+  --primary-ink: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {

@@ -1,4 +1,5 @@
 import {
+  buildSteps,
   SLIDE_TYPE_HINTS,
   SLIDE_TYPE_LABELS,
   CREATABLE_SLIDE_TYPES,
@@ -9,7 +10,23 @@ import {
   type SlideType,
 } from '@slides/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowDown, ArrowLeft, ArrowUp, Archive, Copy, FileUp, Palette, Play, Plus, Radio, Sparkles, Timer, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowLeft,
+  ArrowUp,
+  Archive,
+  ChevronLeft,
+  ChevronRight,
+  Copy,
+  FileUp,
+  Palette,
+  Play,
+  Plus,
+  Radio,
+  Sparkles,
+  Timer,
+  Trash2,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
@@ -370,11 +387,16 @@ function SlideEditor({ slide, presentation, index }: { slide: Slide; presentatio
   );
 
   const previewSlide = { ...slide, config: draft } as Slide;
+  const steps = buildSteps(previewSlide);
+  // Vorschau eines Aufbau-Schritts; ohne Auswahl der Endzustand
+  const [step, setStep] = useState<{ slideId: number; value: number } | null>(null);
+  const previewStep = step?.slideId === slide.id ? Math.min(step.value, steps) : steps;
   const preview = staticPreview(previewSlide, {
     title: presentation.title,
     brand: presentation.brand,
     index,
     count: presentation.slides.length,
+    buildStep: previewStep,
   });
 
   return (
@@ -395,7 +417,32 @@ function SlideEditor({ slide, presentation, index }: { slide: Slide; presentatio
         <NotesField key={slide.id} slideId={slide.id} presentationId={presentation.id} initial={presentation.notes[slide.id] ?? ''} />
       </section>
       <section className="preview-col">
-        <span className="label">Vorschau Beamer</span>
+        <div className="row-between">
+          <span className="label">Vorschau Beamer</span>
+          {steps > 0 && (
+            <span className="build-stepper small">
+              <button
+                className="icon-btn"
+                onClick={() => setStep({ slideId: slide.id, value: Math.max(0, previewStep - 1) })}
+                disabled={previewStep <= 0}
+                aria-label="Vorheriger Animationsschritt"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <span className="tabular muted">
+                {previewStep === 0 ? 'Start' : `Klick ${previewStep}`} / {steps}
+              </span>
+              <button
+                className="icon-btn"
+                onClick={() => setStep({ slideId: slide.id, value: Math.min(steps, previewStep + 1) })}
+                disabled={previewStep >= steps}
+                aria-label="Nächster Animationsschritt"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </span>
+          )}
+        </div>
         <div className="preview-frame">
           <Stage view={preview} />
         </div>

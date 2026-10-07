@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import {
   assetUrl,
+  buildSteps,
   hostCommand,
   initialRunState,
   isPostType,
@@ -54,30 +55,67 @@ async function saveRunState(db: Db, runId: number, state: RunState) {
 }
 
 /** Wendet einen Steuerbefehl auf den Zustand an. Reine Zustandsänderungen; Löschungen laufen separat. */
-export function applyCommand(state: RunState, cmd: HostCommand, slideIds: number[], now = Date.now()): RunState {
+/**
+ * Wendet einen Steuerbefehl auf den Zustand an. `buildSteps` kennt je Folie die
+ * Anzahl der Aufbau-Klicks (importierte Animationen).
+ */
+export function applyCommand(
+  state: RunState,
+  cmd: HostCommand,
+  slideIds: number[],
+  now = Date.now(),
+  buildSteps: Map<number, number> = new Map(),
+): RunState {
   const s: RunState = structuredClone(state);
+  const setBuild = (slideId: number, value: number) => {
+    s.build = { ...s.build, [slideId]: value };
+  };
+  const enter = (slideId: number, build: number) => {
+    if (s.slideId !== slideId) {
+      s.slideId = slideId;
+      s.spotlight = null;
+      s.leaderboard = false;
+    }
+    setBuild(slideId, build);
+  };
   const assertSlide = (id: number) => {
     if (!slideIds.includes(id)) throw new CommandError('Folie gehört nicht zu dieser Präsentation');
   };
   switch (cmd.action) {
     case 'goto':
       assertSlide(cmd.slideId);
-      if (s.slideId !== cmd.slideId) {
-        s.slideId = cmd.slideId;
-        s.spotlight = null;
-        s.leaderboard = false;
-      }
+      enter(cmd.slideId, 0);
+      s.blank = null;
       break;
     case 'step': {
-      const index = s.slideId === null ? -1 : slideIds.indexOf(s.slideId);
-      const next = slideIds[Math.min(slideIds.length - 1, Math.max(0, index + cmd.delta))];
-      if (next !== undefined && next !== s.slideId) {
-        s.slideId = next;
-        s.spotlight = null;
-        s.leaderboard = false;
+      // Wie in PowerPoint: erst die Animationen der Folie, dann die nächste Folie.
+      // Zurück: erst Animationen zurücknehmen, dann die vorige Folie im Endzustand.
+      s.blank = null;
+      const current = s.slideId;
+      const build = current === null ? 0 : (s.build?.[current] ?? 0);
+      const steps = current === null ? 0 : (buildSteps.get(current) ?? 0);
+      if (current !== null && cmd.delta === 1 && build < steps) {
+        setBuild(current, build + 1);
+        break;
       }
+      if (current !== null && cmd.delta === -1 && build > 0) {
+        setBuild(current, build - 1);
+        break;
+      }
+      const index = current === null ? -1 : slideIds.indexOf(current);
+      const next = slideIds[Math.min(slideIds.length - 1, Math.max(0, index + cmd.delta))];
+      if (next !== undefined && next !== current) enter(next, cmd.delta === -1 ? (buildSteps.get(next) ?? 0) : 0);
       break;
     }
+    case 'jump': {
+      const target = cmd.index === -1 ? slideIds.at(-1) : slideIds[Math.min(cmd.index, slideIds.length - 1)];
+      if (target !== undefined) enter(target, 0);
+      s.blank = null;
+      break;
+    }
+    case 'blank':
+      s.blank = cmd.mode;
+      break;
     case 'results':
       s.resultsVisible = cmd.visible;
       break;
@@ -267,6 +305,8 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
             run.state,
             cmd,
             slides.map((s) => s.id),
+            Date.now(),
+            new Map(slides.map((s) => [s.id, buildSteps(s)])),
           ),
         );
       });

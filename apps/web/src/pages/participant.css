@@ -396,6 +396,7 @@
 
 /* Importierte Folie zum Mitlesen */
 .p-slide {
+  position: relative;
   display: block;
   border-radius: var(--radius);
   overflow: hidden;

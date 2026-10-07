@@ -1,4 +1,4 @@
-import { topWords, type HostCommand, type HostView, type PostView } from '@slides/shared';
+import { buildSteps, topWords, type HostCommand, type HostView, type PostView } from '@slides/shared';
 import {
   ArrowLeft,
   Check,
@@ -39,6 +39,7 @@ import { staticPreview } from '../../components/staticPreview.ts';
 import { ConnectionBadge, formatCode, FullScreenSpinner, joinHost, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useLive } from '../../lib/live.ts';
+import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
 import './admin.css';
 
@@ -62,17 +63,8 @@ export default function ControlPage() {
     }
   };
 
-  // Pfeiltasten blättern, solange kein Eingabefeld fokussiert ist.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
-      if (target.closest('input, textarea, select, [contenteditable]')) return;
-      if (e.key === 'ArrowRight' || e.key === 'PageDown') void command({ action: 'step', delta: 1 });
-      if (e.key === 'ArrowLeft' || e.key === 'PageUp') void command({ action: 'step', delta: -1 });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  });
+  // Tastatur und Presenter wie in PowerPoint (siehe presenterKeys.ts)
+  usePresenterKeys(command, view?.display.blank ?? null);
 
   if (loading) return <FullScreenSpinner />;
   if (!loggedIn) return <Navigate to="/login" replace />;
@@ -81,6 +73,9 @@ export default function ControlPage() {
 
   const displayUrl = `${location.origin}/d/${view.displayToken}`;
   const slide = view.slide;
+  const build = view.display.buildStep;
+  const builds = slide ? buildSteps(slide) : 0;
+  const blank = view.display.blank;
   const ended = view.run.ended;
 
   const end = async () => {
@@ -177,12 +172,18 @@ export default function ControlPage() {
         <section className="control-center">
           <div className="preview-frame">
             <Stage
-              view={view.display}
+              // Du siehst die Folie weiter – nur der Beamer ist dunkel (Hinweis unten)
+              view={blank ? { ...view.display, blank: null } : view.display}
               offset={offset}
               overlay={
                 <>
                   <InkOverlay ink={ink} />
                   <InkInput tool={tool} send={sendInk} />
+                  {blank && (
+                    <button className={`blank-badge is-${blank}`} onClick={() => command({ action: 'blank', mode: null })}>
+                      {blank === 'black' ? 'Beamer schwarz' : 'Beamer weiß'} · zurück mit B, W oder Weiter
+                    </button>
+                  )}
                 </>
               }
             />
@@ -207,19 +208,26 @@ export default function ControlPage() {
             <button
               className="btn btn-large"
               onClick={() => command({ action: 'step', delta: -1 })}
-              disabled={busy || view.slideIndex <= 0}
-              aria-label="Vorherige Folie"
+              disabled={busy || (view.slideIndex <= 0 && build === 0)}
+              aria-label="Zurück"
             >
               <ChevronLeft />
             </button>
-            <span className="tabular muted">
-              {view.slideIndex + 1} / {view.slideCount}
+            <span className="control-pos">
+              <span className="tabular muted">
+                {view.slideIndex + 1} / {view.slideCount}
+              </span>
+              {builds > 0 && (
+                <span className="small faint tabular" title="Aufgedeckte Animationsschritte dieser Folie">
+                  Animation {build} / {builds}
+                </span>
+              )}
             </span>
             <button
               className="btn btn-large btn-ink"
               onClick={() => command({ action: 'step', delta: 1 })}
-              disabled={busy || view.slideIndex >= view.slideCount - 1}
-              aria-label="Nächste Folie"
+              disabled={busy || (view.slideIndex >= view.slideCount - 1 && build >= builds)}
+              aria-label={build < builds ? 'Nächste Animation' : 'Nächste Folie'}
             >
               Weiter <ChevronRight />
             </button>
@@ -250,26 +258,61 @@ export default function ControlPage() {
                 <X /> Einblendung beenden
               </button>
             )}
+            <span className="segmented" role="group" aria-label="Bildschirm abdunkeln">
+              <button
+                aria-pressed={blank === 'black'}
+                onClick={() => command({ action: 'blank', mode: blank === 'black' ? null : 'black' })}
+                title="Schwarzbild (Taste B oder .)"
+              >
+                <Square size={15} fill="currentColor" /> Schwarz
+              </button>
+              <button
+                aria-pressed={blank === 'white'}
+                onClick={() => command({ action: 'blank', mode: blank === 'white' ? null : 'white' })}
+                title="Weißbild (Taste W oder ,)"
+              >
+                <Square size={15} /> Weiß
+              </button>
+            </span>
             <HandoutToggle runId={runId} url={view.handoutUrl} />
           </div>
         </section>
 
         <aside className="control-panel card">
-          {view.nextSlide && (
+          {slide && build < builds ? (
             <div className="next-slide">
-              <span className="label">Als Nächstes</span>
+              <span className="label">Als Nächstes · Animation {build + 1}</span>
               <div className="preview-frame">
                 <Stage
-                  view={staticPreview(view.nextSlide, {
+                  view={staticPreview(slide, {
                     title: view.run.title,
                     brand: view.run.brand,
-                    index: view.slideIndex + 1,
+                    index: view.slideIndex,
                     count: view.slideCount,
                     code: view.run.code,
+                    buildStep: build + 1,
                   })}
                 />
               </div>
             </div>
+          ) : (
+            view.nextSlide && (
+              <div className="next-slide">
+                <span className="label">Als Nächstes</span>
+                <div className="preview-frame">
+                  <Stage
+                    view={staticPreview(view.nextSlide, {
+                      title: view.run.title,
+                      brand: view.run.brand,
+                      index: view.slideIndex + 1,
+                      count: view.slideCount,
+                      code: view.run.code,
+                      buildStep: 0,
+                    })}
+                  />
+                </div>
+              </div>
+            )
           )}
           <div className="notes-box">
             <span className="label">Notizen</span>

@@ -8,13 +8,15 @@ import { Stage } from '../components/Stage.tsx';
 import { ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
 import { useLive } from '../lib/live.ts';
+import { usePresenterKeys } from '../lib/presenterKeys.ts';
 import { authStatus } from '../lib/passkey.ts';
 import './display.css';
 
 /**
  * Beamer-Ansicht über einen geheimen Anzeige-Link. Sie kann nichts steuern –
  * außer du bist im selben Browser angemeldet: Dann blättern Pfeiltasten,
- * Leertaste und Presenter-Fernbedienungen durch die Folien.
+ * Leertaste und Presenter durch Folien und Animationen, B/W schaltet Schwarz-
+ * bzw. Weißbild.
  */
 export default function DisplayPage() {
   const { token = '' } = useParams();
@@ -46,22 +48,20 @@ export default function DisplayPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'f' || e.key === 'F') {
+  // Angemeldet: Tasten und Presenter steuern die Präsentation direkt von hier
+  usePresenterKeys(
+    isHost && runId ? (cmd) => api(`/api/runs/${runId}/command`, { body: cmd }).catch(() => {}) : null,
+    view?.blank ?? null,
+    (e) => {
+      // F bzw. die „Präsentation starten“-Taste vieler Presenter (F5): Vollbild
+      if (e.key === 'f' || e.key === 'F' || e.key === 'F5') {
+        e.preventDefault();
         toggleFullscreen();
-        return;
+        return true;
       }
-      if (!isHost || !runId) return;
-      const next = ['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(e.key);
-      const prev = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(e.key);
-      if (!next && !prev) return;
-      e.preventDefault();
-      void api(`/api/runs/${runId}/command`, { body: { action: 'step', delta: next ? 1 : -1 } }).catch(() => {});
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [isHost, runId]);
+      return false;
+    },
+  );
 
   if (status === 'rejected') {
     return (

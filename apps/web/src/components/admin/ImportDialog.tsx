@@ -1,7 +1,7 @@
 import { FileText, Presentation as PptIcon, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
-import { planNotes, type NotesPlan, type PptxSlideInfo } from '@slides/shared';
+import { planNotes, type BuildsConfig, type NotesPlan, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
 import { extractPptxNotes, renderPdfPages } from '../../lib/importDeck.ts';
 
 interface Props {
@@ -35,6 +35,7 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
   const [phase, setPhase] = useState<Phase>({ step: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const [includeHidden, setIncludeHidden] = useState(false);
+  const [withBuilds, setWithBuilds] = useState(true);
   const busy = phase.step !== 'idle';
 
   const start = async () => {
@@ -48,14 +49,21 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
         slides = await extractPptxNotes(pptx);
       }
       let plan: NotesPlan | null = null;
-      const items: { asset: string; width: number; height: number; title: string; notes: string }[] = [];
+      const items: { asset: string; width: number; height: number; title: string; notes: string; builds?: BuildsConfig }[] = [];
+      let animated = 0;
+      let skippedRegions = 0;
+      // Aufbau-Bereiche einer Seite – nur bei sicherer Zuordnung zur PPTX-Folie
+      const raw = (i: number): RawBuildRegion[] => {
+        const slide = withBuilds ? (plan as NotesPlan | null)?.pages[i]?.slide : null;
+        return slide?.regions?.length ? slide.regions : [];
+      };
       setPhase({ step: 'pages', done: 0, total: 0 });
       const select = (total: number) => {
         plan = planNotes(slides, total, includeHidden);
         const p = plan;
         return (i: number) => p.pages[i]?.include ?? true;
       };
-      for await (const page of renderPdfPages(pdf, select)) {
+      for await (const page of renderPdfPages(pdf, select, raw)) {
         const wanted = plan!.pages.filter((p) => p.include).length;
         setPhase({ step: 'pages', done: items.length, total: wanted });
         const { asset } = await uploadImage(
@@ -63,7 +71,30 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
           page.full,
         );
         await uploadImage(`/api/assets/${asset}/thumb`, page.thumb, 'PUT');
-        items.push({ asset, width: page.width, height: page.height, title: page.title, notes: plan!.pages[page.index]?.notes ?? '' });
+        const regions = raw(page.index);
+        const slideInfo = plan!.pages[page.index]?.slide;
+        // Seitenverhältnis von PDF und PPTX muss passen, sonst säßen die Abdeckungen daneben
+        const fits = slideInfo?.aspect ? Math.abs(page.width / page.height - slideInfo.aspect) < 0.01 : false;
+        // Elemente auf Foto oder Verlauf ließen sich nicht sauber abdecken – die sind von Anfang an sichtbar
+        const covered = regions.flatMap((r, k) => {
+          const fill = page.fills[k];
+          return fill ? [{ ...r, fill }] : [];
+        });
+        skippedRegions += regions.length - covered.length;
+        // Klicks ohne verbliebene Elemente entfallen, sonst gäbe es „leere“ Klicks
+        const clicks = [...new Set(covered.map((r) => r.step).filter((x) => x > 0))].sort((a, b) => a - b);
+        const renumbered = covered.map((r) => ({ ...r, step: r.step === 0 ? 0 : clicks.indexOf(r.step) + 1 }));
+        const builds: BuildsConfig | undefined =
+          renumbered.length > 0 && fits ? { enabled: true, steps: clicks.length, regions: renumbered } : undefined;
+        if (builds) animated++;
+        items.push({
+          asset,
+          width: page.width,
+          height: page.height,
+          title: page.title,
+          notes: plan!.pages[page.index]?.notes ?? '',
+          builds,
+        });
         setPhase({ step: 'pages', done: items.length, total: wanted });
       }
       const done = plan as NotesPlan | null;
@@ -75,6 +106,10 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
         } else if (done.skippedHidden > 0) {
           note = `${done.skippedHidden} ausgeblendete Folien wurden übersprungen.`;
         }
+      }
+      if (animated > 0) note = [note, `${animated} Folien mit Animationen übernommen.`].filter(Boolean).join(' ');
+      if (skippedRegions > 0) {
+        note = [note, `${skippedRegions} Elemente auf Bild- oder Verlaufshintergrund sind ohne Animation sofort sichtbar.`].join(' ');
       }
       setPhase({ step: 'saving' });
       await api(`/api/presentations/${presentationId}/slides/import`, { body: { afterId, items } });
@@ -99,7 +134,9 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
         </div>
         <p className="muted small">
           Exportiere deine Präsentation in PowerPoint, Keynote oder Google Slides als <strong>PDF</strong> und lade sie hier hoch. Jede
-          Seite wird eine Folie, zwischen die du interaktive Elemente setzen kannst. Animationen und Videos werden dabei nicht übernommen.
+          Seite wird eine Folie, zwischen die du interaktive Elemente setzen kannst. Lädst du zusätzlich die .pptx hoch, kommen
+          Sprechernotizen und Aufbau-Animationen (Elemente, die nach und nach erscheinen) mit. Videos, Ausgangs- und Bewegungseffekte werden
+          nicht übernommen.
         </p>
 
         <label className={`file-drop ${pdf ? 'has-file' : ''}`}>
@@ -124,7 +161,7 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
           <span className="grow">
             <strong>{pptx ? pptx.name : 'PowerPoint (optional)'}</strong>
             <span className="small faint" style={{ display: 'block' }}>
-              Nur für die Sprechernotizen – dieselbe Präsentation als .pptx
+              Für Notizen und Animationen – dieselbe Präsentation als .pptx
             </span>
           </span>
           <input
@@ -143,6 +180,17 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
               Ausgeblendete Folien mit importieren
               <span className="faint" style={{ display: 'block' }}>
                 Nur relevant, wenn das PDF sie enthält (z. B. Export aus Google Slides)
+              </span>
+            </span>
+          </label>
+        )}
+        {pptx && (
+          <label className="switch small">
+            <input type="checkbox" checked={withBuilds} disabled={busy} onChange={(e) => setWithBuilds(e.target.checked)} />
+            <span>
+              Animationen übernehmen
+              <span className="faint" style={{ display: 'block' }}>
+                Elemente erscheinen wie in PowerPoint nach und nach – pro Folie im Editor abschaltbar
               </span>
             </span>
           </label>

@@ -6,7 +6,7 @@ import { buildSentence, sentenceStart, type BrandView, type DisplayView, type Sl
  */
 export function staticPreview(
   slide: Slide,
-  opts: { title: string; brand: BrandView | null; index: number; count: number; code?: string | null },
+  opts: { title: string; brand: BrandView | null; index: number; count: number; code?: string | null; buildStep?: number },
 ): DisplayView {
   return {
     kind: 'display',
@@ -37,5 +37,8 @@ export function staticPreview(
     leaderboard: null,
     showJoin: false,
     preload: [],
+    // Ohne Angabe im Endzustand (alle Animationen aufgedeckt)
+    buildStep: opts.buildStep ?? 50,
+    blank: null,
   };
 }

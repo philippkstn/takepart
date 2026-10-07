@@ -1,0 +1,61 @@
+/* Aufbau-Animationen importierter Folien (siehe BuildLayer.tsx) */
+.build-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.build-mask,
+.build-crop {
+  position: absolute;
+}
+/* Verblassen: Abdeckung blendet aus → Element blendet ein */
+.build-fade {
+  animation: build-fade var(--dur) ease var(--at) both;
+}
+@keyframes build-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* Erscheinen bzw. Abdeckung unter einem hereinfliegenden Ausschnitt: schlagartig weg */
+.build-cut {
+  animation: build-cut 1ms linear var(--at) both;
+}
+@keyframes build-cut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+/* Hineinfliegen / Zoom: Ausschnitt des Folienbilds bewegt sich an seinen Platz */
+.build-crop {
+  background-repeat: no-repeat;
+  animation: build-fly var(--dur) cubic-bezier(0.2, 0.8, 0.2, 1) var(--at) both;
+}
+@keyframes build-fly {
+  from {
+    transform: var(--from);
+  }
+  to {
+    transform: none;
+  }
+}
+.build-zoom {
+  animation-name: build-zoom;
+}
+@keyframes build-zoom {
+  from {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}

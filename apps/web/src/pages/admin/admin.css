@@ -725,3 +725,37 @@
   display: grid;
   gap: 8px;
 }
+.control-pos {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 7em;
+}
+.control-toggles .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.build-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.blank-badge {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  border: 0;
+  font: inherit;
+  font-weight: 600;
+  font-size: 1rem;
+  color: #fff;
+  background: rgb(0 0 0 / 72%);
+  cursor: pointer;
+}
+.blank-badge.is-white {
+  color: #18181a;
+  background: rgb(255 255 255 / 78%);
+}

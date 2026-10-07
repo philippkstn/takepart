@@ -113,6 +113,39 @@ export const qaConfig = z.object({
 export const sentenceConfig = z.object({
   start: text(300).default(''),
 });
+/**
+ * Aufbau-Animationen einer importierten Folie (aus der PPTX). Das Folienbild zeigt
+ * den Endzustand; noch nicht aufgedeckte Elemente werden mit Flächen in der
+ * gemessenen Umgebungsfarbe abgedeckt. Nur Eingangseffekte lassen sich so
+ * nachbauen – Ausgang, Betonung und Pfade nicht.
+ */
+export const BUILD_EFFECTS = ['appear', 'fade', 'fly-left', 'fly-right', 'fly-top', 'fly-bottom', 'zoom'] as const;
+export type BuildEffect = (typeof BUILD_EFFECTS)[number];
+const unit = z.number().min(0).max(1);
+export const buildRegion = z.object({
+  /** Position und Größe relativ zur Folie (0…1) */
+  x: unit,
+  y: unit,
+  w: unit,
+  h: unit,
+  /** 0 = läuft automatisch beim Aufrufen der Folie, 1…n = n-ter Klick */
+  step: z.number().int().min(0).max(50),
+  /** Start relativ zum Schritt und Dauer in ms */
+  at: z.number().int().min(0).max(60000),
+  dur: z.number().int().min(0).max(10000),
+  effect: z.enum(BUILD_EFFECTS),
+  /** Abdeckfarbe (beim Import am Rand des Elements gemessen) */
+  fill: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+});
+export type BuildRegion = z.infer<typeof buildRegion>;
+export const buildsConfig = z.object({
+  enabled: z.boolean().default(true),
+  /** Anzahl Klicks bis zum Endzustand */
+  steps: z.number().int().min(0).max(50),
+  regions: z.array(buildRegion).max(300),
+});
+export type BuildsConfig = z.infer<typeof buildsConfig>;
+
 /** Öffentliche, zufällige Kennung eines hochgeladenen Bildes – sie ist zugleich die Zugriffskontrolle. */
 export const assetId = z.string().regex(/^[A-Za-z0-9_-]{32}$/, 'Ungültige Bildkennung');
 export const imageConfig = z.object({
@@ -121,6 +154,7 @@ export const imageConfig = z.object({
   height: z.number().int().min(1).max(10000),
   /** Titel für Listen (beim Import aus der ersten Textzeile der Seite) */
   title: text(200).default(''),
+  builds: buildsConfig.optional(),
 });
 
 export const slideConfigSchemas = {
@@ -172,6 +206,13 @@ export function slideHeadline(slide: Pick<Slide, 'type' | 'config'>): string {
 /** Folientypen, auf die das Publikum antwortet (alles außer der Textfolie). */
 export function isInteractive(type: SlideType): boolean {
   return type !== 'content' && type !== 'image';
+}
+
+/** Klicks bis zum Endzustand einer Folie (0 = kein Aufbau). */
+export function buildSteps(slide: { type: string; config: unknown }): number {
+  if (slide.type !== 'image') return 0;
+  const b = (slide.config as { builds?: BuildsConfig }).builds;
+  return b?.enabled ? b.steps : 0;
 }
 
 /** URLs hochgeladener Bilder; die Kennung ist zufällig und nicht erratbar. */

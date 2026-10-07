@@ -1,5 +1,6 @@
 import {
   assetThumbUrl,
+  buildSteps,
   assetUrl,
   sentenceStart,
   sentenceState,
@@ -16,6 +17,13 @@ import {
   type SentenceView,
 } from '@slides/shared';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
+
+/** Aufgedeckter Animationsschritt der aktuellen Folie (begrenzt auf die vorhandenen Schritte) */
+const buildStepOf = (snap: Snapshot) => {
+  const slide = snap.current;
+  if (!slide) return 0;
+  return Math.min(snap.run.state.build?.[slide.id] ?? 0, buildSteps(slide));
+};
 
 const handoutUrl = (snap: Snapshot) => (snap.run.handoutToken ? `/h/${snap.run.handoutToken}` : null);
 
@@ -125,6 +133,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     rank,
     leaderboard: state.leaderboard,
     handoutUrl: handoutUrl(snap),
+    buildStep: buildStepOf(snap),
   };
 }
 
@@ -167,6 +176,8 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     leaderboard: state.leaderboard ? snap.leaderboard.slice(0, 10) : null,
     showJoin: state.showJoin,
     preload: preloadFor(snap),
+    buildStep: buildStepOf(snap),
+    blank: state.blank ?? null,
   };
 }
 
@@ -202,6 +213,8 @@ export function hostView(snap: Snapshot, participants: number): HostView {
     leaderboard: snap.leaderboard,
     showJoin: state.showJoin,
     preload: [],
+    buildStep: buildStepOf(snap),
+    blank: state.blank ?? null,
     state,
     displayToken: snap.run.displayToken,
     presentationId: snap.run.presentationId,

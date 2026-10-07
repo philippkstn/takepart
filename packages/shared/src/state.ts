@@ -42,6 +42,10 @@ export interface RunState {
   sentence: Record<string, SentenceState>;
   /** Start des Vortrags-Timers (ms); fehlt er, gilt der Start der Durchführung */
   timerStartedAt?: number | null;
+  /** Aufgedeckter Animationsschritt je Folie (0 = Startzustand) */
+  build?: Record<string, number>;
+  /** Schwarz- oder Weißbild auf dem Beamer (wie „B“/„W“ in PowerPoint) */
+  blank?: 'black' | 'white' | null;
 }
 
 export function initialRunState(firstSlideId: number | null): RunState {
@@ -70,6 +74,8 @@ export function sentenceState(state: RunState, slideId: number): SentenceState {
 export const hostCommand = z.discriminatedUnion('action', [
   z.object({ action: z.literal('goto'), slideId: z.number().int() }),
   z.object({ action: z.literal('step'), delta: z.union([z.literal(1), z.literal(-1)]) }),
+  /** Zu Folie Nummer `index` (0-basiert, -1 = letzte) – für Pos1/Ende und Nummer + Enter */
+  z.object({ action: z.literal('jump'), index: z.number().int().min(-1).max(10000) }),
   z.object({ action: z.literal('results'), visible: z.boolean() }),
   z.object({ action: z.literal('lock'), slideId: z.number().int(), locked: z.boolean() }),
   z.object({ action: z.literal('spotlight'), postId: z.number().int().nullable() }),
@@ -91,6 +97,7 @@ export const hostCommand = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('clear-responses'), slideId: z.number().int() }),
   z.object({ action: z.literal('timer-reset') }),
+  z.object({ action: z.literal('blank'), mode: z.enum(['black', 'white']).nullable() }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
 
@@ -171,6 +178,8 @@ export interface ParticipantView {
   leaderboard: boolean;
   /** Link zu den freigegebenen Folien und Ergebnissen (falls freigegeben) */
   handoutUrl: string | null;
+  /** Aufgedeckter Animationsschritt der aktuellen Folie */
+  buildStep: number;
 }
 
 export interface DisplayView {
@@ -194,6 +203,9 @@ export interface DisplayView {
   showJoin: boolean;
   /** Bilder der nächsten Folie vorab laden, damit der Wechsel nicht flackert */
   preload: string[];
+  /** Aufgedeckter Animationsschritt der aktuellen Folie */
+  buildStep: number;
+  blank: 'black' | 'white' | null;
 }
 
 export interface HostSlideSummary {

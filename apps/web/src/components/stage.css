@@ -617,10 +617,39 @@
   inset: 0;
   background: #000;
 }
-.stage-image img {
+.stage-image {
+  container-type: size;
+  display: grid;
+  place-items: center;
+}
+/* Rahmen im Seitenverhältnis der Folie – die Aufbau-Abdeckungen rechnen relativ dazu */
+.slide-frame {
+  position: relative;
+  grid-area: 1 / 1;
+  width: min(100cqw, calc(100cqh * (var(--ar))));
+  aspect-ratio: var(--ar);
+  overflow: hidden;
+}
+.slide-frame > img {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
+}
+/* Schwarz-/Weißbild */
+.stage-blank {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  pointer-events: none;
+  opacity: 0;
+  background: #000;
+  transition: opacity 0.3s ease;
+}
+.stage-blank.is-on {
+  opacity: 1;
+  pointer-events: auto;
+}
+.stage-blank.tone-white {
+  background: #fff;
 }

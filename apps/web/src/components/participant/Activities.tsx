@@ -3,6 +3,7 @@ import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, Rotate
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useCountdown } from '../../lib/live.ts';
+import { BuildLayer } from '../BuildLayer.tsx';
 import { useToast } from '../ui.tsx';
 
 type Slide<T extends PublicSlide['type']> = Extract<PublicSlide, { type: T }>;
@@ -104,14 +105,16 @@ function NameGate({ view, token, reason, children }: { view: ParticipantView; to
 /* ───────────── Aktivitäten ───────────── */
 
 /** Importierte Folie zum Mitlesen; antippen öffnet sie groß zum Zoomen. */
-function ImageSlide({ slide }: { slide: Slide<'image'> }) {
+function ImageSlide({ slide, step }: { slide: Slide<'image'>; step: number }) {
   // Ohne Bildkennung hat die Vortragende das Mitlesen ausgeschaltet.
   if (!slide.config.asset) return <Info icon={<Hourglass size={20} />}>Schau auf die Präsentation – gleich geht es weiter.</Info>;
   const src = assetUrl(slide.config.asset);
+  // Noch nicht aufgedeckte Elemente bleiben auch hier verdeckt (ohne Animation)
   return (
-    <a className="p-slide anim-rise" href={src} target="_blank" rel="noopener" aria-label="Folie groß öffnen">
+    <div className="p-slide anim-rise">
       <img src={src} alt={slide.config.title || 'Aktuelle Folie'} width={slide.config.width} height={slide.config.height} />
-    </a>
+      <BuildLayer builds={slide.config.builds} step={step} image={src} animate={false} slideId={slide.id} />
+    </div>
   );
 }
 
@@ -674,7 +677,7 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
     case 'content':
       return <Content slide={slide} />;
     case 'image':
-      return <ImageSlide slide={slide} />;
+      return <ImageSlide slide={slide} step={view.buildStep} />;
     case 'choice':
       return <Choice view={view} slide={slide} token={token} />;
     case 'scale':

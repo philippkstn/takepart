@@ -1,4 +1,4 @@
-import { CREATABLE_SLIDE_TYPES, defaultConfig, parseConfig, SENTENCE_STARTERS, type SlideType } from '@slides/shared';
+import { buildsConfig, CREATABLE_SLIDE_TYPES, defaultConfig, parseConfig, SENTENCE_STARTERS, type SlideType } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z, ZodError } from 'zod';
 import { copyAssets, deleteOrphanAssets } from './assets.ts';
@@ -321,6 +321,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
               height: z.number().int(),
               title: z.string().max(200).default(''),
               notes: notesInput.default(''),
+              builds: buildsConfig.optional(),
             }),
           )
           .min(1)
@@ -344,7 +345,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
           id,
           0,
           'image',
-          { asset: it.asset, width: it.width, height: it.height, title: it.title.trim().slice(0, 200) },
+          { asset: it.asset, width: it.width, height: it.height, title: it.title.trim().slice(0, 200), builds: it.builds },
           it.notes,
         );
         ids.splice(at++, 0, result.insertId);

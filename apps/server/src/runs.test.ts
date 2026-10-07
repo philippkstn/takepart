@@ -58,4 +58,41 @@ describe('Steuerbefehle', () => {
     applyCommand(s, { action: 'lock', slideId: 10, locked: true }, slides);
     expect(s.locked).toEqual([]);
   });
+
+  it('Animationen: Weiter deckt erst auf, dann nächste Folie; Zurück landet im Endzustand', () => {
+    const steps = new Map([[10, 2]]);
+    let s = initialRunState(10);
+    s = applyCommand(s, { action: 'step', delta: 1 }, slides, 0, steps);
+    expect([s.slideId, s.build?.[10]]).toEqual([10, 1]);
+    s = applyCommand(s, { action: 'step', delta: 1 }, slides, 0, steps);
+    expect([s.slideId, s.build?.[10]]).toEqual([10, 2]);
+    s = applyCommand(s, { action: 'step', delta: 1 }, slides, 0, steps);
+    expect([s.slideId, s.build?.[20]]).toEqual([20, 0]);
+    s = applyCommand(s, { action: 'step', delta: -1 }, slides, 0, steps);
+    expect([s.slideId, s.build?.[10]]).toEqual([10, 2]);
+    s = applyCommand(s, { action: 'step', delta: -1 }, slides, 0, steps);
+    expect([s.slideId, s.build?.[10]]).toEqual([10, 1]);
+    s = applyCommand(s, { action: 'goto', slideId: 10 }, slides, 0, steps);
+    expect(s.build?.[10]).toBe(0);
+  });
+
+  it('Schwarzbild: an, Weiß, und Blättern beendet es', () => {
+    let s = initialRunState(10);
+    s = applyCommand(s, { action: 'blank', mode: 'black' }, slides);
+    expect(s.blank).toBe('black');
+    s = applyCommand(s, { action: 'blank', mode: 'white' }, slides);
+    expect(s.blank).toBe('white');
+    s = applyCommand(s, { action: 'step', delta: 1 }, slides);
+    expect(s.blank).toBeNull();
+  });
+
+  it('Sprung zu Folie per Nummer, Ende und Anfang', () => {
+    let s = initialRunState(10);
+    s = applyCommand(s, { action: 'jump', index: -1 }, slides);
+    expect(s.slideId).toBe(slides.at(-1));
+    s = applyCommand(s, { action: 'jump', index: 999 }, slides);
+    expect(s.slideId).toBe(slides.at(-1));
+    s = applyCommand(s, { action: 'jump', index: 0 }, slides);
+    expect(s.slideId).toBe(slides[0]);
+  });
 });
