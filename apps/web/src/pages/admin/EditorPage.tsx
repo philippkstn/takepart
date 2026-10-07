@@ -241,11 +241,11 @@ export default function EditorPage() {
               </li>
             ))}
           </ol>
-          <div className="row" style={{ flexWrap: 'nowrap' }}>
-            <button className="btn grow" onClick={() => setAdding((a) => !a)}>
-              <Plus /> Folie
+          <div className="slide-list-actions">
+            <button className="btn btn-block" onClick={() => setAdding((a) => !a)}>
+              <Plus /> Folie hinzufügen
             </button>
-            <button className="btn grow" onClick={() => setImporting(true)}>
+            <button className="btn btn-block" onClick={() => setImporting(true)}>
               <FileUp /> PDF importieren
             </button>
           </div>

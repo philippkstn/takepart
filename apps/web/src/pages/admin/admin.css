@@ -719,3 +719,9 @@
 .control-slide .slide-thumb {
   width: 40px;
 }
+
+/* Untereinander: die Folienliste ist zu schmal für zwei beschriftete Knöpfe nebeneinander */
+.slide-list-actions {
+  display: grid;
+  gap: 8px;
+}
