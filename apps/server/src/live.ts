@@ -17,6 +17,9 @@ import { displayView, hostView, participantView } from './views.ts';
 
 const BROADCAST_MS = 250;
 const PING_MS = 25_000;
+/** Obergrenzen gegen das massenhafte Öffnen von Verbindungen */
+const MAX_CONNECTIONS_PER_RUN = 6000;
+const MAX_CONNECTIONS_PER_PARTICIPANT = 5;
 
 type Client =
   | { ws: WebSocket; role: 'participant'; participantId: number; alive: boolean }
@@ -74,8 +77,15 @@ export class LiveHub {
     return room;
   }
 
-  attach(runId: number, client: Client) {
+  /** Meldet false, wenn eine Obergrenze erreicht ist – dann wird die Verbindung nicht aufgenommen. */
+  attach(runId: number, client: Client): boolean {
     const room = this.room(runId);
+    if (room.clients.size >= MAX_CONNECTIONS_PER_RUN) return false;
+    if (client.role === 'participant') {
+      let own = 0;
+      for (const c of room.clients) if (c.role === 'participant' && c.participantId === client.participantId) own++;
+      if (own >= MAX_CONNECTIONS_PER_PARTICIPANT) return false;
+    }
     room.clients.add(client);
     client.ws.on('pong', () => (client.alive = true));
     client.ws.on('close', () => {
@@ -89,6 +99,7 @@ export class LiveHub {
     });
     client.ws.on('error', () => client.ws.terminate());
     this.notify(runId, true);
+    return true;
   }
 
   /** Neue Daten für eine Durchführung – gebündelt verschicken. */

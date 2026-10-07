@@ -23,6 +23,10 @@ import { exec, one, query, type Db } from './db.ts';
 export const SESSION_COOKIE = 'slides_host';
 const SESSION_DAYS = 30;
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+/** Obergrenze, damit massenhaft angeforderte Challenges den Speicher nicht füllen */
+const MAX_CHALLENGES = 500;
+/** Login und Registrierung: wenige Versuche pro Minute und IP */
+const AUTH_LIMIT = { config: { rateLimit: { max: 20, timeWindow: '1 minute' } } };
 const USER_ID = new TextEncoder().encode('slides-host');
 
 /** Challenges liegen im Speicher: ein Prozess, kurze Lebensdauer. */
@@ -31,6 +35,11 @@ const challenges = new Map<string, { challenge: string; kind: 'register' | 'logi
 function rememberChallenge(kind: 'register' | 'login', challenge: string): string {
   const now = Date.now();
   for (const [id, c] of challenges) if (c.expires < now) challenges.delete(id);
+  // Älteste zuerst verwerfen (Map behält die Einfügereihenfolge)
+  for (const id of challenges.keys()) {
+    if (challenges.size < MAX_CHALLENGES) break;
+    challenges.delete(id);
+  }
   const id = randomBytes(16).toString('base64url');
   challenges.set(id, { challenge, kind, expires: now + CHALLENGE_TTL_MS });
   return id;
@@ -115,7 +124,7 @@ export function authRoutes(app: FastifyInstance, db: Db, config: Config) {
     setupPossible: !!config.SETUP_TOKEN,
   }));
 
-  app.post('/api/auth/register/options', async (request, reply) => {
+  app.post('/api/auth/register/options', AUTH_LIMIT, async (request, reply) => {
     const body = z.object({ setupToken: z.string().optional(), label: z.string().trim().max(100).optional() }).parse(request.body ?? {});
     const loggedIn = await isHost(db, request);
     const denied = loggedIn ? null : await setupDenied(body.setupToken);
@@ -129,12 +138,12 @@ export function authRoutes(app: FastifyInstance, db: Db, config: Config) {
       userID: USER_ID,
       attestationType: 'none',
       excludeCredentials: existing.map((c) => ({ id: c.id, transports: c.transports ? c.transports.split(',') : undefined })),
-      authenticatorSelection: { residentKey: 'required', userVerification: 'preferred' },
+      authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
     });
     return { options, challengeId: rememberChallenge('register', options.challenge) };
   });
 
-  app.post('/api/auth/register/verify', async (request, reply) => {
+  app.post('/api/auth/register/verify', AUTH_LIMIT, async (request, reply) => {
     const body = z
       .object({
         challengeId: z.string(),
@@ -156,7 +165,8 @@ export function authRoutes(app: FastifyInstance, db: Db, config: Config) {
         expectedChallenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
-        requireUserVerification: false,
+        // Passkey allein reicht nicht – Fingerabdruck, Gesicht oder Geräte-PIN sind Pflicht.
+        requireUserVerification: true,
       });
     } catch (err) {
       request.log.warn({ err }, 'Passkey-Registrierung abgelehnt');
@@ -177,12 +187,12 @@ export function authRoutes(app: FastifyInstance, db: Db, config: Config) {
     return { ok: true };
   });
 
-  app.post('/api/auth/login/options', async () => {
-    const options = await generateAuthenticationOptions({ rpID, userVerification: 'preferred' });
+  app.post('/api/auth/login/options', AUTH_LIMIT, async () => {
+    const options = await generateAuthenticationOptions({ rpID, userVerification: 'required' });
     return { options, challengeId: rememberChallenge('login', options.challenge) };
   });
 
-  app.post('/api/auth/login/verify', async (request, reply) => {
+  app.post('/api/auth/login/verify', AUTH_LIMIT, async (request, reply) => {
     const body = z
       .object({
         challengeId: z.string(),
@@ -202,7 +212,8 @@ export function authRoutes(app: FastifyInstance, db: Db, config: Config) {
         expectedChallenge,
         expectedOrigin: origin,
         expectedRPID: rpID,
-        requireUserVerification: false,
+        // Passkey allein reicht nicht – Fingerabdruck, Gesicht oder Geräte-PIN sind Pflicht.
+        requireUserVerification: true,
         credential: {
           id: row.id,
           publicKey: new Uint8Array(row.public_key),
@@ -242,6 +253,9 @@ export function authRoutes(app: FastifyInstance, db: Db, config: Config) {
       return reply.code(400).send({ error: 'Der letzte Passkey kann nicht gelöscht werden' });
     }
     await exec(db, 'DELETE FROM credentials WHERE id = ?', [id]);
+    // Ein entfernter Passkey gehört oft zu einem verlorenen Gerät: alle anderen Sitzungen beenden.
+    const current = request.cookies[SESSION_COOKIE];
+    await exec(db, 'DELETE FROM host_sessions WHERE token_hash <> ?', [current ? sha256(current) : '']);
     return { ok: true };
   });
 }

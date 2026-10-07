@@ -34,8 +34,9 @@ function contentSecurityPolicy(origin: string): string {
 export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyInstance; live: LiveHub }> {
   const app = Fastify({
     logger: { level: config.NODE_ENV === 'test' ? 'warn' : 'info' },
-    // Uberspace leitet über einen Proxy weiter; die echte IP steht in X-Forwarded-For.
-    trustProxy: true,
+    // Nur so vielen Proxys glauben, wie wirklich davor sitzen. `true` würde den
+    // ersten – vom Client frei wählbaren – Eintrag aus X-Forwarded-For nehmen.
+    trustProxy: (_address: string, hop: number) => hop < config.TRUST_PROXY_HOPS,
     bodyLimit: 64 * 1024,
   });
   const live = new LiveHub(db, app.log);
@@ -87,13 +88,14 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     if (q.data.token) {
       const p = await participantByToken(db, q.data.token);
       if (!p) return reject(4001, 'Unbekannt oder beendet');
-      live.attach(p.runId, { ws: socket, role: 'participant', participantId: p.id, alive: true });
+      if (!live.attach(p.runId, { ws: socket, role: 'participant', participantId: p.id, alive: true }))
+        reject(1013, 'Zu viele Verbindungen');
       return;
     }
     if (q.data.display) {
       const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE display_token = ?', [q.data.display]);
       if (!run) return reject(4001, 'Anzeige-Link ungültig');
-      live.attach(run.id, { ws: socket, role: 'display', alive: true });
+      if (!live.attach(run.id, { ws: socket, role: 'display', alive: true })) reject(1013, 'Zu viele Verbindungen');
       return;
     }
     if (q.data.run) {
@@ -102,7 +104,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       if (!(await isHost(db, request))) return reject(4001, 'Nicht angemeldet');
       const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE id = ?', [q.data.run]);
       if (!run) return reject(4004, 'Nicht gefunden');
-      live.attach(run.id, { ws: socket, role: 'host', alive: true });
+      if (!live.attach(run.id, { ws: socket, role: 'host', alive: true })) reject(1013, 'Zu viele Verbindungen');
       return;
     }
     reject(4000, 'Ungültige Anfrage');

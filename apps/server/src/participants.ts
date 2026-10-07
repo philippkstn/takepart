@@ -25,6 +25,30 @@ import { effectiveQuiz, loadSlides } from './snapshot.ts';
 
 export const PARTICIPANT_HEADER = 'x-participant';
 const MAX_POSTS_PER_SLIDE = 20;
+/** Schutz vor massenhaft angelegten Teilnehmenden (z. B. per Skript) */
+const MAX_PARTICIPANTS_PER_RUN = 5000;
+/** Codes durchprobieren bremsen: falsche Codes pro IP und Zeitfenster */
+const MAX_FAILED_JOINS = 30;
+const FAILED_JOIN_WINDOW_MS = 10 * 60 * 1000;
+const failedJoins = new Map<string, { count: number; until: number }>();
+
+function joinBlocked(ip: string): boolean {
+  const entry = failedJoins.get(ip);
+  if (!entry) return false;
+  if (entry.until < Date.now()) {
+    failedJoins.delete(ip);
+    return false;
+  }
+  return entry.count >= MAX_FAILED_JOINS;
+}
+
+function recordFailedJoin(ip: string) {
+  const now = Date.now();
+  if (failedJoins.size > 10_000) for (const [key, e] of failedJoins) if (e.until < now) failedJoins.delete(key);
+  const entry = failedJoins.get(ip);
+  if (!entry || entry.until < now) failedJoins.set(ip, { count: 1, until: now + FAILED_JOIN_WINDOW_MS });
+  else entry.count++;
+}
 /** Toleranz für Netzlaufzeit beim Quiz-Zeitlimit */
 const QUIZ_GRACE_MS = 1500;
 
@@ -80,13 +104,22 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   // Beitritt ist der Moment, in dem alle gleichzeitig kommen – oft über dieselbe Firmen-IP.
   app.post('/api/join', { config: { rateLimit: { max: 2000, timeWindow: '1 minute' } } }, async (request, reply) => {
     const body = z.object({ code: z.string().trim(), token: z.string().optional() }).parse(request.body);
+    if (joinBlocked(request.ip))
+      return reply.code(429).send({ error: 'Zu viele falsche Codes – bitte in ein paar Minuten erneut versuchen' });
     const code = body.code.replace(/\D/g, '');
     const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE code = ? AND ended_at IS NULL', [code]);
-    if (!run) return reply.code(404).send({ error: 'Diesen Code gibt es nicht (mehr)' });
+    if (!run) {
+      recordFailedJoin(request.ip);
+      return reply.code(404).send({ error: 'Diesen Code gibt es nicht (mehr)' });
+    }
 
     const existing = await participantByToken(db, body.token);
     if (existing && existing.runId === run.id) return { runId: run.id, token: body.token, name: existing.name };
 
+    const count = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ?', [run.id]);
+    if (Number(count?.n ?? 0) >= MAX_PARTICIPANTS_PER_RUN) {
+      return reply.code(503).send({ error: 'Diese Präsentation ist voll' });
+    }
     const token = randomBytes(24).toString('base64url');
     await exec(db, 'INSERT INTO participants (run_id, token) VALUES (?, ?)', [run.id, token]);
     return { runId: run.id, token, name: null };

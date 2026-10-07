@@ -15,6 +15,12 @@ const schema = z.object({
   /** Gebaute Web-App; in der Entwicklung liefert Vite sie aus */
   STATIC_DIR: z.string().optional(),
   RELEASE: z.string().default('dev'),
+  /**
+   * Anzahl vertrauenswürdiger Proxys vor der App. Uberspace allein: 1.
+   * Mit Cloudflare davor: 2 (Client → Cloudflare → Uberspace → App).
+   * Bestimmt, welche IP aus X-Forwarded-For gilt – zu hoch erlaubt gefälschte IPs.
+   */
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
 });
 
 export type Config = z.infer<typeof schema> & { rpId: string; secureCookies: boolean };

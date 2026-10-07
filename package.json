@@ -28,5 +28,8 @@
     "oxlint": "^1.87.0",
     "prettier": "^3.9.9"
   },
-  "license": "AGPL-3.0-or-later"
+  "license": "AGPL-3.0-or-later",
+  "overrides": {
+    "shell-quote": "^1.12.0"
+  }
 }

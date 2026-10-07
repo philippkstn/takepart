@@ -64,6 +64,8 @@ DB_PORT=3306
 DB_USER=$USER
 DB_PASSWORD=$DB_PASSWORD
 DB_NAME=$DB_NAME
+# Proxys vor der App: Uberspace allein 1, mit Cloudflare (Proxy an) davor 2
+TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS:-1}
 # Einmal-Token für den ersten Passkey. Nach der Einrichtung entfernen.
 SETUP_TOKEN=$(openssl rand -hex 16)
 ENV

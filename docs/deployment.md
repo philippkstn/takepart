@@ -46,6 +46,15 @@ Manuell erneut ausrollen: Actions → Deploy → „Run workflow“.
 - Das geteilte Beamer-Fenster nicht vollständig verdecken (am besten eigener Bildschirm): Chrome und Safari zeichnen verdeckte Fenster nicht neu, dann sieht das Publikum ein stehendes Bild.
 - Keine Deployments während eines Vortrags – Teilnehmende verbinden sich zwar automatisch neu, aber es ruckelt kurz.
 
+## Sicherheit
+
+- **Proxy-Kette:** `TRUST_PROXY_HOPS` in der `.env` muss zur Kette passen – Uberspace allein `1`, mit Cloudflare-Proxy davor `2`. Ein zu hoher Wert lässt gefälschte `X-Forwarded-For`-IPs durch und hebelt die IP-Limits aus.
+- **Passkeys** verlangen Benutzerverifizierung (Fingerabdruck, Gesicht, PIN). Wird ein Passkey gelöscht, enden alle anderen Sitzungen.
+- **Limits:** Login 20/min pro IP; nach 30 falschen Beitritts-Codes in 10 Minuten ist eine IP gesperrt; höchstens 5.000 Teilnehmende und 6.000 Live-Verbindungen pro Durchführung, 5 pro Teilnehmer-Token.
+- **GitHub Actions** sind auf Commit-SHAs gepinnt. Zum Aktualisieren die SHA des neuen Tags eintragen (`gh api repos/actions/checkout/commits/v5 -q .sha`).
+- Abhängigkeiten prüfen: `npm audit` und `npm outdated --workspaces`. Der Server läuft gebündelt – Dev-Werkzeuge (z. B. `concurrently`) landen nicht in Produktion.
+- Bekannte Grenze: Abstimmungen sind anonym, eine Person kann mit mehreren Geräten/Browsern mehrfach abstimmen.
+
 ## Betrieb
 
 ```bash
