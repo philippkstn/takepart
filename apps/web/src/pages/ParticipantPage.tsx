@@ -46,7 +46,8 @@ export default function ParticipantPage({ code }: { code: string }) {
     void join();
   }, [join]);
 
-  const { view, status } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
+  const { view, status, handoutUrl: endedHandout } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
+  const handoutUrl = endedHandout ?? view?.handoutUrl ?? null;
 
   if (joinError) {
     return (
@@ -76,6 +77,11 @@ export default function ParticipantPage({ code }: { code: string }) {
           <div className="card card-pad stack anim-rise" style={{ textAlign: 'center' }}>
             <h1>Danke fürs Mitmachen!</h1>
             <p className="muted">Diese Präsentation ist beendet.</p>
+            {handoutUrl && (
+              <Link className="btn btn-primary" to={handoutUrl}>
+                Folien &amp; Ergebnisse ansehen
+              </Link>
+            )}
             <Link className="btn" to="/">
               Zur Startseite
             </Link>
@@ -98,11 +104,18 @@ export default function ParticipantPage({ code }: { code: string }) {
           )}
           <span className="p-title">{view.run.title}</span>
         </span>
-        {view.slideCount > 0 && view.slideIndex >= 0 && (
-          <span className="pill tabular">
-            {view.slideIndex + 1} / {view.slideCount}
-          </span>
-        )}
+        <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+          {handoutUrl && (
+            <Link className="pill" to={handoutUrl} target="_blank">
+              Folien
+            </Link>
+          )}
+          {view.slideCount > 0 && view.slideIndex >= 0 && (
+            <span className="pill tabular">
+              {view.slideIndex + 1} / {view.slideCount}
+            </span>
+          )}
+        </span>
       </header>
       <ConnectionBadge status={status} />
       <main className="p-main">

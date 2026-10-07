@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "predev": "node scripts/copy-pdfjs.mjs",
+    "prebuild": "node scripts/copy-pdfjs.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
@@ -22,8 +24,10 @@
     "@fontsource-variable/figtree": "^5.3.0",
     "@simplewebauthn/browser": "^14.0.0",
     "@tanstack/react-query": "^5.104.1",
+    "jszip": "^3.10.2",
     "lucide-react": "^1.52.0",
     "motion": "^14.0.0",
+    "pdfjs-dist": "^6.4.299",
     "qrcode": "^1.5.4",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",

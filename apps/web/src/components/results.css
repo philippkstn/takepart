@@ -36,7 +36,7 @@
   min-width: 0;
 }
 .bar-text {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .bar-mark {
   width: 1.2em;
@@ -166,7 +166,7 @@
   color: var(--ink-2);
   animation: pop 300ms var(--ease) both;
   transition: font-size 400ms var(--ease);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .cloud-word.is-top {
   color: var(--ink);

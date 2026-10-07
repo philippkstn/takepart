@@ -409,6 +409,12 @@ select {
   color: var(--ink-2);
   white-space: nowrap;
 }
+a.pill {
+  text-decoration: none;
+}
+a.pill:hover {
+  border-color: var(--border-strong);
+}
 .pill svg {
   width: 14px;
   height: 14px;

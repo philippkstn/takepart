@@ -342,6 +342,17 @@ function QaForm({ value, onChange }: FormProps<'qa'>) {
   );
 }
 
+function ImageForm({ value, onChange }: FormProps<'image'>) {
+  return (
+    <>
+      <Text label="Titel (für Folienlisten)" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} />
+      <p className="small faint">
+        Importierte Folie, {value.width} × {value.height} px. Inhalt ändern: Folie in PowerPoint anpassen und neu importieren.
+      </p>
+    </>
+  );
+}
+
 function SentenceForm({ value, onChange }: FormProps<'sentence'>) {
   return (
     <>
@@ -390,5 +401,7 @@ export function SlideForm({ slide, value, onChange }: { slide: Slide; value: Sli
       return <QaForm value={v} onChange={onChange} />;
     case 'sentence':
       return <SentenceForm value={v} onChange={onChange} />;
+    case 'image':
+      return <ImageForm value={v} onChange={onChange} />;
   }
 }

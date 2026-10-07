@@ -83,10 +83,12 @@
   color: var(--ink-3);
 }
 .stage-title {
+  /* Umbrechen nur zwischen Wörtern – außer ein einzelnes Wort passt allein nicht in die Zeile */
+  overflow-wrap: break-word;
+  hyphens: manual;
   font-size: 1.9em;
   font-weight: 700;
   line-height: 1.15;
-  overflow-wrap: anywhere;
 }
 .stage-title-xl {
   font-size: 3em;
@@ -177,7 +179,17 @@
   gap: 2em;
 }
 .stage-content.with-join {
-  grid-template-columns: 1fr auto;
+  /* Titel bekommt mindestens so viel Platz wie das Beitrittsfeld */
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+}
+.stage-content.with-join .join-panel {
+  font-size: 0.82em;
+  gap: 1.2em;
+  padding: 1.1em;
+}
+.stage-content.with-join .join-qr {
+  width: 7.5em;
+  height: 7.5em;
 }
 .join-panel {
   display: flex;
@@ -431,7 +443,7 @@
 .stage-post-text {
   font-weight: 550;
   line-height: 1.3;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 .stage-post-meta {
@@ -507,7 +519,7 @@
   font-size: 2.1em;
   font-weight: 600;
   line-height: 1.2;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   white-space: pre-wrap;
 }
 .spotlight-meta {
@@ -597,4 +609,18 @@
 }
 .stage-results .bars-inline {
   gap: 0.3em;
+}
+
+/* Importierte Folie: randlos im 16:9-Rahmen */
+.stage-image {
+  position: absolute;
+  inset: 0;
+  background: #000;
+}
+.stage-image img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }

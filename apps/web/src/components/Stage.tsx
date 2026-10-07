@@ -1,7 +1,7 @@
-import { SLIDE_TYPE_LABELS, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
+import { assetUrl, SLIDE_TYPE_LABELS, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
 import { ChevronUp, EyeOff, MessageCircleQuestion, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
 import { SlideResultsView } from './Results.tsx';
@@ -14,8 +14,10 @@ import './stage.css';
  * Bildschirm erscheint. Alle Maße in em, die Schriftgröße folgt der Fläche
  * (Container Query), damit die Vorschau im Steuerpult genauso aussieht.
  */
-export function Stage({ view, offset = 0 }: { view: DisplayView; offset?: number }) {
+export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset?: number; overlay?: ReactNode }) {
   const slide = view.slide;
+  // Importierte Folien laufen randlos, ohne Kopfzeile – wie in PowerPoint.
+  const image = !view.leaderboard && slide?.type === 'image' ? slide : null;
   // Verdeckte Fenster bekommen keine Animationsframes – dort ohne Übergang
   // umschalten, damit eine Folie nie unsichtbar mitten im Einblenden hängt.
   const visible = usePageVisible();
@@ -31,35 +33,41 @@ export function Stage({ view, offset = 0 }: { view: DisplayView; offset?: number
     <MotionConfig reducedMotion="user">
       <div className="stage" style={brandStyle(view.run.brand)}>
         <div className="stage-inner">
-          <header className="stage-top">
-            {view.run.brand?.logoUrl && <img className="stage-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />}
-            <span className="stage-stats">
-              <span title="Verbunden">
-                <Users /> <span className="tabular">{view.participants}</span>
-              </span>
-            </span>
-          </header>
+          {image ? (
+            <ImageStage key="image" slide={image} animate={visible} />
+          ) : (
+            <>
+              <header className="stage-top">
+                {view.run.brand?.logoUrl && <img className="stage-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />}
+                <span className="stage-stats">
+                  <span title="Verbunden">
+                    <Users /> <span className="tabular">{view.participants}</span>
+                  </span>
+                </span>
+              </header>
 
-          <main className="stage-main">
-            {visible ? (
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={slideKey}
-                  className="stage-slide"
-                  initial={{ opacity: 0, y: 12 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
-                >
-                  {content}
-                </motion.div>
-              </AnimatePresence>
-            ) : (
-              <div key={slideKey} className="stage-slide">
-                {content}
-              </div>
-            )}
-          </main>
+              <main className="stage-main">
+                {visible ? (
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={slideKey}
+                      className="stage-slide"
+                      initial={{ opacity: 0, y: 12 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -8 }}
+                      transition={{ duration: 0.28, ease: [0.2, 0.8, 0.2, 1] }}
+                    >
+                      {content}
+                    </motion.div>
+                  </AnimatePresence>
+                ) : (
+                  <div key={slideKey} className="stage-slide">
+                    {content}
+                  </div>
+                )}
+              </main>
+            </>
+          )}
 
           <AnimatePresence>
             {view.spotlight && (
@@ -102,9 +110,35 @@ export function Stage({ view, offset = 0 }: { view: DisplayView; offset?: number
               </motion.div>
             )}
           </AnimatePresence>
+          {overlay}
         </div>
       </div>
     </MotionConfig>
+  );
+}
+
+/** Importierte Folie: Bild im 16:9-Rahmen, Folienwechsel als kurze Überblendung. */
+function ImageStage({ slide, animate }: { slide: Extract<PublicSlide, { type: 'image' }>; animate: boolean }) {
+  const src = assetUrl(slide.config.asset);
+  const alt = slide.config.title || 'Folie';
+  return (
+    <div className="stage-image">
+      {animate ? (
+        <AnimatePresence initial={false}>
+          <motion.img
+            key={slide.id}
+            src={src}
+            alt={alt}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          />
+        </AnimatePresence>
+      ) : (
+        <img key={slide.id} src={src} alt={alt} />
+      )}
+    </div>
   );
 }
 

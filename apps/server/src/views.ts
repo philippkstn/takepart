@@ -1,4 +1,6 @@
 import {
+  assetThumbUrl,
+  assetUrl,
   sentenceStart,
   sentenceState,
   slideHeadline,
@@ -6,12 +8,30 @@ import {
   type HostView,
   type ParticipantView,
   type PostView,
+  type PublicSlide,
+  type Slide,
   type QuizAnswer,
   type QuizView,
   type RunInfo,
   type SentenceView,
 } from '@slides/shared';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
+
+const handoutUrl = (snap: Snapshot) => (snap.run.handoutToken ? `/h/${snap.run.handoutToken}` : null);
+
+/** Ist „Folien auf Handys zeigen“ aus, bekommt das Publikum die Bildkennung gar nicht erst. */
+function participantSlide(snap: Snapshot, slide: Slide): PublicSlide {
+  if (slide.type === 'image' && !snap.run.shareSlides) {
+    return { ...slide, config: { ...slide.config, asset: '', title: '' } };
+  }
+  return publicSlide(slide, snap.run.state);
+}
+
+/** Bild der nächsten Folie vorab laden, damit der Wechsel auf dem Beamer nicht flackert. */
+function preloadFor(snap: Snapshot): string[] {
+  const next = snap.slides[snap.index + 1];
+  return next?.type === 'image' ? [assetUrl(next.config.asset)] : [];
+}
 
 function runInfo(snap: Snapshot): RunInfo {
   return { id: snap.run.id, title: snap.run.title, code: snap.run.code, ended: snap.run.ended, brand: snap.run.brand };
@@ -93,7 +113,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     run: runInfo(snap),
     serverTime: snap.now,
     name: snap.names.get(participantId) ?? null,
-    slide: slide ? publicSlide(slide, state) : null,
+    slide: slide ? participantSlide(snap, slide) : null,
     slideIndex: snap.index,
     slideCount: snap.slides.length,
     locked: isLocked(snap),
@@ -104,6 +124,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     posts,
     rank,
     leaderboard: state.leaderboard,
+    handoutUrl: handoutUrl(snap),
   };
 }
 
@@ -145,6 +166,7 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     spotlight,
     leaderboard: state.leaderboard ? snap.leaderboard.slice(0, 10) : null,
     showJoin: state.showJoin,
+    preload: preloadFor(snap),
   };
 }
 
@@ -179,15 +201,22 @@ export function hostView(snap: Snapshot, participants: number): HostView {
     spotlight: visible.find((p) => p.id === state.spotlight) ?? null,
     leaderboard: snap.leaderboard,
     showJoin: state.showJoin,
+    preload: [],
     state,
     displayToken: snap.run.displayToken,
     presentationId: snap.run.presentationId,
     display: displayView(snap, participants),
+    notes: snap.notes,
+    nextSlide: snap.index >= 0 ? (snap.slides[snap.index + 1] ?? null) : (snap.slides[0] ?? null),
+    startedAt: snap.run.startedAt,
+    targetMinutes: snap.run.targetMinutes,
+    handoutUrl: handoutUrl(snap),
     slides: snap.slides.map((s) => ({
       id: s.id,
       type: s.type,
       headline: slideHeadline(s),
       responses: snap.counts.get(s.id) ?? 0,
+      thumb: s.type === 'image' ? assetThumbUrl(s.config.asset) : null,
     })),
   };
 }

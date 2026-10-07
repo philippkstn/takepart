@@ -26,6 +26,8 @@ Das Publikum macht mit einem 6-stelligen Code oder per QR-Code mit – ohne Kont
 | Fragen (Q&A) | mit Namen, Upvotes, Freigabe, einzeln groß einblenden |
 | Satz vervollständigen | Satzanfang vorgeben, alle tippen ein Wort, du blendest ein und hängst das häufigste an |
 
+**Der ganze Vortrag läuft in TakePart:** Folien als PDF importieren (Export aus PowerPoint, Keynote oder Google Slides) und interaktive Folien dazwischen setzen. Sprechernotizen kommen mit, wenn du die `.pptx` dazugibst. Eine Referentenansicht zeigt Notizen, nächste Folie, Timer und Uhrzeit; Laserpointer und Stift zeichnen auf den geteilten Bildschirm; nach dem Vortrag teilst du Folien und zusammengefasste Ergebnisse per Link.
+
 Dazu: optionales Branding pro Präsentation (Logo, Akzent- und Diagrammfarbe), Passkey-Login für dich, ein Archiv jeder Durchführung mit CSV-Export und ein Demo-Foliensatz mit allen Funktionen.
 
 ## Schnellstart (Docker)
@@ -46,11 +48,16 @@ Der Setup-Token wird nur einmal gebraucht und ändert sich bei jedem Neustart, b
 
 > **Im Internet betreiben?** Passkeys brauchen HTTPS. TakePart hinter einen Reverse-Proxy mit TLS stellen (z. B. Caddy oder Traefik) und `APP_ORIGIN` auf die öffentliche Adresse setzen – siehe [Konfiguration](#konfiguration).
 
+### Folien importieren
+
+Im Editor **„PDF importieren“** klicken und den PDF-Export deiner Präsentation wählen. Optional dieselbe Präsentation als `.pptx` dazu – TakePart liest daraus nur die Sprechernotizen (ausgeblendete Folien werden übersprungen, wie beim PDF-Export von PowerPoint). Die Seiten werden im Browser gerendert und als Bilder hochgeladen; Animationen und Videos werden nicht übernommen. Unter „Folien auf Handys zeigen“ legst du fest, ob das Publikum auf dem Handy mitlesen kann.
+
 ### Im Vortrag
 
-- **Steuerpult:** Folien wechseln, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen – auch am Handy.
+- **Referentenansicht (Steuerpult):** aktuelle Folie mit Laserpointer und Stift, nächste Folie, Sprechernotizen, Vortragszeit gegen eine Ziel-Dauer, Uhrzeit; Folien wechseln, Ergebnisse zeigen/verbergen, Fragen freigeben, Wörter anhängen – auch am Handy.
 - **Beamer:** „Beamer öffnen“ öffnet einen nur lesenden Link für den geteilten Bildschirm. `F` = Vollbild; bist du im selben Browser angemeldet, blättern Pfeiltasten und Presenter-Fernbedienung. Das Fenster beim Teilen nicht verdecken – Browser zeichnen verdeckte Fenster nicht neu.
 - **Publikum:** ruft deine Adresse auf und gibt den Code ein oder scannt den QR-Code auf der Titelfolie.
+- **Nach dem Vortrag:** „Folien freigeben“ erzeugt einen Link mit Folien und zusammengefassten Ergebnissen (ohne Namen, Freitexte oder Fragen). Teilnehmende sehen ihn auf dem Handy; er lässt sich drucken oder als PDF speichern.
 
 ## Konfiguration
 

@@ -24,6 +24,8 @@ Your audience joins with a 6-digit code or QR code – no account, no app. You r
 | Q&A | Named questions, upvotes, moderation, show one question full screen |
 | Complete the sentence | Everyone types the most likely next word; you reveal the answers and append the most popular one |
 
+**Run the whole talk in TakePart:** import your slides as PDF (export from PowerPoint, Keynote or Google Slides) and place interactive slides between them. Speaker notes come along from the `.pptx` if you add it. A presenter view shows notes, the next slide, a timer and the clock; a laser pointer and pen draw on the shared screen; afterwards you can share the slides and aggregated results with the audience via a link.
+
 Plus: optional branding per presentation (logo, accent and chart colour), passkey login for the presenter, an archive of every session with CSV export, and a demo deck that shows every feature.
 
 ## Quick start (Docker)
@@ -44,11 +46,16 @@ The setup token is only needed once and changes on every restart until the first
 
 > **Running it on the internet?** Passkeys require HTTPS. Put TakePart behind a reverse proxy with TLS (e.g. Caddy or Traefik) and set `APP_ORIGIN` to the public address – see [Configuration](#configuration).
 
+### Importing slides
+
+In the editor, click **“PDF importieren”** and choose the PDF export of your deck. Optionally add the same deck as `.pptx` – TakePart only reads the speaker notes from it (hidden slides are skipped, just like in PowerPoint's PDF export). Pages are rendered in your browser and uploaded as images; animations and videos are not carried over. Under “Folien auf Handys zeigen” you decide whether the audience can follow the slides on their phones.
+
 ### Presenting
 
-- **Control panel:** switch slides, show/hide results, approve questions, append words. Works on a phone.
+- **Presenter view (control panel):** current slide with laser pointer and pen, next slide, speaker notes, elapsed time against a target duration, clock; switch slides, show/hide results, approve questions, append words. Works on a phone.
 - **Presenter view:** “Beamer öffnen” opens a read-only link for the screen you share. `F` toggles full screen; when you're logged in in the same browser, arrow keys and presenter remotes advance the slides. Keep that window visible while sharing – browsers stop painting covered windows.
 - **Audience:** opens your address and enters the code, or scans the QR code on the title slide.
+- **After the talk:** “Folien freigeben” creates a link with the slides and aggregated results (no names, free texts or questions). Participants see it on their phones; it can be printed or saved as PDF.
 
 ## Configuration
 

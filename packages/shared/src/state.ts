@@ -40,6 +40,8 @@ export interface RunState {
   showJoin: boolean;
   quiz: Record<string, QuizState>;
   sentence: Record<string, SentenceState>;
+  /** Start des Vortrags-Timers (ms); fehlt er, gilt der Start der Durchführung */
+  timerStartedAt?: number | null;
 }
 
 export function initialRunState(firstSlideId: number | null): RunState {
@@ -88,6 +90,7 @@ export const hostCommand = z.discriminatedUnion('action', [
     status: z.enum(['pending', 'visible', 'hidden', 'answered']),
   }),
   z.object({ action: z.literal('clear-responses'), slideId: z.number().int() }),
+  z.object({ action: z.literal('timer-reset') }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
 
@@ -166,6 +169,8 @@ export interface ParticipantView {
   /** Eigener Platz in der Rangliste, falls die Rangliste gezeigt wird */
   rank: { rank: number; points: number; of: number } | null;
   leaderboard: boolean;
+  /** Link zu den freigegebenen Folien und Ergebnissen (falls freigegeben) */
+  handoutUrl: string | null;
 }
 
 export interface DisplayView {
@@ -187,6 +192,8 @@ export interface DisplayView {
   spotlight: PostView | null;
   leaderboard: LeaderboardEntry[] | null;
   showJoin: boolean;
+  /** Bilder der nächsten Folie vorab laden, damit der Wechsel nicht flackert */
+  preload: string[];
 }
 
 export interface HostSlideSummary {
@@ -194,6 +201,8 @@ export interface HostSlideSummary {
   type: SlideType;
   headline: string;
   responses: number;
+  /** Miniatur für importierte Folien */
+  thumb: string | null;
 }
 
 export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderboard'> {
@@ -208,7 +217,58 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   leaderboard: LeaderboardEntry[];
   /** Genau das, was der Beamer gerade zeigt – für die Vorschau im Steuerpult */
   display: DisplayView;
+  /** Referentenansicht – erreicht nie Beamer oder Publikum */
+  notes: string;
+  nextSlide: Slide | null;
+  startedAt: number;
+  targetMinutes: number | null;
+  handoutUrl: string | null;
+}
+
+/* ───────────────────── Laserpointer & Zeichnen ─────────────────────
+ * Laufen direkt über den WebSocket des Hosts und werden an Beamer und Hosts
+ * weitergereicht – flüchtig, nicht in der Datenbank. Koordinaten sind auf die
+ * 16:9-Bühne normiert (0…1).
+ */
+const coord = z.number().min(0).max(1);
+export const inkEvent = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('pointer'), x: coord, y: coord }),
+  z.object({ type: z.literal('pointer-off') }),
+  z.object({
+    type: z.literal('stroke'),
+    id: z.string().regex(/^[A-Za-z0-9_-]{1,40}$/),
+    points: z
+      .array(z.tuple([coord, coord]))
+      .min(1)
+      .max(100),
+    done: z.boolean(),
+  }),
+  z.object({ type: z.literal('clear') }),
+]);
+export type InkEvent = z.infer<typeof inkEvent>;
+export interface InkStroke {
+  id: string;
+  points: [number, number][];
 }
 
 export type ServerMessage =
-  { type: 'view'; view: ParticipantView | DisplayView | HostView } | { type: 'error'; message: string } | { type: 'ended' };
+  | { type: 'view'; view: ParticipantView | DisplayView | HostView }
+  | { type: 'error'; message: string }
+  | { type: 'ended'; handoutUrl?: string | null }
+  | { type: 'ink'; event: InkEvent }
+  | { type: 'ink-state'; strokes: InkStroke[] };
+
+/* ───────────── Freigabe für Teilnehmende (/h/:token) ───────────── */
+
+export type HandoutSlide =
+  | { type: 'image'; title: string; image: string; width: number; height: number }
+  | { type: 'content'; title: string; body: string }
+  | { type: 'results'; slide: PublicSlide; results: SlideResults }
+  | { type: 'sentence'; headline: string; sentence: string };
+
+export interface HandoutData {
+  title: string;
+  date: string;
+  brand: BrandView | null;
+  slides: HandoutSlide[];
+}

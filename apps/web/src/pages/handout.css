@@ -1,0 +1,70 @@
+.handout {
+  width: min(1000px, 100%);
+  margin: 0 auto;
+  padding: 24px 16px 40px;
+  display: grid;
+  gap: 20px;
+}
+.handout-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.handout-head h1 {
+  font-size: 1.4rem;
+}
+.handout-slides {
+  display: grid;
+  gap: 18px;
+}
+.handout-slide img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+}
+.handout-card {
+  display: grid;
+  gap: 12px;
+  padding: 22px;
+  border-radius: var(--radius-l);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.handout-sentence {
+  font-size: 1.3rem;
+  font-weight: 650;
+  line-height: 1.35;
+}
+
+/* Drucken / „Als PDF speichern“: eine Folie pro Seite, Querformat */
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .handout {
+    width: 100%;
+    padding: 0;
+  }
+  .handout-slide {
+    break-inside: avoid;
+    break-after: page;
+  }
+  .handout-slide img {
+    max-height: 180mm;
+    width: auto;
+    max-width: 100%;
+    margin: 0 auto;
+    border: 0;
+  }
+  .handout-card {
+    border: 0;
+  }
+}

@@ -148,4 +148,30 @@ export const migrations: Migration[] = [
     name: '003_demo_brands',
     run: insertDemoBrands,
   },
+  {
+    // Slides-Engine: importierte Folienbilder, Sprechernotizen, Präsentations-Einstellungen, Freigabe-Link
+    name: '004_slides_engine',
+    statements: [
+      `CREATE TABLE assets (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        presentation_id INT UNSIGNED NOT NULL,
+        public_id CHAR(32) NOT NULL,
+        mime VARCHAR(40) NOT NULL,
+        width INT UNSIGNED NOT NULL,
+        height INT UNSIGNED NOT NULL,
+        data MEDIUMBLOB NOT NULL,
+        thumb MEDIUMBLOB NULL,
+        thumb_mime VARCHAR(40) NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        UNIQUE KEY uq_assets_public_id (public_id),
+        INDEX idx_assets_presentation (presentation_id),
+        CONSTRAINT fk_assets_presentation FOREIGN KEY (presentation_id) REFERENCES presentations (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `ALTER TABLE slides ADD COLUMN notes TEXT NULL AFTER config`,
+      `ALTER TABLE presentations
+        ADD COLUMN share_slides TINYINT(1) NOT NULL DEFAULT 1 AFTER brand_id,
+        ADD COLUMN target_minutes SMALLINT UNSIGNED NULL AFTER share_slides`,
+      `ALTER TABLE runs ADD COLUMN handout_token CHAR(32) NULL AFTER display_token, ADD UNIQUE KEY uq_runs_handout_token (handout_token)`,
+    ],
+  },
 ];

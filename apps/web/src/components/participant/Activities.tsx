@@ -1,4 +1,4 @@
-import type { ParticipantView, PostView, PublicSlide, ResponsePayloads } from '@slides/shared';
+import { assetUrl, type ParticipantView, type PostView, type PublicSlide, type ResponsePayloads } from '@slides/shared';
 import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, RotateCcw, Send, Star, Trophy } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
@@ -102,6 +102,18 @@ function NameGate({ view, token, reason, children }: { view: ParticipantView; to
 }
 
 /* ───────────── Aktivitäten ───────────── */
+
+/** Importierte Folie zum Mitlesen; antippen öffnet sie groß zum Zoomen. */
+function ImageSlide({ slide }: { slide: Slide<'image'> }) {
+  // Ohne Bildkennung hat die Vortragende das Mitlesen ausgeschaltet.
+  if (!slide.config.asset) return <Info icon={<Hourglass size={20} />}>Schau auf die Präsentation – gleich geht es weiter.</Info>;
+  const src = assetUrl(slide.config.asset);
+  return (
+    <a className="p-slide anim-rise" href={src} target="_blank" rel="noopener" aria-label="Folie groß öffnen">
+      <img src={src} alt={slide.config.title || 'Aktuelle Folie'} width={slide.config.width} height={slide.config.height} />
+    </a>
+  );
+}
 
 function Content({ slide }: { slide: Slide<'content'> }) {
   return (
@@ -661,6 +673,8 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
   switch (slide.type) {
     case 'content':
       return <Content slide={slide} />;
+    case 'image':
+      return <ImageSlide slide={slide} />;
     case 'choice':
       return <Choice view={view} slide={slide} token={token} />;
     case 'scale':

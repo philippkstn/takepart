@@ -2,6 +2,14 @@
   position: fixed;
   inset: 0;
   background: var(--bg);
+  display: grid;
+  place-items: center;
+}
+/* Größtmögliche 16:9-Fläche; der Rest bleibt Hintergrund */
+.display-box {
+  position: relative;
+  width: min(100vw, calc(100vh * 16 / 9));
+  aspect-ratio: 16 / 9;
 }
 .display-page.is-idle {
   cursor: none;

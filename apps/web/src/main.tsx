@@ -17,6 +17,7 @@ const ControlPage = lazy(() => import('./pages/admin/ControlPage.tsx'));
 const ArchivePage = lazy(() => import('./pages/admin/ArchivePage.tsx'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage.tsx'));
 const DisplayPage = lazy(() => import('./pages/DisplayPage.tsx'));
+const HandoutPage = lazy(() => import('./pages/HandoutPage.tsx'));
 
 function CodeRoute() {
   const { code = '' } = useParams();
@@ -28,6 +29,7 @@ const router = createBrowserRouter([
   { path: '/', element: <HomePage /> },
   { path: '/login', element: <LoginPage /> },
   { path: '/d/:token', element: <DisplayPage /> },
+  { path: '/h/:token', element: <HandoutPage /> },
   {
     path: '/admin',
     element: <AdminLayout />,

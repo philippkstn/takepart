@@ -6,17 +6,24 @@ import {
   ChevronRight,
   ChevronUp,
   Copy,
+  Crosshair,
+  Eraser,
+  ExternalLink,
   Eye,
   EyeOff,
   Lock,
   LockOpen,
   Maximize2,
   MessageSquareOff,
+  MousePointer2,
+  PenLine,
   Play,
   QrCode as QrIcon,
   RefreshCw,
   RotateCcw,
+  Share2,
   Square,
+  Timer,
   Trophy,
   Undo2,
   Users,
@@ -26,7 +33,9 @@ import { useEffect, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
+import { InkInput, InkOverlay, type InkTool } from '../../components/Ink.tsx';
 import { Stage } from '../../components/Stage.tsx';
+import { staticPreview } from '../../components/staticPreview.ts';
 import { ConnectionBadge, formatCode, FullScreenSpinner, joinHost, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useLive } from '../../lib/live.ts';
@@ -36,7 +45,8 @@ import './admin.css';
 export default function ControlPage() {
   const runId = Number(useParams().runId);
   const { loading, loggedIn } = useRequireHost();
-  const { view, status, offset } = useLive<HostView>(loggedIn ? `run=${runId}` : null);
+  const { view, status, offset, ink, sendInk } = useLive<HostView>(loggedIn ? `run=${runId}` : null);
+  const [tool, setTool] = useState<InkTool>('none');
   const toast = useToast();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -74,7 +84,14 @@ export default function ControlPage() {
   const ended = view.run.ended;
 
   const end = async () => {
-    if (!window.confirm('Durchführung beenden? Teilnehmende können danach nicht mehr antworten. Die Ergebnisse bleiben gespeichert.'))
+    const handoutNote = view.handoutUrl
+      ? ''
+      : '\n\nHinweis: Folien und Ergebnisse sind nicht freigegeben. Gibst du sie erst nach dem Ende frei, erreicht der Link die Teilnehmenden nicht mehr automatisch.';
+    if (
+      !window.confirm(
+        `Durchführung beenden? Teilnehmende können danach nicht mehr antworten. Die Ergebnisse bleiben gespeichert.${handoutNote}`,
+      )
+    )
       return;
     try {
       await api(`/api/runs/${runId}/end`, { body: {} });
@@ -106,6 +123,7 @@ export default function ControlPage() {
             {joinHost()} · Code <strong className="tabular">{formatCode(view.run.code)}</strong>
           </span>
         </div>
+        <PresenterClock view={view} offset={offset} onReset={() => command({ action: 'timer-reset' })} />
         <span className="pill" title="Verbundene Teilnehmende">
           <Users /> <span className="tabular">{view.participants}</span>
         </span>
@@ -147,7 +165,7 @@ export default function ControlPage() {
                   disabled={busy || ended}
                 >
                   <span className="slide-num tabular">{i + 1}</span>
-                  <SlideIcon type={s.type} />
+                  {s.thumb ? <img className="slide-thumb" src={s.thumb} alt="" loading="lazy" /> : <SlideIcon type={s.type} />}
                   <span className="grow control-slide-title">{s.headline || <em className="faint">ohne Titel</em>}</span>
                   {s.responses > 0 && <span className="pill tabular">{s.responses}</span>}
                 </button>
@@ -158,7 +176,32 @@ export default function ControlPage() {
 
         <section className="control-center">
           <div className="preview-frame">
-            <Stage view={view.display} offset={offset} />
+            <Stage
+              view={view.display}
+              offset={offset}
+              overlay={
+                <>
+                  <InkOverlay ink={ink} />
+                  <InkInput tool={tool} send={sendInk} />
+                </>
+              }
+            />
+          </div>
+          <div className="ink-tools" role="toolbar" aria-label="Zeigen und Zeichnen">
+            <div className="segmented">
+              <button aria-pressed={tool === 'none'} onClick={() => setTool('none')} title="Normal">
+                <MousePointer2 size={15} /> Aus
+              </button>
+              <button aria-pressed={tool === 'pointer'} onClick={() => setTool('pointer')} title="Laserpointer auf dem Beamer">
+                <Crosshair size={15} /> Laserpointer
+              </button>
+              <button aria-pressed={tool === 'pen'} onClick={() => setTool('pen')} title="Auf die Folie zeichnen">
+                <PenLine size={15} /> Stift
+              </button>
+            </div>
+            <button className="btn btn-small" onClick={() => sendInk({ type: 'clear' })} disabled={ink.strokes.length === 0}>
+              <Eraser /> Zeichnung löschen
+            </button>
           </div>
           <div className="control-nav">
             <button
@@ -194,7 +237,7 @@ export default function ControlPage() {
             >
               <QrIcon /> {view.showJoin ? 'Beitritt ausblenden' : 'Beitritt einblenden'}
             </button>
-            {slide && slide.type !== 'content' && (
+            {slide && slide.type !== 'content' && slide.type !== 'image' && (
               <button
                 className={`btn btn-small ${view.locked ? 'btn-ink' : ''}`}
                 onClick={() => command({ action: 'lock', slideId: slide.id, locked: !view.locked })}
@@ -207,10 +250,31 @@ export default function ControlPage() {
                 <X /> Einblendung beenden
               </button>
             )}
+            <HandoutToggle runId={runId} url={view.handoutUrl} />
           </div>
         </section>
 
         <aside className="control-panel card">
+          {view.nextSlide && (
+            <div className="next-slide">
+              <span className="label">Als Nächstes</span>
+              <div className="preview-frame">
+                <Stage
+                  view={staticPreview(view.nextSlide, {
+                    title: view.run.title,
+                    brand: view.run.brand,
+                    index: view.slideIndex + 1,
+                    count: view.slideCount,
+                    code: view.run.code,
+                  })}
+                />
+              </div>
+            </div>
+          )}
+          <div className="notes-box">
+            <span className="label">Notizen</span>
+            {view.notes ? <p className="notes-text">{view.notes}</p> : <p className="small faint">Keine Notizen zu dieser Folie.</p>}
+          </div>
           {slide ? <Panel view={view} command={command} busy={busy} /> : <p className="muted">Keine Folie ausgewählt.</p>}
         </aside>
       </div>
@@ -228,10 +292,11 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
   };
 
   switch (slide.type) {
+    case 'image':
     case 'content':
       return (
         <div className="stack">
-          <h3>Textfolie</h3>
+          <h3>{slide.type === 'image' ? 'Folie' : 'Textfolie'}</h3>
           <p className="muted small">Hier gibt es nichts zu steuern. Mit „Weiter“ geht es zur nächsten Folie.</p>
         </div>
       );
@@ -587,5 +652,69 @@ function ModItem({
         )}
       </div>
     </li>
+  );
+}
+
+/** Vortragsdauer, Ziel-Dauer und Uhrzeit für die Referentenansicht. */
+function PresenterClock({ view, offset, onReset }: { view: HostView; offset: number; onReset: () => void }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const start = view.state.timerStartedAt ?? view.startedAt;
+  const elapsed = Math.max(0, now + offset - start);
+  const minutes = Math.floor(elapsed / 60000);
+  const seconds = Math.floor((elapsed % 60000) / 1000);
+  const over = view.targetMinutes !== null && elapsed > view.targetMinutes * 60000;
+  return (
+    <span className={`presenter-clock ${over ? 'is-over' : ''}`}>
+      <button
+        className="clock-timer tabular"
+        onClick={() => window.confirm('Vortragszeit auf 0 setzen?') && onReset()}
+        title="Vortragszeit – klicken zum Zurücksetzen"
+      >
+        <Timer size={15} />
+        {minutes}:{String(seconds).padStart(2, '0')}
+        {view.targetMinutes !== null && <span className="faint"> / {view.targetMinutes}:00</span>}
+      </button>
+      <span className="clock-now tabular" title="Uhrzeit">
+        {new Date(now).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+      </span>
+    </span>
+  );
+}
+
+/** Folien und Ergebnisse für Teilnehmende freigeben. */
+function HandoutToggle({ runId, url }: { runId: number; url: string | null }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const toggle = async () => {
+    setBusy(true);
+    try {
+      await api(`/api/runs/${runId}/handout`, { body: { enabled: !url } });
+      toast(url ? 'Freigabe zurückgezogen' : 'Folien und Ergebnisse freigegeben');
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <span className="row" style={{ gap: 4 }}>
+      <button
+        className={`btn btn-small ${url ? 'btn-ink' : ''}`}
+        onClick={toggle}
+        disabled={busy}
+        title="Folien und zusammengefasste Ergebnisse für Teilnehmende"
+      >
+        <Share2 /> {url ? 'Freigabe zurückziehen' : 'Folien freigeben'}
+      </button>
+      {url && (
+        <a className="icon-btn" href={url} target="_blank" rel="noopener" title="Freigabe ansehen" aria-label="Freigabe ansehen">
+          <ExternalLink />
+        </a>
+      )}
+    </span>
   );
 }

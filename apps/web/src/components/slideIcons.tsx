@@ -1,6 +1,7 @@
 import type { SlideType } from '@slides/shared';
 import {
   Cloud,
+  Image,
   Lightbulb,
   ListChecks,
   ListOrdered,
@@ -28,6 +29,7 @@ export const SLIDE_ICONS: Record<SlideType, LucideIcon> = {
   feedback: Star,
   qa: MessageCircleQuestion,
   sentence: TextCursorInput,
+  image: Image,
 };
 
 export function SlideIcon({ type, size = 18 }: { type: SlideType; size?: number }) {

@@ -1,18 +1,25 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import {
+  assetUrl,
   hostCommand,
   initialRunState,
   isPostType,
   quizState,
+  sentenceStart,
   sentenceState,
   slideHeadline,
   SLIDE_TYPE_LABELS,
+  type HandoutData,
+  type HandoutSlide,
   type HostCommand,
+  type PublicSlide,
+  type SlideConfigs,
   type RunState,
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireHost } from './auth.ts';
+import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
 import { exportCsv } from './export.ts';
 import type { LiveHub } from './live.ts';
@@ -140,6 +147,9 @@ export function applyCommand(state: RunState, cmd: HostCommand, slideIds: number
       s.sentence[cmd.slideId] = { ...st, words: [], round: st.round + 1, revealed: false, done: false };
       break;
     }
+    case 'timer-reset':
+      s.timerStartedAt = now;
+      break;
     case 'post-status':
     case 'clear-responses':
       break;
@@ -271,8 +281,27 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   app.post('/api/runs/:id/end', host, async (request) => {
     const { id } = idParam.parse(request.params);
     await exec(db, 'UPDATE runs SET ended_at = UTC_TIMESTAMP(3), code = NULL WHERE id = ? AND ended_at IS NULL', [id]);
-    live.end(id);
+    const run = await one<{ handout_token: string | null }>(db, 'SELECT handout_token FROM runs WHERE id = ?', [id]);
+    live.end(id, run?.handout_token ? `/h/${run.handout_token}` : null);
     return { ok: true };
+  });
+
+  /** Folien und Ergebnisse für Teilnehmende freigeben (eigener, zufälliger Link) oder zurückziehen. */
+  app.post('/api/runs/:id/handout', host, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const { enabled } = z.object({ enabled: z.boolean() }).parse(request.body);
+    const token = enabled ? randomBytes(24).toString('base64url') : null;
+    const result = await exec(
+      db,
+      enabled
+        ? 'UPDATE runs SET handout_token = COALESCE(handout_token, ?) WHERE id = ?'
+        : 'UPDATE runs SET handout_token = ? WHERE id = ?',
+      [token, id],
+    );
+    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Durchführung nicht gefunden' });
+    live.notify(id, true);
+    const run = await one<{ handout_token: string | null }>(db, 'SELECT handout_token FROM runs WHERE id = ?', [id]);
+    return { handoutUrl: run?.handout_token ? `/h/${run.handout_token}` : null };
   });
 
   app.post('/api/runs/:id/display-token', host, async (request) => {
@@ -367,4 +396,47 @@ export async function runResults(db: Db, runId: number) {
       };
     }),
   };
+}
+
+/**
+ * Öffentliche Freigabe einer Durchführung: Folien und zusammengefasste Ergebnisse.
+ * Bewusst ohne Freitexte, Namen, Fragen, Kommentare und Rangliste – was einzelne
+ * Personen geschrieben haben, gehört nicht in einen weitergegebenen Link.
+ */
+export async function handoutData(db: Db, token: string) {
+  const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE handout_token = ?', [token]);
+  if (!run) return null;
+  const data = await runResults(db, run.id);
+  if (!data) return null;
+  const brandRow = await one<BrandRow>(
+    db,
+    `SELECT ${BRAND_COLUMNS} FROM runs r JOIN presentations p ON p.id = r.presentation_id LEFT JOIN brands b ON b.id = p.brand_id WHERE r.id = ?`,
+    [run.id],
+  );
+  const slides: HandoutSlide[] = data.slides.flatMap((s, position): HandoutSlide[] => {
+    if (s.type === 'image') {
+      const c = s.config as SlideConfigs['image'];
+      return [{ type: 'image', title: c.title, image: assetUrl(c.asset), width: c.width, height: c.height }];
+    }
+    if (s.type === 'content') {
+      const c = s.config as SlideConfigs['content'];
+      return [{ type: 'content', title: c.title, body: c.body }];
+    }
+    if (s.type === 'sentence') {
+      // Nur Sätze, an die wirklich Wörter angehängt wurden
+      const start = sentenceStart((s.config as SlideConfigs['sentence']).start);
+      return s.sentence && s.sentence !== start ? [{ type: 'sentence', headline: s.headline, sentence: s.sentence }] : [];
+    }
+    if (!s.results || s.results.voters === 0) return [];
+    if (!['choice', 'scale', 'wordcloud', 'ranking', 'quiz', 'feedback'].includes(s.type)) return []; // Inhalte einzelner Personen
+    const results = s.results.type === 'feedback' ? { ...s.results, comments: [] } : s.results;
+    return [{ type: 'results', slide: { id: s.id, type: s.type, position, config: s.config } as PublicSlide, results }];
+  });
+  const result: HandoutData = {
+    title: data.title,
+    date: data.startedAt.toISOString(),
+    brand: brandRow ? brandView(brandRow) : null,
+    slides,
+  };
+  return result;
 }

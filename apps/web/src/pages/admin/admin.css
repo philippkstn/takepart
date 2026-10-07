@@ -479,7 +479,7 @@
 .mod-text {
   display: grid;
   gap: 4px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .mod-actions {
   display: flex;
@@ -570,4 +570,152 @@
   border: 1px solid var(--border-strong);
   background: var(--surface);
   cursor: pointer;
+}
+
+/* ───────────── Slides-Engine im Editor ───────────── */
+
+.editor-settings {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  padding: 0 4px;
+}
+.minutes-input {
+  width: 72px;
+  min-height: 36px;
+  padding: 0.3em 0.5em;
+  text-align: right;
+}
+.slide-thumb {
+  width: 48px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: #000;
+  flex-shrink: 0;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 40%);
+  animation: fade 160ms ease;
+}
+.dialog {
+  width: min(560px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-shadow: var(--shadow-2);
+  animation: pop 200ms var(--ease);
+}
+.file-drop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  border: 1.5px dashed var(--border-strong);
+  background: var(--surface-2);
+  cursor: pointer;
+  transition:
+    border-color 150ms,
+    background 150ms;
+}
+.file-drop:hover,
+.file-drop:focus-within {
+  border-color: var(--accent);
+}
+.file-drop.has-file {
+  border-style: solid;
+  background: var(--accent-soft);
+}
+.file-drop svg {
+  flex-shrink: 0;
+  color: var(--ink-2);
+}
+.progress {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.progress > div {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 250ms var(--ease);
+}
+
+/* ───────────── Referentenansicht ───────────── */
+
+.presenter-clock {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 650;
+}
+.clock-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-s);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+.presenter-clock.is-over .clock-timer {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.clock-now {
+  color: var(--ink-2);
+  font-size: 0.95rem;
+}
+.ink-tools {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ink-tools .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.next-slide {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.next-slide .preview-frame {
+  box-shadow: none;
+}
+.notes-box {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.notes-text {
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 1rem;
+  max-height: 40vh;
+  overflow: auto;
+}
+.control-slide .slide-thumb {
+  width: 40px;
 }

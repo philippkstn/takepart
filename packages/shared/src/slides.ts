@@ -18,8 +18,12 @@ export const SLIDE_TYPES = [
   'feedback',
   'qa',
   'sentence',
+  'image',
 ] as const;
 export type SlideType = (typeof SLIDE_TYPES)[number];
+
+/** Folientypen, die man im Editor direkt anlegen kann („image“ entsteht nur durch den Import). */
+export const CREATABLE_SLIDE_TYPES = SLIDE_TYPES.filter((t) => t !== 'image');
 
 export const SLIDE_TYPE_LABELS: Record<SlideType, string> = {
   content: 'Textfolie',
@@ -34,6 +38,7 @@ export const SLIDE_TYPE_LABELS: Record<SlideType, string> = {
   feedback: 'Feedback',
   qa: 'Fragen (Q&A)',
   sentence: 'Satz vervollständigen',
+  image: 'Folie',
 };
 
 export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
@@ -49,6 +54,7 @@ export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
   feedback: 'Sterne-Bewertung mit optionalem Kommentar',
   qa: 'Fragen mit Namen, Upvotes und Freigabe',
   sentence: 'Satzanfang vorgeben, das häufigste Wort wird angehängt',
+  image: 'Importierte Folie aus PDF/PowerPoint',
 };
 
 const text = (max: number) => z.string().trim().max(max);
@@ -107,6 +113,15 @@ export const qaConfig = z.object({
 export const sentenceConfig = z.object({
   start: text(300).default(''),
 });
+/** Öffentliche, zufällige Kennung eines hochgeladenen Bildes – sie ist zugleich die Zugriffskontrolle. */
+export const assetId = z.string().regex(/^[A-Za-z0-9_-]{32}$/, 'Ungültige Bildkennung');
+export const imageConfig = z.object({
+  asset: assetId,
+  width: z.number().int().min(1).max(10000),
+  height: z.number().int().min(1).max(10000),
+  /** Titel für Listen (beim Import aus der ersten Textzeile der Seite) */
+  title: text(200).default(''),
+});
 
 export const slideConfigSchemas = {
   content: contentConfig,
@@ -121,6 +136,7 @@ export const slideConfigSchemas = {
   feedback: feedbackConfig,
   qa: qaConfig,
   sentence: sentenceConfig,
+  image: imageConfig,
 } satisfies Record<SlideType, z.ZodType>;
 
 export type SlideConfigs = { [K in SlideType]: z.infer<(typeof slideConfigSchemas)[K]> };
@@ -155,8 +171,12 @@ export function slideHeadline(slide: Pick<Slide, 'type' | 'config'>): string {
 
 /** Folientypen, auf die das Publikum antwortet (alles außer der Textfolie). */
 export function isInteractive(type: SlideType): boolean {
-  return type !== 'content';
+  return type !== 'content' && type !== 'image';
 }
+
+/** URLs hochgeladener Bilder; die Kennung ist zufällig und nicht erratbar. */
+export const assetUrl = (asset: string) => `/api/assets/${asset}`;
+export const assetThumbUrl = (asset: string) => `/api/assets/${asset}/thumb`;
 
 /** Folientypen, deren Beiträge als einzelne Karten (Posts) gespeichert werden. */
 export const POST_TYPES = ['open', 'brainstorm', 'pinboard', 'qa'] as const satisfies readonly SlideType[];

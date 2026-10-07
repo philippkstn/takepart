@@ -26,6 +26,14 @@ npm run build
 5. Quizlösungen erreichen Teilnehmende und Beamer erst nach dem Auflösen (`publicSlide`).
 6. Neue Folientypen: Schema in `slides.ts`, ggf. Antwort in `responses.ts` + Auswertung in `results.ts`, Formular in `SlideForm.tsx`, Teilnehmer-Ansicht in `Activities.tsx`, Bühne in `Stage.tsx`, Steuerung in `ControlPage.tsx`, CSV in `export.ts`.
 
+## Slides-Engine
+
+- Import im **Browser** (`apps/web/src/lib/importDeck.ts`): pdf.js rendert PDF-Seiten (intent `print`, damit es auch im Hintergrund-Tab läuft), JSZip liest nur die Sprechernotizen aus der PPTX (ausgeblendete Folien überspringen). Auf dem Server läuft keine PDF-/Office-Software. pdf.js-Hilfsdateien kopiert `apps/web/scripts/copy-pdfjs.mjs` nach `public/pdfjs` (nicht eingecheckt); die CSP erlaubt dafür `'wasm-unsafe-eval'`.
+- Folienbilder liegen in `assets` (Blob). Zugriff öffentlich über die zufällige `public_id` – sie ist die Zugriffskontrolle (wie der Anzeige-Link). Folientyp `image` entsteht nur per Import (`CREATABLE_SLIDE_TYPES`), das Bild einer Folie ist nicht austauschbar. Duplizieren kopiert die Bilder mit neuen Kennungen.
+- **Sprechernotizen** (`slides.notes`) erscheinen nur im Editor und in der Host-Ansicht – nie im `Slide`-Typ, nie bei Beamer oder Publikum.
+- Bühne ist immer **16:9** (Beamer letterboxt). Laserpointer/Zeichnen nutzen auf die Bühne normierte Koordinaten und laufen direkt über den Host-WebSocket (`live.ts`, `inkEvent`) – die einzige bewusste Ausnahme von „Live-Zustand liegt in der DB“: flüchtig, gelöscht bei Folienwechsel.
+- Freigabe (`/h/:token`, `handoutData` in `runs.ts`) enthält nur Folien und zusammengefasste Ergebnisse – keine Namen, Freitexte, Fragen, Kommentare, Ranglisten.
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

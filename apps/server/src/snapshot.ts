@@ -41,8 +41,14 @@ export interface Snapshot {
     ended: boolean;
     state: RunState;
     brand: BrandView | null;
+    startedAt: number;
+    handoutToken: string | null;
+    shareSlides: boolean;
+    targetMinutes: number | null;
   };
   slides: Slide[];
+  /** Sprechernotizen der aktuellen Folie – nur für die Host-Ansicht */
+  notes: string;
   current: Slide | null;
   index: number;
   /** Antworten auf die aktuelle Folie (beim Satz-Spiel: aktuelle Runde) */
@@ -62,8 +68,12 @@ interface RunRow extends BrandRow {
   title: string;
   code: string | null;
   display_token: string;
+  handout_token: string | null;
   state: string;
+  started_at: Date;
   ended_at: Date | null;
+  share_slides: number;
+  target_minutes: number | null;
 }
 
 interface SlideRow {
@@ -94,7 +104,8 @@ export function effectiveQuiz(state: RunState, slideId: number, now: number): Qu
 export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | null> {
   const run = await one<RunRow>(
     db,
-    `SELECT r.id, r.presentation_id, p.title, r.code, r.display_token, r.state, r.ended_at, ${BRAND_COLUMNS}
+    `SELECT r.id, r.presentation_id, p.title, r.code, r.display_token, r.handout_token, r.state, r.started_at, r.ended_at,
+            p.share_slides, p.target_minutes, ${BRAND_COLUMNS}
        FROM runs r JOIN presentations p ON p.id = r.presentation_id LEFT JOIN brands b ON b.id = p.brand_id
       WHERE r.id = ?`,
     [runId],
@@ -149,7 +160,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
         set.add(v.post_id);
       }
     }
-  } else if (current && current.type !== 'content') {
+  } else if (current && current.type !== 'content' && current.type !== 'image') {
     const round = current.type === 'sentence' ? sentenceState(state, current.id).round : 1;
     const rows = await query<{ participant_id: number; payload: string }>(
       db,
@@ -192,6 +203,10 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   const counts = new Map<number, number>();
   for (const r of countRows) counts.set(r.slide_id, (counts.get(r.slide_id) ?? 0) + Number(r.n));
 
+  const notes = current
+    ? ((await one<{ notes: string | null }>(db, 'SELECT notes FROM slides WHERE id = ?', [current.id]))?.notes ?? '')
+    : '';
+
   return {
     run: {
       id: run.id,
@@ -202,8 +217,13 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
       ended: run.ended_at !== null,
       state,
       brand: brandView(run),
+      startedAt: run.started_at.getTime(),
+      handoutToken: run.handout_token,
+      shareSlides: !!run.share_slides,
+      targetMinutes: run.target_minutes,
     },
     slides,
+    notes,
     current,
     index,
     responses,

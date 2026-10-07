@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@slides/shared';
+import { inkEvent, type InkEvent, type InkStroke, type ServerMessage } from '@slides/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { Db } from './db.ts';
@@ -20,10 +20,14 @@ const PING_MS = 25_000;
 /** Obergrenzen gegen das massenhafte Öffnen von Verbindungen */
 const MAX_CONNECTIONS_PER_RUN = 6000;
 const MAX_CONNECTIONS_PER_PARTICIPANT = 5;
+/** Laserpointer & Zeichnen: Obergrenzen gegen Überlastung */
+const INK_MAX_MESSAGES_PER_SECOND = 80;
+const INK_MAX_STROKES = 300;
+const INK_MAX_POINTS_PER_STROKE = 3000;
 
 type Client =
   | { ws: WebSocket; role: 'participant'; participantId: number; alive: boolean }
-  | { ws: WebSocket; role: 'display' | 'host'; alive: boolean };
+  | { ws: WebSocket; role: 'display' | 'host'; alive: boolean; inkWindow?: number; inkCount?: number };
 
 interface Room {
   clients: Set<Client>;
@@ -32,6 +36,12 @@ interface Room {
   running: boolean;
   again: boolean;
   quizTimer: NodeJS.Timeout | null;
+  /**
+   * Striche der aktuellen Folie. Bewusst nur im Speicher (die einzige Ausnahme von
+   * „Live-Zustand liegt in der Datenbank“): flüchtig, gehen bei Folienwechsel und
+   * Neustart verloren.
+   */
+  ink: { slideId: number | null; strokes: Map<string, [number, number][]> };
 }
 
 export class LiveHub {
@@ -71,7 +81,15 @@ export class LiveHub {
   private room(runId: number): Room {
     let room = this.rooms.get(runId);
     if (!room) {
-      room = { clients: new Set(), lastSent: 0, timer: null, running: false, again: false, quizTimer: null };
+      room = {
+        clients: new Set(),
+        lastSent: 0,
+        timer: null,
+        running: false,
+        again: false,
+        quizTimer: null,
+        ink: { slideId: null, strokes: new Map() },
+      };
       this.rooms.set(runId, room);
     }
     return room;
@@ -98,8 +116,54 @@ export class LiveHub {
       }
     });
     client.ws.on('error', () => client.ws.terminate());
+    if (client.role !== 'participant' && room.ink.strokes.size > 0) {
+      client.ws.send(JSON.stringify({ type: 'ink-state', strokes: this.strokes(room) } satisfies ServerMessage));
+    }
     this.notify(runId, true);
     return true;
+  }
+
+  private strokes(room: Room): InkStroke[] {
+    return [...room.ink.strokes.entries()].map(([id, points]) => ({ id, points }));
+  }
+
+  /** Nachricht eines Hosts (Laserpointer/Zeichnen): prüfen, merken, an Beamer und Hosts weiterreichen. */
+  ink(runId: number, sender: Client, raw: unknown) {
+    if (sender.role !== 'host') return;
+    const now = Date.now();
+    if (!sender.inkWindow || now - sender.inkWindow >= 1000) {
+      sender.inkWindow = now;
+      sender.inkCount = 0;
+    }
+    if ((sender.inkCount = (sender.inkCount ?? 0) + 1) > INK_MAX_MESSAGES_PER_SECOND) return;
+
+    let parsed: InkEvent;
+    try {
+      const result = inkEvent.safeParse(JSON.parse(String(raw)));
+      if (!result.success) return;
+      parsed = result.data;
+    } catch {
+      return;
+    }
+    const room = this.rooms.get(runId);
+    if (!room) return;
+    if (parsed.type === 'clear') room.ink.strokes.clear();
+    if (parsed.type === 'stroke') {
+      const points = room.ink.strokes.get(parsed.id);
+      if (points) {
+        if (points.length < INK_MAX_POINTS_PER_STROKE) points.push(...parsed.points.slice(0, INK_MAX_POINTS_PER_STROKE - points.length));
+      } else if (room.ink.strokes.size < INK_MAX_STROKES) {
+        room.ink.strokes.set(parsed.id, [...parsed.points]);
+      } else {
+        return;
+      }
+    }
+    this.relayInk(room, { type: 'ink', event: parsed });
+  }
+
+  private relayInk(room: Room, message: ServerMessage) {
+    const msg = JSON.stringify(message);
+    for (const c of room.clients) if (c.role !== 'participant' && c.ws.readyState === c.ws.OPEN) c.ws.send(msg);
   }
 
   /** Neue Daten für eine Durchführung – gebündelt verschicken. */
@@ -119,10 +183,10 @@ export class LiveHub {
   }
 
   /** Alle Verbindungen einer beendeten Durchführung informieren und schließen. */
-  end(runId: number) {
+  end(runId: number, handoutUrl: string | null = null) {
     const room = this.rooms.get(runId);
     if (!room) return;
-    const msg = JSON.stringify({ type: 'ended' } satisfies ServerMessage);
+    const msg = JSON.stringify({ type: 'ended', handoutUrl } satisfies ServerMessage);
     for (const c of room.clients) {
       if (c.role === 'host') continue;
       c.ws.send(msg);
@@ -144,6 +208,11 @@ export class LiveHub {
     try {
       const snap = await loadSnapshot(this.db, runId);
       if (!snap) return;
+      if (room.ink.slideId !== snap.run.state.slideId) {
+        const hadInk = room.ink.strokes.size > 0;
+        room.ink = { slideId: snap.run.state.slideId, strokes: new Map() };
+        if (hadInk) this.relayInk(room, { type: 'ink', event: { type: 'clear' } });
+      }
       const participantIds = new Set<number>();
       for (const c of room.clients) if (c.role === 'participant') participantIds.add(c.participantId);
       const participants = participantIds.size;

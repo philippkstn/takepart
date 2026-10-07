@@ -6,6 +6,7 @@ import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError, z } from 'zod';
+import { assetRoutes } from './assets.ts';
 import { authRoutes, isHost } from './auth.ts';
 import { brandRoutes } from './brands.ts';
 import type { Config } from './config.ts';
@@ -13,14 +14,15 @@ import { one, type Db } from './db.ts';
 import { LiveHub } from './live.ts';
 import { participantByToken, participantRoutes } from './participants.ts';
 import { presentationRoutes } from './presentations.ts';
-import { runRoutes } from './runs.ts';
+import { handoutData, runRoutes } from './runs.ts';
 
 function contentSecurityPolicy(origin: string): string {
   // Ältere Safari-Versionen zählen wss: nicht zu 'self' – deshalb explizit.
   const ws = origin.replace(/^http/, 'ws');
   return [
     "default-src 'self'",
-    "script-src 'self'",
+    // WASM für den PDF-Import (pdf.js-Decoder); erlaubt kein JavaScript-eval
+    "script-src 'self' 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self'",
@@ -45,7 +47,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
 
   await app.register(cookie);
   await app.register(rateLimit, { global: false });
-  await app.register(websocket, { options: { maxPayload: 4 * 1024 } });
+  await app.register(websocket, { options: { maxPayload: 16 * 1024 } });
 
   app.addHook('onSend', async (request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
@@ -67,6 +69,14 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     return { imprintUrl: config.IMPRINT_URL ?? null, privacyUrl: config.PRIVACY_URL ?? null, sourceUrl: config.SOURCE_URL };
   });
 
+  /** Öffentliche Freigabe: Folien und zusammengefasste Ergebnisse einer Durchführung */
+  app.get('/api/handout/:token', async (request, reply) => {
+    const { token } = z.object({ token: z.string().max(64) }).parse(request.params);
+    const data = await handoutData(db, token);
+    if (!data) return reply.code(404).send({ error: 'Diese Freigabe gibt es nicht (mehr)' });
+    return data;
+  });
+
   app.get('/api/health', async () => {
     await one(db, 'SELECT 1');
     return { status: 'ok', release: config.RELEASE };
@@ -74,6 +84,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
 
   authRoutes(app, db, config);
   presentationRoutes(app, db, live);
+  assetRoutes(app, db);
   brandRoutes(app, db, live);
   runRoutes(app, db, live);
   participantRoutes(app, db, live);
@@ -110,7 +121,10 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       if (!(await isHost(db, request))) return reject(4001, 'Nicht angemeldet');
       const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE id = ?', [q.data.run]);
       if (!run) return reject(4004, 'Nicht gefunden');
-      if (!live.attach(run.id, { ws: socket, role: 'host', alive: true })) reject(1013, 'Zu viele Verbindungen');
+      const client = { ws: socket, role: 'host' as const, alive: true };
+      if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
+      // Nur Hosts senden: Laserpointer und Zeichnen
+      socket.on('message', (raw) => live.ink(run.id, client, raw));
       return;
     }
     reject(4000, 'Ungültige Anfrage');

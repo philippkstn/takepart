@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Maximize, Minimize } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
+import { InkOverlay } from '../components/Ink.tsx';
 import { Stage } from '../components/Stage.tsx';
 import { ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
@@ -17,7 +18,7 @@ import './display.css';
  */
 export default function DisplayPage() {
   const { token = '' } = useParams();
-  const { view, status, offset } = useLive<DisplayView>(`display=${encodeURIComponent(token)}`);
+  const { view, status, offset, ink } = useLive<DisplayView>(`display=${encodeURIComponent(token)}`);
   const auth = useQuery({ queryKey: ['auth'], queryFn: authStatus });
   const isHost = !!auth.data?.loggedIn;
   const [fullscreen, setFullscreen] = useState(false);
@@ -85,7 +86,11 @@ export default function DisplayPage() {
 
   return (
     <div className={`display-page ${idle ? 'is-idle' : ''}`}>
-      <Stage view={view} offset={offset} />
+      {/* Feste 16:9-Bühne: Laserpointer und Zeichnungen liegen so exakt wie im Steuerpult */}
+      <div className="display-box">
+        <Stage view={view} offset={offset} overlay={<InkOverlay ink={ink} />} />
+      </div>
+      <Preload urls={view.preload} />
       <ConnectionBadge status={status} />
       <button
         className="display-fs icon-btn"
@@ -102,4 +107,12 @@ export default function DisplayPage() {
 function toggleFullscreen() {
   if (document.fullscreenElement) void document.exitFullscreen();
   else void document.documentElement.requestFullscreen().catch(() => {});
+}
+
+/** Bild der nächsten Folie schon laden, damit der Wechsel nicht flackert. */
+function Preload({ urls }: { urls: string[] }) {
+  useEffect(() => {
+    for (const url of urls) new Image().src = url;
+  }, [urls.join('|')]);
+  return null;
 }
