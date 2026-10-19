@@ -4,6 +4,7 @@ import { LegalLinks } from '../components/LegalLinks.tsx';
 import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
 import { ParkingButton } from '../components/participant/BoardActivity.tsx';
+import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
@@ -121,6 +122,7 @@ export default function ParticipantPage({ code }: { code: string }) {
         </span>
       </header>
       <ConnectionBadge status={status} />
+      <CountdownAlert countdown={view.countdown} offset={offset} />
       <main className="p-main">
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
         <ParkingButton parking={view.parking} token={token} />

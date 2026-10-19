@@ -11,8 +11,9 @@ import {
   type PublicSlide,
 } from '@slides/shared';
 import { EyeOff, Plus } from 'lucide-react';
-import { useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { axisPosition, cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { BarList } from '../Results.tsx';
 import './board.css';
 
@@ -94,15 +95,10 @@ function Body({ ctx }: { ctx: Ctx }) {
 /** Dichte nach Kartenzahl, damit auch volle Wände auf die Bühne passen */
 const density = (n: number) => (n > 60 ? 'is-denser' : n > 28 ? 'is-dense' : '');
 
-function dragProps(key: string, enabled: boolean) {
+/** Karte oder Gruppe ziehbar machen (Maus, Stift und Touch) */
+function dragProps(key: string, label: string, enabled: boolean) {
   if (!enabled) return {};
-  return {
-    draggable: true,
-    onDragStart: (e: DragEvent) => {
-      e.dataTransfer.setData('text/plain', key);
-      e.dataTransfer.effectAllowed = 'move';
-    },
-  };
+  return { 'data-draggable': true, onPointerDown: (e: React.PointerEvent) => startDrag(e, key, label) };
 }
 
 function Zone({
@@ -116,24 +112,9 @@ function Zone({
   children: ReactNode;
   label?: string;
 }) {
-  const [over, setOver] = useState(false);
-  if (!onDrop) return <div className={className}>{children}</div>;
+  const drop = useDropZone(onDrop);
   return (
-    <div
-      className={`${className} is-drop ${over ? 'is-over' : ''}`}
-      aria-label={label}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setOver(true);
-      }}
-      onDragLeave={() => setOver(false)}
-      onDrop={(e) => {
-        e.preventDefault();
-        setOver(false);
-        const key = e.dataTransfer.getData('text/plain');
-        if (parseBoardKey(key)) onDrop(key);
-      }}
-    >
+    <div className={`${className} ${onDrop ? 'is-drop' : ''}`} aria-label={onDrop ? label : undefined} {...drop}>
       {children}
     </div>
   );
@@ -171,7 +152,7 @@ function FitList({ children }: { children: ReactNode }) {
 function Card({ post, ctx, tag = true }: { post: PostView; ctx: Ctx; tag?: boolean }) {
   const label = tag && post.column !== null ? ctx.config.tags[post.column] : undefined;
   return (
-    <li className={`board-card ${ctx.focus === post.id ? 'is-focus' : ''}`} {...dragProps(cardKey(post.id), !!ctx.onBoard)}>
+    <li className={`board-card ${ctx.focus === post.id ? 'is-focus' : ''}`} {...dragProps(cardKey(post.id), post.text, !!ctx.onBoard)}>
       <span className="board-card-text">{post.text}</span>
       {label && <span className="board-tag">{label}</span>}
     </li>
@@ -185,7 +166,7 @@ function Item({ itemKey, ctx, extra }: { itemKey: string; ctx: Ctx; extra?: Reac
   return (
     <li
       className={`board-card ${group ? 'is-group' : ''} ${parsed?.kind === 'card' && ctx.focus === parsed.id ? 'is-focus' : ''}`}
-      {...dragProps(itemKey, !!ctx.onBoard)}
+      {...dragProps(itemKey, labelOf(itemKey, ctx.view.posts, ctx.board), !!ctx.onBoard)}
     >
       <span className="board-card-text">{labelOf(itemKey, ctx.view.posts, ctx.board)}</span>
       {group && <span className="board-tag tabular">{group.cards} Karten</span>}
@@ -434,7 +415,7 @@ function TargetList({ ctx }: { ctx: Ctx }) {
 
 function Dots({ ctx }: { ctx: Ctx }) {
   const results = ctx.view.results as BoardResults | null;
-  if (!results || results.type !== 'board') return <TargetList ctx={ctx} />;
+  if (!results || results.type !== 'board' || results.voters === 0) return <TargetList ctx={ctx} />;
   const items = [...ctx.board.targets].map((key, i) => ({ key, i, n: results.dots[key] ?? 0 })).sort((a, b) => b.n - a.n || a.i - b.i);
   const max = Math.max(1, ...items.map((e) => e.n));
   return (
@@ -457,7 +438,7 @@ function Dots({ ctx }: { ctx: Ctx }) {
 function Rate({ ctx }: { ctx: Ctx }) {
   const { config, board, view } = ctx;
   const results = view.results as BoardResults | null;
-  if (!results || results.type !== 'board') return <TargetList ctx={ctx} />;
+  if (!results || results.type !== 'board' || results.voters === 0) return <TargetList ctx={ctx} />;
   if (config.scales.length === 2) return <RatingMatrix ctx={ctx} results={results} />;
   const scale = config.scales[0]!;
   const items = board.targets

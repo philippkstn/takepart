@@ -38,8 +38,10 @@
     border-color 160ms var(--ease),
     box-shadow 160ms var(--ease);
 }
-.board-card[draggable='true'] {
+.board-card[data-draggable='true'] {
   cursor: grab;
+  touch-action: none;
+  user-select: none;
 }
 .board-card.is-focus {
   border-color: var(--accent);

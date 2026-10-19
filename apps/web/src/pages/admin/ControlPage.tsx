@@ -198,22 +198,6 @@ export default function ControlPage() {
               }
             />
           </div>
-          <div className="ink-tools" role="toolbar" aria-label="Zeigen und Zeichnen">
-            <div className="segmented">
-              <button aria-pressed={tool === 'none'} onClick={() => setTool('none')} title="Normal">
-                <MousePointer2 size={15} /> Aus
-              </button>
-              <button aria-pressed={tool === 'pointer'} onClick={() => setTool('pointer')} title="Laserpointer auf dem Beamer">
-                <Crosshair size={15} /> Laserpointer
-              </button>
-              <button aria-pressed={tool === 'pen'} onClick={() => setTool('pen')} title="Auf die Folie zeichnen">
-                <PenLine size={15} /> Stift
-              </button>
-            </div>
-            <button className="btn btn-small" onClick={() => sendInk({ type: 'clear' })} disabled={ink.strokes.length === 0}>
-              <Eraser /> Zeichnung löschen
-            </button>
-          </div>
           <div className="control-nav">
             <button
               className="btn btn-large"
@@ -242,50 +226,81 @@ export default function ControlPage() {
               Weiter <ChevronRight />
             </button>
           </div>
-          <div className="control-toggles">
-            <button
-              className={`btn btn-small ${view.resultsVisible ? '' : 'btn-ink'}`}
-              onClick={() => command({ action: 'results', visible: !view.resultsVisible })}
-            >
-              {view.resultsVisible ? <EyeOff /> : <Eye />} {view.resultsVisible ? 'Ergebnisse verbergen' : 'Ergebnisse zeigen'}
-            </button>
-            <button
-              className={`btn btn-small ${view.showJoin ? 'btn-ink' : ''}`}
-              onClick={() => command({ action: 'join', visible: !view.showJoin })}
-            >
-              <QrIcon /> {view.showJoin ? 'Beitritt ausblenden' : 'Beitritt einblenden'}
-            </button>
+          {/* Steuerung nach Aufgaben gruppiert: Beamer, Folie, Zeigen, Timer, Teilen */}
+          <div className="control-groups">
+            <ControlGroup label="Beamer">
+              <button
+                className={`btn btn-small ${view.resultsVisible ? '' : 'btn-ink'}`}
+                onClick={() => command({ action: 'results', visible: !view.resultsVisible })}
+              >
+                {view.resultsVisible ? <EyeOff /> : <Eye />} {view.resultsVisible ? 'Ergebnisse verbergen' : 'Ergebnisse zeigen'}
+              </button>
+              <button
+                className={`btn btn-small ${view.showJoin ? 'btn-ink' : ''}`}
+                onClick={() => command({ action: 'join', visible: !view.showJoin })}
+              >
+                <QrIcon /> {view.showJoin ? 'Beitritt ausblenden' : 'Beitritt zeigen'}
+              </button>
+              <span className="segmented" role="group" aria-label="Bildschirm abdunkeln">
+                <button
+                  aria-pressed={blank === 'black'}
+                  onClick={() => command({ action: 'blank', mode: blank === 'black' ? null : 'black' })}
+                  title="Schwarzbild (Taste B oder .)"
+                >
+                  <Square size={15} fill="currentColor" /> Schwarz
+                </button>
+                <button
+                  aria-pressed={blank === 'white'}
+                  onClick={() => command({ action: 'blank', mode: blank === 'white' ? null : 'white' })}
+                  title="Weißbild (Taste W oder ,)"
+                >
+                  <Square size={15} /> Weiß
+                </button>
+              </span>
+              {view.spotlight && (
+                <button className="btn btn-small btn-ink" onClick={() => command({ action: 'spotlight', postId: null })}>
+                  <X /> Einblendung beenden
+                </button>
+              )}
+            </ControlGroup>
             {slide && slide.type !== 'content' && slide.type !== 'image' && (
-              <button
-                className={`btn btn-small ${view.locked ? 'btn-ink' : ''}`}
-                onClick={() => command({ action: 'lock', slideId: slide.id, locked: !view.locked })}
-              >
-                {view.locked ? <LockOpen /> : <Lock />} {view.locked ? 'Antworten wieder öffnen' : 'Antworten schließen'}
-              </button>
+              <ControlGroup label="Folie">
+                <button
+                  className={`btn btn-small ${view.locked ? 'btn-ink' : ''}`}
+                  onClick={() => command({ action: 'lock', slideId: slide.id, locked: !view.locked })}
+                >
+                  {view.locked ? <LockOpen /> : <Lock />} {view.locked ? 'Antworten wieder öffnen' : 'Antworten schließen'}
+                </button>
+              </ControlGroup>
             )}
-            {view.spotlight && (
-              <button className="btn btn-small btn-ink" onClick={() => command({ action: 'spotlight', postId: null })}>
-                <X /> Einblendung beenden
-              </button>
-            )}
-            <span className="segmented" role="group" aria-label="Bildschirm abdunkeln">
+            <ControlGroup label="Zeigen">
+              <span className="segmented" role="group" aria-label="Zeigen und Zeichnen">
+                <button aria-pressed={tool === 'none'} onClick={() => setTool('none')} title="Normal">
+                  <MousePointer2 size={15} /> Aus
+                </button>
+                <button aria-pressed={tool === 'pointer'} onClick={() => setTool('pointer')} title="Laserpointer auf dem Beamer">
+                  <Crosshair size={15} /> Laser
+                </button>
+                <button aria-pressed={tool === 'pen'} onClick={() => setTool('pen')} title="Auf die Folie zeichnen">
+                  <PenLine size={15} /> Stift
+                </button>
+              </span>
               <button
-                aria-pressed={blank === 'black'}
-                onClick={() => command({ action: 'blank', mode: blank === 'black' ? null : 'black' })}
-                title="Schwarzbild (Taste B oder .)"
+                className="icon-btn"
+                onClick={() => sendInk({ type: 'clear' })}
+                disabled={ink.strokes.length === 0}
+                title="Zeichnung löschen"
+                aria-label="Zeichnung löschen"
               >
-                <Square size={15} fill="currentColor" /> Schwarz
+                <Eraser />
               </button>
-              <button
-                aria-pressed={blank === 'white'}
-                onClick={() => command({ action: 'blank', mode: blank === 'white' ? null : 'white' })}
-                title="Weißbild (Taste W oder ,)"
-              >
-                <Square size={15} /> Weiß
-              </button>
-            </span>
-            <CountdownControl view={view} offset={offset} command={command} />
-            <HandoutToggle runId={runId} url={view.handoutUrl} />
+            </ControlGroup>
+            <ControlGroup label="Timer">
+              <CountdownControl view={view} offset={offset} command={command} />
+            </ControlGroup>
+            <ControlGroup label="Teilen">
+              <HandoutToggle runId={runId} url={view.handoutUrl} />
+            </ControlGroup>
           </div>
         </section>
 
@@ -715,6 +730,15 @@ function PresenterClock({ view, offset, onReset }: { view: HostView; offset: num
   );
 }
 
+function ControlGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="control-group" role="group" aria-label={label}>
+      <span className="control-group-label">{label}</span>
+      <div className="control-group-items">{children}</div>
+    </div>
+  );
+}
+
 /** Countdown für Arbeitsphasen und Pausen – erscheint auf Beamer und Handys. */
 function CountdownControl({ view, offset, command }: { view: HostView; offset: number; command: Cmd }) {
   const running = view.countdown;
@@ -735,7 +759,6 @@ function CountdownControl({ view, offset, command }: { view: HostView; offset: n
   }
   return (
     <label className="row countdown-control" title="Countdown auf Beamer und Handys">
-      <Timer size={15} aria-hidden />
       <select
         className="select select-small"
         value=""
@@ -749,7 +772,7 @@ function CountdownControl({ view, offset, command }: { view: HostView; offset: n
           } else if (v) start(Number(v) * 60);
         }}
       >
-        <option value="">Timer …</option>
+        <option value="">Countdown starten …</option>
         {[1, 2, 3, 5, 10, 15, 20, 30, 45].map((m) => (
           <option key={m} value={m}>
             {m} Minuten
@@ -784,7 +807,7 @@ function HandoutToggle({ runId, url }: { runId: number; url: string | null }) {
         disabled={busy}
         title="Folien und zusammengefasste Ergebnisse für Teilnehmende"
       >
-        <Share2 /> {url ? 'Freigabe zurückziehen' : 'Folien freigeben'}
+        <Share2 /> {url ? 'Freigabe zurückziehen' : 'Folien & Ergebnisse freigeben'}
       </button>
       {url && (
         <a className="icon-btn" href={url} target="_blank" rel="noopener" title="Freigabe ansehen" aria-label="Freigabe ansehen">

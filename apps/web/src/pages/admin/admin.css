@@ -871,3 +871,42 @@
   border: 1px solid var(--border);
   background: var(--surface-2);
 }
+
+/* Steuerleiste unter der Vorschau: Gruppen nach Aufgabe */
+.control-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.control-groups > .control-group {
+  flex: 1 1 auto;
+}
+.control-group {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 10px 12px 12px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.control-group-label {
+  font-size: 0.75rem;
+  font-weight: 650;
+  color: var(--ink-3);
+}
+.control-group-items {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px;
+}
+.control-group .segmented button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+}
+.control-group .countdown-control select {
+  min-width: 12em;
+}

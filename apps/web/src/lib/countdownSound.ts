@@ -56,13 +56,43 @@ export function playEnd() {
   }
 }
 
+export type CountdownMoment = 'warning' | 'end';
+
 /**
- * Plant die Töne für den laufenden Countdown. Schon vergangene Zeitpunkte
+ * Meldet die Momente des laufenden Countdowns: eine Minute vor Ende (nur bei
+ * Countdowns über einer Minute) und den Ablauf. Schon vergangene Zeitpunkte
  * (z. B. nach einem Neuladen) werden nicht nachgeholt.
  */
+export function useCountdownMoments(countdown: Countdown | null, offset: number, onMoment: (moment: CountdownMoment) => void) {
+  const latest = useRef(onMoment);
+  latest.current = onMoment;
+  const played = useRef(new Set<string>());
+  const endsAt = countdown?.endsAt ?? null;
+  const seconds = countdown?.seconds ?? 0;
+  useEffect(() => {
+    if (endsAt === null) return;
+    const now = Date.now() + offset;
+    const timers: number[] = [];
+    const schedule = (moment: CountdownMoment, at: number) => {
+      const key = `${endsAt}:${moment}`;
+      if (at <= now || played.current.has(key)) return;
+      timers.push(
+        window.setTimeout(() => {
+          played.current.add(key);
+          latest.current(moment);
+        }, at - now),
+      );
+    };
+    if (seconds * 1000 > WARNING_MS) schedule('warning', endsAt - WARNING_MS);
+    schedule('end', endsAt);
+    return () => timers.forEach((t) => window.clearTimeout(t));
+    // offset schwankt minimal mit jeder Ansicht – neu planen nur bei neuem Countdown
+  }, [endsAt, seconds]);
+}
+
+/** Töne zum Countdown auf dem Beamer. Solange der Browser Ton sperrt, ist `locked` wahr. */
 export function useCountdownSounds(countdown: Countdown | null, offset: number): { locked: boolean; unlock: () => void } {
   const [locked, setLocked] = useState(() => audio()?.state !== 'running');
-  const played = useRef(new Set<string>());
 
   const unlock = () => {
     const ac = audio();
@@ -85,27 +115,6 @@ export function useCountdownSounds(countdown: Countdown | null, offset: number):
     };
   }, []);
 
-  const endsAt = countdown?.endsAt ?? null;
-  const seconds = countdown?.seconds ?? 0;
-  useEffect(() => {
-    if (endsAt === null) return;
-    const now = Date.now() + offset;
-    const timers: number[] = [];
-    const schedule = (key: string, at: number, play: () => void) => {
-      if (at <= now || played.current.has(key)) return;
-      timers.push(
-        window.setTimeout(() => {
-          played.current.add(key);
-          play();
-        }, at - now),
-      );
-    };
-    // Hinweis nur, wenn der Countdown länger als eine Minute läuft
-    if (seconds * 1000 > WARNING_MS) schedule(`${endsAt}:warn`, endsAt - WARNING_MS, playWarning);
-    schedule(`${endsAt}:end`, endsAt, playEnd);
-    return () => timers.forEach((t) => window.clearTimeout(t));
-    // offset schwankt minimal mit jeder Ansicht – neu planen nur bei neuem Countdown
-  }, [endsAt, seconds]);
-
+  useCountdownMoments(countdown, offset, (moment) => (moment === 'warning' ? playWarning() : playEnd()));
   return { locked, unlock };
 }

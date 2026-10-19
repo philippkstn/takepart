@@ -1,6 +1,7 @@
 import {
   BOARD_MODE_LABELS,
   cardKey,
+  parseBoardKey,
   type BoardOp,
   type ParkingView,
   type ParticipantView,
@@ -8,10 +9,11 @@ import {
   type PublicSlide,
   type ResponsePayloads,
 } from '@slides/shared';
-import { Check, Hourglass, Lock, Minus, Pencil, Plus, Send, Trash2, X } from 'lucide-react';
+import { Check, GripVertical, Hourglass, Lock, Minus, Pencil, Plus, Send, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { cardsByGroup, labelOf } from '../../lib/board.ts';
+import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { useToast } from '../ui.tsx';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
@@ -253,42 +255,55 @@ function Arrange({ view, slide, token }: { view: ParticipantView; slide: BoardSl
 
   if (config.mode === 'place') {
     const options = config.lanes.flatMap((lane, l) =>
-      lane.cells.map((cell, c) => ({ value: `${l}:${c}`, label: lane.title ? `${lane.title} · ${cell}` : cell })),
+      lane.cells.map((cell, c) => ({ lane: l, cell: c, value: `${l}:${c}`, label: lane.title ? `${lane.title} · ${cell}` : cell })),
     );
     // Gemeinsam: alle Einträge der Folie (Karten oder Gruppen), sonst nur eigene Karten
     const ownKeys = new Set(view.posts.filter((p) => p.mine).map((p) => cardKey(p.id)));
     const keys = all ? board.targets : board.targets.filter((k) => ownKeys.has(k));
     if (keys.length === 0) return <Note icon={<Hourglass size={20} />}>Hier gibt es für dich nichts einzuordnen.</Note>;
+    const place = (key: string, lane: number | null, cell: number | null) => void op({ op: 'place', key, lane, cell });
+    const item = (key: string) => {
+      const p = board.places[key];
+      const label = labelOf(key, view.posts, board);
+      return (
+        <li key={key} className="board-chip board-place-item">
+          <DragGrip itemKey={key} label={label} />
+          <span className="board-chip-text">{label}</span>
+          <select
+            className="select select-compact"
+            aria-label="Feld"
+            disabled={busy}
+            value={p ? `${p.lane}:${p.cell}` : ''}
+            onChange={(e) => {
+              const o = options.find((x) => x.value === e.target.value);
+              place(key, o?.lane ?? null, o?.cell ?? null);
+            }}
+          >
+            <option value="">Nicht eingeordnet</option>
+            {options.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </li>
+      );
+    };
+    const unplaced = keys.filter((k) => !board.places[k]);
     return (
-      <div className="stack-s">
-        <span className="label">{all ? 'Alle Einträge – wähle das passende Feld' : 'Deine Karten – wähle das passende Feld'}</span>
-        <ul className="post-list">
-          {keys.map((key) => {
-            const place = board.places[key];
-            return (
-              <li key={key} className="post board-arrange">
-                <span className="post-text">{labelOf(key, view.posts, board)}</span>
-                <select
-                  className="select"
-                  aria-label="Feld"
-                  disabled={busy}
-                  value={place ? `${place.lane}:${place.cell}` : ''}
-                  onChange={(e) => {
-                    const [lane, cell] = e.target.value ? e.target.value.split(':').map(Number) : [null, null];
-                    void op({ op: 'place', key, lane: lane ?? null, cell: cell ?? null });
-                  }}
-                >
-                  <option value="">Noch nicht eingeordnet</option>
-                  {options.map((o) => (
-                    <option key={o.value} value={o.value}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </li>
-            );
-          })}
-        </ul>
+      <div className="stack">
+        <p className="small muted">Karte am Griff in das passende Feld ziehen – oder das Feld auswählen.</p>
+        <DropSection title="Noch nicht eingeordnet" onDrop={(key) => place(key, null, null)} muted>
+          {unplaced.length > 0 ? <ul className="board-chips">{unplaced.map(item)}</ul> : <p className="small faint">Alles eingeordnet.</p>}
+        </DropSection>
+        {options.map((o) => {
+          const inCell = keys.filter((k) => board.places[k]?.lane === o.lane && board.places[k]?.cell === o.cell);
+          return (
+            <DropSection key={o.value} title={o.label} count={inCell.length} onDrop={(key) => place(key, o.lane, o.cell)}>
+              {inCell.length > 0 && <ul className="board-chips">{inCell.map(item)}</ul>}
+            </DropSection>
+          );
+        })}
       </div>
     );
   }
@@ -316,6 +331,15 @@ function ClusterEditor({
   const [editing, setEditing] = useState<{ kind: 'card' | 'group'; id: number; text: string } | null>(null);
   const card = view.posts.find((p) => p.id === selected) ?? null;
 
+  const assignKey = (key: string, groupId: number | null) => {
+    const parsed = parseBoardKey(key);
+    if (parsed?.kind === 'card') void op({ op: 'assign', postId: parsed.id, groupId });
+  };
+  const newGroupFrom = (key: string) => {
+    const parsed = parseBoardKey(key);
+    const text = parsed ? view.posts.find((p) => p.id === parsed.id)?.text : undefined;
+    if (parsed?.kind === 'card' && text) void op({ op: 'group-add', name: text.slice(0, 60), postIds: [parsed.id] });
+  };
   const moveTo = async (groupId: number | null) => {
     if (selected === null) return;
     if (await op({ op: 'assign', postId: selected, groupId })) setSelected(null);
@@ -359,7 +383,14 @@ function ClusterEditor({
         </form>
       ) : (
         <div className={`board-chip ${selected === p.id ? 'is-selected' : ''}`}>
-          <button className="board-chip-main" aria-pressed={selected === p.id} onClick={() => setSelected(selected === p.id ? null : p.id)}>
+          <DragGrip itemKey={cardKey(p.id)} label={p.text} />
+          <button
+            className="board-chip-main"
+            aria-pressed={selected === p.id}
+            onClick={() => setSelected(selected === p.id ? null : p.id)}
+            // Mit der Maus lässt sich die ganze Karte ziehen, per Touch nur am Griff (sonst ginge Scrollen nicht)
+            onPointerDown={(e) => e.pointerType === 'mouse' && startDrag(e, cardKey(p.id), p.text)}
+          >
             {p.text}
             {p.mine && <span className="pill">Von dir</span>}
           </button>
@@ -377,8 +408,8 @@ function ClusterEditor({
     <div className="stack">
       <p className="small muted">
         {all
-          ? 'Ihr ordnet gemeinsam: Karte antippen, dann die passende Gruppe wählen. Überschriften und Karten lassen sich ändern.'
-          : 'Ordne deine Karten ein: Karte antippen, dann die passende Gruppe wählen.'}
+          ? 'Ihr ordnet gemeinsam: Karte am Griff auf eine Gruppe ziehen – oder antippen und die Gruppe wählen. Überschriften und Karten lassen sich ändern.'
+          : 'Ordne deine Karten ein: Karte am Griff auf eine Gruppe ziehen – oder antippen und die Gruppe wählen.'}
       </p>
 
       {card && (
@@ -411,17 +442,18 @@ function ClusterEditor({
         </div>
       )}
 
-      {(byGroup.get(null)?.length ?? 0) > 0 && (
-        <section className="stack-s">
-          <span className="label">Noch nicht eingeordnet</span>
+      <DropSection title="Noch nicht eingeordnet" onDrop={(key) => assignKey(key, null)} muted>
+        {(byGroup.get(null)?.length ?? 0) > 0 ? (
           <ul className="board-chips">{byGroup.get(null)!.map(cardItem)}</ul>
-        </section>
-      )}
+        ) : (
+          <p className="small faint">Alles eingeordnet.</p>
+        )}
+      </DropSection>
 
       {board.groups.map((g) => {
         const cards = byGroup.get(g.id) ?? [];
         return (
-          <section key={g.id} className="board-group">
+          <DropSection key={g.id} onDrop={(key) => assignKey(key, g.id)}>
             {editing?.kind === 'group' && editing.id === g.id ? (
               <form className="row board-edit" onSubmit={saveEdit}>
                 <input
@@ -457,11 +489,15 @@ function ClusterEditor({
             {cards.length > 0 ? (
               <ul className="board-chips">{cards.map(cardItem)}</ul>
             ) : (
-              !all && <p className="small faint">Weitere Karten an der Wand</p>
+              <p className="small faint">{all ? 'Karte hierher ziehen' : 'Weitere Karten an der Wand'}</p>
             )}
-          </section>
+          </DropSection>
         );
       })}
+
+      <DropSection title="Neue Gruppe" onDrop={newGroupFrom} muted>
+        <p className="small faint">Karte hierher ziehen – sie wird zur Überschrift einer neuen Gruppe.</p>
+      </DropSection>
 
       {all && (
         <div className="stack-s">
@@ -500,6 +536,42 @@ function ClusterEditor({
         </div>
       )}
     </div>
+  );
+}
+
+/** Griff zum Ziehen – auf dem Handy der einzige Ort, an dem Ziehen statt Scrollen beginnt */
+function DragGrip({ itemKey, label }: { itemKey: string; label: string }) {
+  return (
+    <span className="board-grip" aria-hidden onPointerDown={(e) => startDrag(e, itemKey, label)}>
+      <GripVertical />
+    </span>
+  );
+}
+
+/** Abschnitt, auf den Karten gezogen werden können (Gruppe, Feld, Ablage) */
+function DropSection({
+  title,
+  count,
+  onDrop,
+  muted,
+  children,
+}: {
+  title?: ReactNode;
+  count?: number;
+  onDrop: (key: string) => void;
+  muted?: boolean;
+  children: ReactNode;
+}) {
+  const drop = useDropZone(onDrop);
+  return (
+    <section className={`board-group is-drop ${muted ? 'is-muted' : ''}`} {...drop}>
+      {title && (
+        <h3>
+          {title} {count !== undefined && count > 0 && <span className="faint tabular">{count}</span>}
+        </h3>
+      )}
+      {children}
+    </section>
   );
 }
 
