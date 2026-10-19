@@ -123,7 +123,8 @@ export default function ParticipantPage({ code }: { code: string }) {
       </header>
       <ConnectionBadge status={status} />
       <CountdownAlert countdown={view.countdown} offset={offset} />
-      <main className="p-main">
+      {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
+      <main className={`p-main ${view.slide?.type === 'board' && !view.leaderboard ? 'is-wide' : ''}`}>
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
         <ParkingButton parking={view.parking} token={token} />
       </main>

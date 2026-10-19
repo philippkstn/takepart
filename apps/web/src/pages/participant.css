@@ -685,3 +685,123 @@
 .countdown-alert.is-end > svg {
   color: var(--danger);
 }
+
+/* ───────────── Kartenwand: Handy untereinander, Desktop nebeneinander ───────────── */
+
+.board-layout,
+.board-wall,
+.board-lanes,
+.board-lane,
+.board-lane-cells,
+.board-collect {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.board-lane-title {
+  font-size: 0.95rem;
+  color: var(--ink-2);
+}
+.board-table-desktop {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .p-main.is-wide {
+    width: min(1280px, 100%);
+    padding-inline: 24px;
+  }
+  /* Ablage links als feste Spalte, rechts die Wand bzw. die Felder */
+  .board-layout {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    align-items: start;
+  }
+  .board-group.is-side {
+    position: sticky;
+    top: 72px;
+    max-height: calc(100dvh - 96px);
+    overflow: auto;
+  }
+  .board-wall {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    align-items: start;
+  }
+  .board-lane {
+    gap: 8px;
+  }
+  .board-lane-cells {
+    grid-template-columns: repeat(var(--cells, 3), minmax(0, 1fr));
+    align-items: stretch;
+  }
+  .board-lane-cells .board-group {
+    min-height: 120px;
+    align-content: start;
+  }
+  .board-lane-cells .select-compact {
+    width: 100%;
+  }
+  .board-forms {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .board-collect {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 24px;
+  }
+  .board-vote-list {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+  .board-rate-list {
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  }
+  .board-table-desktop {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+  }
+  .board-table-desktop th {
+    text-align: left;
+    font-size: 0.8rem;
+    color: var(--ink-3);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .board-table-desktop td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .board-table-list {
+    display: none;
+  }
+  /* Buttons zum Abgeben nicht über die ganze Breite */
+  .p-main.is-wide > .stack > .btn-large {
+    justify-self: start;
+    min-width: 280px;
+  }
+}
+
+/* Desktop mit Maus: Feldauswahl erst bei Hover oder Tastaturfokus – gezogen wird mit der Maus */
+@media (min-width: 900px) and (pointer: fine) {
+  .board-place-item .select-compact {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    overflow: hidden;
+  }
+  .board-place-item:hover .select-compact,
+  .board-place-item:focus-within .select-compact {
+    position: static;
+    width: 100%;
+    height: auto;
+    opacity: 1;
+  }
+  .board-place-item {
+    position: relative;
+  }
+}

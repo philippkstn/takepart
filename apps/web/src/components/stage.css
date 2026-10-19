@@ -683,3 +683,35 @@
   right: 1em;
   font-size: min(1.7cqw, 3cqh);
 }
+/* Countdown-Hinweis auf dem Beamer: fährt von unten ein */
+.stage-countdown-popup {
+  position: absolute;
+  left: 50%;
+  bottom: 1.4em;
+  margin-left: -9em;
+  width: 18em;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  padding: 0.7em 1.2em;
+  border-radius: 0.5em;
+  background: var(--surface);
+  border: 2px solid var(--warn);
+  box-shadow: var(--shadow-2);
+  font-size: 1.3em;
+  font-weight: 700;
+  color: var(--ink);
+}
+.stage-countdown-popup svg {
+  width: 1.2em;
+  height: 1.2em;
+  color: var(--warn);
+}
+.stage-countdown-popup.is-end {
+  border-color: var(--danger);
+}
+.stage-countdown-popup.is-end svg {
+  color: var(--danger);
+}

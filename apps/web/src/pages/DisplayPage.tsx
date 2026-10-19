@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Maximize, Minimize, VolumeX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
+import { CountdownPopup } from '../components/CountdownPopup.tsx';
 import { InkOverlay } from '../components/Ink.tsx';
 import { Stage } from '../components/Stage.tsx';
 import { ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
@@ -90,7 +91,16 @@ export default function DisplayPage() {
     <div className={`display-page ${idle ? 'is-idle' : ''}`}>
       {/* Feste 16:9-Bühne: Laserpointer und Zeichnungen liegen so exakt wie im Steuerpult */}
       <div className="display-box">
-        <Stage view={view} offset={offset} overlay={<InkOverlay ink={ink} />} />
+        <Stage
+          view={view}
+          offset={offset}
+          overlay={
+            <>
+              <InkOverlay ink={ink} />
+              <CountdownPopup countdown={view.countdown} offset={offset} />
+            </>
+          }
+        />
       </div>
       <Preload urls={view.preload} />
       <ConnectionBadge status={status} />

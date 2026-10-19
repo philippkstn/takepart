@@ -10,7 +10,7 @@ import {
   type ResponsePayloads,
 } from '@slides/shared';
 import { Check, GripVertical, Hourglass, Lock, Minus, Pencil, Plus, Send, Trash2, X } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { cardsByGroup, labelOf } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
@@ -195,7 +195,7 @@ export function OwnCard({ post, tags, token, editable }: { post: PostView; tags:
 function Collect({ view, slide, token }: { view: ParticipantView; slide: BoardSlide; token: string }) {
   const { tags } = slide.config;
   return (
-    <>
+    <div className="board-collect">
       {view.locked ? (
         <Note icon={<Lock size={20} />}>Die Sammelphase ist beendet.</Note>
       ) : (
@@ -211,7 +211,7 @@ function Collect({ view, slide, token }: { view: ParticipantView; slide: BoardSl
           </ul>
         </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -293,17 +293,32 @@ function Arrange({ view, slide, token }: { view: ParticipantView; slide: BoardSl
     return (
       <div className="stack">
         <p className="small muted">Karte am Griff in das passende Feld ziehen – oder das Feld auswählen.</p>
-        <DropSection title="Noch nicht eingeordnet" onDrop={(key) => place(key, null, null)} muted>
-          {unplaced.length > 0 ? <ul className="board-chips">{unplaced.map(item)}</ul> : <p className="small faint">Alles eingeordnet.</p>}
-        </DropSection>
-        {options.map((o) => {
-          const inCell = keys.filter((k) => board.places[k]?.lane === o.lane && board.places[k]?.cell === o.cell);
-          return (
-            <DropSection key={o.value} title={o.label} count={inCell.length} onDrop={(key) => place(key, o.lane, o.cell)}>
-              {inCell.length > 0 && <ul className="board-chips">{inCell.map(item)}</ul>}
-            </DropSection>
-          );
-        })}
+        <div className="board-layout">
+          <DropSection title="Noch nicht eingeordnet" onDrop={(key) => place(key, null, null)} muted side>
+            {unplaced.length > 0 ? (
+              <ul className="board-chips">{unplaced.map(item)}</ul>
+            ) : (
+              <p className="small faint">Alles eingeordnet.</p>
+            )}
+          </DropSection>
+          <div className="board-lanes">
+            {config.lanes.map((lane, l) => (
+              <section key={l} className="board-lane">
+                {lane.title && <h3 className="board-lane-title">{lane.title}</h3>}
+                <div className="board-lane-cells" style={{ '--cells': lane.cells.length } as CSSProperties}>
+                  {lane.cells.map((cell, c) => {
+                    const inCell = keys.filter((k) => board.places[k]?.lane === l && board.places[k]?.cell === c);
+                    return (
+                      <DropSection key={c} title={cell} count={inCell.length} onDrop={(key) => place(key, l, c)}>
+                        {inCell.length > 0 && <ul className="board-chips">{inCell.map(item)}</ul>}
+                      </DropSection>
+                    );
+                  })}
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
@@ -442,65 +457,68 @@ function ClusterEditor({
         </div>
       )}
 
-      <DropSection title="Noch nicht eingeordnet" onDrop={(key) => assignKey(key, null)} muted>
-        {(byGroup.get(null)?.length ?? 0) > 0 ? (
-          <ul className="board-chips">{byGroup.get(null)!.map(cardItem)}</ul>
-        ) : (
-          <p className="small faint">Alles eingeordnet.</p>
-        )}
-      </DropSection>
-
-      {board.groups.map((g) => {
-        const cards = byGroup.get(g.id) ?? [];
-        return (
-          <DropSection key={g.id} onDrop={(key) => assignKey(key, g.id)}>
-            {editing?.kind === 'group' && editing.id === g.id ? (
-              <form className="row board-edit" onSubmit={saveEdit}>
-                <input
-                  className="input grow"
-                  value={editing.text}
-                  maxLength={120}
-                  autoFocus
-                  onChange={(e) => setEditing({ ...editing, text: e.target.value })}
-                />
-                <button className="icon-btn" aria-label="Speichern">
-                  <Check />
-                </button>
-                <button type="button" className="icon-btn" aria-label="Abbrechen" onClick={() => setEditing(null)}>
-                  <X />
-                </button>
-              </form>
-            ) : (
-              <h3 className="row-between">
-                <span>
-                  {g.name} <span className="faint tabular">{g.cards}</span>
-                </span>
-                {all && (
-                  <button
-                    className="icon-btn"
-                    aria-label="Überschrift ändern"
-                    onClick={() => setEditing({ kind: 'group', id: g.id, text: g.name })}
-                  >
-                    <Pencil />
-                  </button>
+      <div className="board-layout">
+        <DropSection title="Noch nicht eingeordnet" onDrop={(key) => assignKey(key, null)} muted side>
+          {(byGroup.get(null)?.length ?? 0) > 0 ? (
+            <ul className="board-chips">{byGroup.get(null)!.map(cardItem)}</ul>
+          ) : (
+            <p className="small faint">Alles eingeordnet.</p>
+          )}
+        </DropSection>
+        <div className="board-wall">
+          {board.groups.map((g) => {
+            const cards = byGroup.get(g.id) ?? [];
+            return (
+              <DropSection key={g.id} onDrop={(key) => assignKey(key, g.id)}>
+                {editing?.kind === 'group' && editing.id === g.id ? (
+                  <form className="row board-edit" onSubmit={saveEdit}>
+                    <input
+                      className="input grow"
+                      value={editing.text}
+                      maxLength={120}
+                      autoFocus
+                      onChange={(e) => setEditing({ ...editing, text: e.target.value })}
+                    />
+                    <button className="icon-btn" aria-label="Speichern">
+                      <Check />
+                    </button>
+                    <button type="button" className="icon-btn" aria-label="Abbrechen" onClick={() => setEditing(null)}>
+                      <X />
+                    </button>
+                  </form>
+                ) : (
+                  <h3 className="row-between">
+                    <span>
+                      {g.name} <span className="faint tabular">{g.cards}</span>
+                    </span>
+                    {all && (
+                      <button
+                        className="icon-btn"
+                        aria-label="Überschrift ändern"
+                        onClick={() => setEditing({ kind: 'group', id: g.id, text: g.name })}
+                      >
+                        <Pencil />
+                      </button>
+                    )}
+                  </h3>
                 )}
-              </h3>
-            )}
-            {cards.length > 0 ? (
-              <ul className="board-chips">{cards.map(cardItem)}</ul>
-            ) : (
-              <p className="small faint">{all ? 'Karte hierher ziehen' : 'Weitere Karten an der Wand'}</p>
-            )}
-          </DropSection>
-        );
-      })}
+                {cards.length > 0 ? (
+                  <ul className="board-chips">{cards.map(cardItem)}</ul>
+                ) : (
+                  <p className="small faint">{all ? 'Karte hierher ziehen' : 'Weitere Karten an der Wand'}</p>
+                )}
+              </DropSection>
+            );
+          })}
 
-      <DropSection title="Neue Gruppe" onDrop={newGroupFrom} muted>
-        <p className="small faint">Karte hierher ziehen – sie wird zur Überschrift einer neuen Gruppe.</p>
-      </DropSection>
+          <DropSection title="Neue Gruppe" onDrop={newGroupFrom} muted>
+            <p className="small faint">Karte hierher ziehen – sie wird zur Überschrift einer neuen Gruppe.</p>
+          </DropSection>
+        </div>
+      </div>
 
       {all && (
-        <div className="stack-s">
+        <div className="stack-s board-forms">
           {!card && (
             <form className="row" onSubmit={createGroup}>
               <input
@@ -554,17 +572,20 @@ function DropSection({
   count,
   onDrop,
   muted,
+  side,
   children,
 }: {
   title?: ReactNode;
   count?: number;
   onDrop: (key: string) => void;
   muted?: boolean;
+  /** Ablage: auf dem Desktop als feste Spalte links */
+  side?: boolean;
   children: ReactNode;
 }) {
   const drop = useDropZone(onDrop);
   return (
-    <section className={`board-group is-drop ${muted ? 'is-muted' : ''}`} {...drop}>
+    <section className={`board-group is-drop ${muted ? 'is-muted' : ''} ${side ? 'is-side' : ''}`} {...drop}>
       {title && (
         <h3>
           {title} {count !== undefined && count > 0 && <span className="faint tabular">{count}</span>}
@@ -744,23 +765,49 @@ function TableView({ view, slide }: { view: ParticipantView; slide: BoardSlide }
   const board = view.board!;
   if (board.rows.length === 0) return <Note icon={<Hourglass size={20} />}>Die Tabelle wird gerade gemeinsam gefüllt.</Note>;
   return (
-    <ol className="board-table-list">
-      {board.rows.map((r, i) => (
-        <li key={r.key} className="card card-pad stack-s">
-          <strong>
-            {i + 1}. {labelOf(r.key, view.posts, board)}
-          </strong>
-          <dl>
+    <>
+      <table className="board-table-desktop">
+        <thead>
+          <tr>
+            <th>Nr.</th>
+            <th>Thema</th>
             {slide.config.columns.map((c, j) => (
-              <div key={j}>
-                <dt>{c}</dt>
-                <dd>{r.fields[j] || '–'}</dd>
-              </div>
+              <th key={j}>{c}</th>
             ))}
-          </dl>
-        </li>
-      ))}
-    </ol>
+          </tr>
+        </thead>
+        <tbody>
+          {board.rows.map((r, i) => (
+            <tr key={r.key}>
+              <td className="tabular">{i + 1}</td>
+              <td>
+                <strong>{labelOf(r.key, view.posts, board)}</strong>
+              </td>
+              {slide.config.columns.map((_, j) => (
+                <td key={j}>{r.fields[j] || '–'}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <ol className="board-table-list">
+        {board.rows.map((r, i) => (
+          <li key={r.key} className="card card-pad stack-s">
+            <strong>
+              {i + 1}. {labelOf(r.key, view.posts, board)}
+            </strong>
+            <dl>
+              {slide.config.columns.map((c, j) => (
+                <div key={j}>
+                  <dt>{c}</dt>
+                  <dd>{r.fields[j] || '–'}</dd>
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+      </ol>
+    </>
   );
 }
 
