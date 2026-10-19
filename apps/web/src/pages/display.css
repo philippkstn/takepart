@@ -26,3 +26,11 @@
 .display-page.is-idle .display-fs {
   opacity: 0;
 }
+/* Countdown-Ton freigeben (Browser spielen Ton erst nach einer Interaktion) */
+.display-sound {
+  position: fixed;
+  left: 14px;
+  bottom: 14px;
+  z-index: 20;
+  background: var(--surface);
+}

@@ -1,12 +1,13 @@
 import type { DisplayView } from '@slides/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Maximize, Minimize } from 'lucide-react';
+import { Maximize, Minimize, VolumeX } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { InkOverlay } from '../components/Ink.tsx';
 import { Stage } from '../components/Stage.tsx';
 import { ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
+import { useCountdownSounds } from '../lib/countdownSound.ts';
 import { useLive } from '../lib/live.ts';
 import { usePresenterKeys } from '../lib/presenterKeys.ts';
 import { authStatus } from '../lib/passkey.ts';
@@ -26,6 +27,7 @@ export default function DisplayPage() {
   const [fullscreen, setFullscreen] = useState(false);
   const [idle, setIdle] = useState(false);
   const runId = view?.run.id;
+  const sound = useCountdownSounds(view?.countdown ?? null, offset);
 
   useEffect(() => {
     const onChange = () => setFullscreen(!!document.fullscreenElement);
@@ -92,6 +94,11 @@ export default function DisplayPage() {
       </div>
       <Preload urls={view.preload} />
       <ConnectionBadge status={status} />
+      {view.countdown && sound.locked && (
+        <button className="display-sound btn btn-small" onClick={sound.unlock} title="Ton für den Countdown freigeben">
+          <VolumeX /> Ton aktivieren
+        </button>
+      )}
       <button
         className="display-fs icon-btn"
         onClick={toggleFullscreen}

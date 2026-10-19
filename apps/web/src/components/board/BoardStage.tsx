@@ -11,7 +11,7 @@ import {
   type PublicSlide,
 } from '@slides/shared';
 import { EyeOff, Plus } from 'lucide-react';
-import { useState, type DragEvent, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import { axisPosition, cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
 import { BarList } from '../Results.tsx';
 import './board.css';
@@ -139,6 +139,35 @@ function Zone({
   );
 }
 
+/**
+ * Kartenliste, die sich selbst verkleinert, bis alle Karten in ihr Feld passen
+ * (bis höchstens auf die Hälfte) – so bleibt auch ein volles Feld lesbar.
+ */
+function FitList({ children }: { children: ReactNode }) {
+  const ref = useRef<HTMLUListElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      let scale = 1;
+      el.style.fontSize = '1em';
+      while (el.scrollHeight > el.clientHeight + 1 && scale > 0.5) {
+        scale -= 0.05;
+        el.style.fontSize = `${scale}em`;
+      }
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el);
+    return () => observer.disconnect();
+  });
+  return (
+    <ul ref={ref} className="cluster-cards">
+      {children}
+    </ul>
+  );
+}
+
 function Card({ post, ctx, tag = true }: { post: PostView; ctx: Ctx; tag?: boolean }) {
   const label = tag && post.column !== null ? ctx.config.tags[post.column] : undefined;
   return (
@@ -218,11 +247,11 @@ function ClusterWall({ ctx }: { ctx: Ctx }) {
             Ablage <span className="faint tabular">{unsorted.length}</span>
             {onBoard && !ctx.config.showUnsorted && <span className="board-hint">nur im Steuerpult</span>}
           </h2>
-          <ul className="cluster-cards">
+          <FitList>
             {unsorted.map((p) => (
               <Card key={p.id} post={p} ctx={ctx} />
             ))}
-          </ul>
+          </FitList>
         </Zone>
       )}
       {board.groups.map((g) => (
@@ -230,11 +259,11 @@ function ClusterWall({ ctx }: { ctx: Ctx }) {
           <h2 className="cluster-name">
             {g.name} <span className="faint tabular">{g.cards}</span>
           </h2>
-          <ul className="cluster-cards">
+          <FitList>
             {(groups.get(g.id) ?? []).map((p) => (
               <Card key={p.id} post={p} ctx={ctx} />
             ))}
-          </ul>
+          </FitList>
         </Zone>
       ))}
       {onBoard && (
@@ -292,12 +321,12 @@ function Mindmap({ ctx }: { ctx: Ctx }) {
                 <h2 className="cluster-name">
                   {g.name} <span className="faint tabular">{g.cards}</span>
                 </h2>
-                <ul className="cluster-cards">
+                <FitList>
                   {cards.slice(0, maxCards).map((p) => (
                     <Card key={p.id} post={p} ctx={ctx} tag={false} />
                   ))}
                   {cards.length > maxCards && <li className="board-more tabular">+ {cards.length - maxCards} weitere</li>}
-                </ul>
+                </FitList>
               </Zone>
             </div>
           );
@@ -349,7 +378,7 @@ function Place({ ctx }: { ctx: Ctx }) {
             <div
               key={l}
               className="place-lane"
-              style={{ gridTemplateColumns: `${withTitles ? '7.5em ' : ''}repeat(${lane.cells.length}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `${withTitles ? 'minmax(0, 6.5em) ' : ''}repeat(${lane.cells.length}, minmax(0, 1fr))` }}
             >
               {withTitles && <span className="place-lane-title">{lane.title}</span>}
               {lane.cells.map((cell, c) => {
@@ -359,11 +388,11 @@ function Place({ ctx }: { ctx: Ctx }) {
                     <span className="place-cell-title">
                       {cell} {items.length > 0 && <span className="faint tabular">{items.length}</span>}
                     </span>
-                    <ul className="cluster-cards">
+                    <FitList>
                       {items.map((key) => (
                         <Item key={key} itemKey={key} ctx={ctx} />
                       ))}
-                    </ul>
+                    </FitList>
                   </Zone>
                 );
               })}
