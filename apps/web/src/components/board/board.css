@@ -52,6 +52,12 @@
 }
 .board-card-text {
   min-width: 0;
+  /* Lange Karten kürzen – voller Text über „Groß zeigen“ */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--clamp, 4);
+  line-clamp: var(--clamp, 4);
+  overflow: hidden;
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
@@ -498,4 +504,36 @@
 }
 .mindmap.is-many .mindmap-node {
   max-height: 24%;
+}
+
+/* Lange Karten: Sammelwand etwas mehr Zeilen, Ablage einzeilig und flach */
+.board-cards {
+  --clamp: 6;
+}
+.board-tray {
+  --clamp: 2;
+  max-height: 4.4em;
+  align-items: flex-start;
+}
+.board-tray .board-card {
+  max-width: 13em;
+}
+.mindmap-node {
+  --clamp: 3;
+}
+.rating-legend .clamp {
+  --clamp: 2;
+}
+.board-results .bar-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.board-table-topic .clamp {
+  --clamp: 3;
+}
+.board-table td {
+  overflow-wrap: break-word;
 }

@@ -718,3 +718,12 @@ body.is-dragging {
   outline-offset: -2px;
   background: var(--accent-soft);
 }
+
+/* Lange Texte auf wenige Zeilen kürzen (Zeilen über --clamp, Standard 4) */
+.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--clamp, 4);
+  line-clamp: var(--clamp, 4);
+  overflow: hidden;
+}

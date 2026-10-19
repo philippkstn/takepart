@@ -1,7 +1,7 @@
 import { assetUrl, SLIDE_TYPE_LABELS, type BoardOp, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
 import { ChevronUp, EyeOff, MessageCircleQuestion, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
 import { BoardStage } from './board/BoardStage.tsx';
@@ -104,7 +104,7 @@ export function Stage({
                       <MessageCircleQuestion /> Frage
                     </span>
                   )}
-                  <p className="spotlight-text">{view.spotlight.text}</p>
+                  <FitText className="spotlight-text" text={view.spotlight.text} />
                   <div className="spotlight-meta">
                     {view.spotlight.authorName && <span>{view.spotlight.authorName}</span>}
                     {view.spotlight.votes > 0 && (
@@ -174,6 +174,38 @@ function ImageStage({ slide, step, animate }: { slide: Extract<PublicSlide, { ty
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Text, der sich verkleinert, bis er in seinen Platz passt (von 1 bis 0,45 der
+ * Ausgangsgröße). Reicht auch das nicht, wird er unten weich abgeschnitten.
+ */
+function FitText({ text, className }: { text: string; className: string }) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [clipped, setClipped] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const fit = () => {
+      let scale = 1;
+      el.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(el).fontSize);
+      while (el.scrollHeight > el.clientHeight + 1 && scale > 0.45) {
+        scale -= 0.05;
+        el.style.fontSize = `${base * scale}px`;
+      }
+      setClipped(el.scrollHeight > el.clientHeight + 1);
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(el.parentElement ?? el);
+    return () => observer.disconnect();
+  }, [text]);
+  return (
+    <p ref={ref} className={`${className} ${clipped ? 'is-clipped' : ''}`}>
+      {text}
+    </p>
   );
 }
 

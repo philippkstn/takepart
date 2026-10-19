@@ -644,7 +644,8 @@
 .board-chip-text {
   flex: 1;
   min-width: 0;
-  padding: 10px 4px;
+  /* Abstand als Rand, nicht als Innenabstand – sonst schaut beim Kürzen eine halbe Zeile hervor */
+  margin: 10px 4px;
   overflow-wrap: anywhere;
 }
 .board-place-item {
@@ -789,5 +790,35 @@
 @media (min-width: 900px) {
   .board-place-item .select-compact {
     display: none;
+  }
+}
+
+/* Lange Karten auf dem Gerät: gekürzt, voller Text beim Darüberfahren und Bearbeiten */
+.board-chip .clamp,
+.board-vote-list .clamp {
+  --clamp: 5;
+}
+.board-rate-list .clamp,
+.board-table-list .clamp {
+  --clamp: 4;
+}
+.board-chip-main .clamp {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* Desktop mit Maus: ganze Karte ziehbar, kein Griff nötig */
+@media (min-width: 900px) and (pointer: fine) {
+  .board-grip {
+    display: none;
+  }
+  .board-chip {
+    cursor: grab;
+  }
+  .board-chip-text {
+    margin-left: 12px;
+  }
+  .board-lane-cells .clamp {
+    --clamp: 4;
   }
 }

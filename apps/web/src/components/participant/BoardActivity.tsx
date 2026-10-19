@@ -266,9 +266,16 @@ function Arrange({ view, slide, token }: { view: ParticipantView; slide: BoardSl
       const p = board.places[key];
       const label = labelOf(key, view.posts, board);
       return (
-        <li key={key} className="board-chip board-place-item">
+        <li
+          key={key}
+          className="board-chip board-place-item"
+          // Mit der Maus lässt sich die ganze Karte ziehen, per Touch nur am Griff
+          onPointerDown={(e) => e.pointerType === 'mouse' && (e.target as Element).tagName !== 'SELECT' && startDrag(e, key, label)}
+        >
           <DragGrip itemKey={key} label={label} />
-          <span className="board-chip-text">{label}</span>
+          <span className="board-chip-text clamp" title={label}>
+            {label}
+          </span>
           <select
             className="select select-compact"
             aria-label="Feld"
@@ -292,7 +299,7 @@ function Arrange({ view, slide, token }: { view: ParticipantView; slide: BoardSl
     const unplaced = keys.filter((k) => !board.places[k]);
     return (
       <div className="stack">
-        <p className="small muted">Karte am Griff in das passende Feld ziehen.</p>
+        <p className="small muted">Karte in das passende Feld ziehen.</p>
         <div className="board-layout">
           <DropSection title="Noch nicht eingeordnet" onDrop={(key) => place(key, null, null)} muted side>
             {unplaced.length > 0 ? (
@@ -406,7 +413,9 @@ function ClusterEditor({
             // Mit der Maus lässt sich die ganze Karte ziehen, per Touch nur am Griff (sonst ginge Scrollen nicht)
             onPointerDown={(e) => e.pointerType === 'mouse' && startDrag(e, cardKey(p.id), p.text)}
           >
-            {p.text}
+            <span className="clamp" title={p.text}>
+              {p.text}
+            </span>
             {p.mine && <span className="pill">Von dir</span>}
           </button>
           {all && (
@@ -423,8 +432,8 @@ function ClusterEditor({
     <div className="stack">
       <p className="small muted">
         {all
-          ? 'Ihr ordnet gemeinsam: Karte am Griff auf eine Gruppe ziehen – oder antippen und die Gruppe wählen. Überschriften und Karten lassen sich ändern.'
-          : 'Ordne deine Karten ein: Karte am Griff auf eine Gruppe ziehen – oder antippen und die Gruppe wählen.'}
+          ? 'Ihr ordnet gemeinsam: Karte auf eine Gruppe ziehen – oder antippen und die Gruppe wählen. Überschriften und Karten lassen sich ändern.'
+          : 'Ordne deine Karten ein: Karte auf eine Gruppe ziehen – oder antippen und die Gruppe wählen.'}
       </p>
 
       {card && (
@@ -658,7 +667,9 @@ function Dots({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
           const n = dots[key] ?? 0;
           return (
             <li key={key} className={n > 0 ? 'is-on' : ''}>
-              <span className="grow">{labelOf(key, view.posts, board)}</span>
+              <span className="grow clamp" title={labelOf(key, view.posts, board)}>
+                {labelOf(key, view.posts, board)}
+              </span>
               <span className="board-stepper">
                 <button className="icon-btn" aria-label="Punkt entfernen" disabled={n === 0} onClick={() => change(key, -1)}>
                   <Minus />
@@ -730,7 +741,9 @@ function Rate({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
       <ul className="board-rate-list">
         {board.targets.map((key) => (
           <li key={key} className="card card-pad stack-s">
-            <strong>{labelOf(key, view.posts, board)}</strong>
+            <strong className="clamp" title={labelOf(key, view.posts, board)}>
+              {labelOf(key, view.posts, board)}
+            </strong>
             {scales.map((scale, s) => (
               <div key={s} className="board-rate-row">
                 <span className="small muted">{scale.label}</span>
@@ -781,7 +794,9 @@ function TableView({ view, slide }: { view: ParticipantView; slide: BoardSlide }
             <tr key={r.key}>
               <td className="tabular">{i + 1}</td>
               <td>
-                <strong>{labelOf(r.key, view.posts, board)}</strong>
+                <strong className="clamp" title={labelOf(r.key, view.posts, board)}>
+                  {labelOf(r.key, view.posts, board)}
+                </strong>
               </td>
               {slide.config.columns.map((_, j) => (
                 <td key={j}>{r.fields[j] || '–'}</td>

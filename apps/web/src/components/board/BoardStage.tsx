@@ -509,7 +509,7 @@ export function RatingMatrix({ ctx, results }: { ctx: Pick<Ctx, 'config' | 'boar
         {points.map((p) => (
           <li key={p.key}>
             <span className="rating-point is-static tabular">{p.number}</span>
-            <span className="grow">{labelOf(p.key, view.posts, board)}</span>
+            <span className="grow clamp">{labelOf(p.key, view.posts, board)}</span>
             <span className="faint">{p.text}</span>
           </li>
         ))}
@@ -539,7 +539,7 @@ function Table({ ctx }: { ctx: Ctx }) {
           <tr key={r.key}>
             <td className="tabular">{i + 1}</td>
             <td className="board-table-topic">
-              {labelOf(r.key, view.posts, board)}
+              <span className="clamp">{labelOf(r.key, view.posts, board)}</span>
               {(board.totals[r.key] ?? 0) > 0 && (
                 <span className="board-tag tabular">
                   {board.totals[r.key]} {board.totals[r.key] === 1 ? 'Punkt' : 'Punkte'}

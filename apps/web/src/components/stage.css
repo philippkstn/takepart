@@ -495,6 +495,12 @@
 }
 .spotlight-card {
   width: min(100%, 38em);
+  /* Nie höher als die Bühne – langer Text wird kleiner (FitText) */
+  max-height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  display: flex !important;
+  flex-direction: column;
   padding: 1.6em 2em;
   border-radius: 0.6em;
   background: var(--surface);
@@ -516,11 +522,17 @@
   height: 1.2em;
 }
 .spotlight-text {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: hidden;
   font-size: 2.1em;
   font-weight: 600;
   line-height: 1.2;
   overflow-wrap: break-word;
   white-space: pre-wrap;
+}
+.spotlight-text.is-clipped {
+  mask-image: linear-gradient(to bottom, #000 80%, transparent);
 }
 .spotlight-meta {
   display: flex;
