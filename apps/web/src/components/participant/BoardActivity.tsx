@@ -195,7 +195,7 @@ export function OwnCard({ post, tags, token, editable }: { post: PostView; tags:
 function Collect({ view, slide, token }: { view: ParticipantView; slide: BoardSlide; token: string }) {
   const { tags } = slide.config;
   return (
-    <div className="board-collect">
+    <div className={`board-collect ${view.posts.length > 0 ? 'has-cards' : ''}`}>
       {view.locked ? (
         <Note icon={<Lock size={20} />}>Die Sammelphase ist beendet.</Note>
       ) : (
@@ -273,9 +273,7 @@ function Arrange({ view, slide, token }: { view: ParticipantView; slide: BoardSl
           onPointerDown={(e) => e.pointerType === 'mouse' && (e.target as Element).tagName !== 'SELECT' && startDrag(e, key, label)}
         >
           <DragGrip itemKey={key} label={label} />
-          <span className="board-chip-text clamp" title={label}>
-            {label}
-          </span>
+          <Expandable text={label} className="board-chip-text" />
           <select
             className="select select-compact"
             aria-label="Feld"
@@ -566,6 +564,23 @@ function ClusterEditor({
   );
 }
 
+/** Gekürzter Text, der sich beim Antippen aufklappt (und wieder zu) */
+function Expandable({ text, as: Tag = 'span', className = '' }: { text: string; as?: 'span' | 'strong'; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Tag
+      className={`clamp is-expandable ${open ? 'is-open' : ''} ${className}`}
+      title={open ? undefined : text}
+      onClick={(e) => {
+        e.stopPropagation();
+        setOpen((o) => !o);
+      }}
+    >
+      {text}
+    </Tag>
+  );
+}
+
 /** Griff zum Ziehen – auf dem Handy der einzige Ort, an dem Ziehen statt Scrollen beginnt */
 function DragGrip({ itemKey, label }: { itemKey: string; label: string }) {
   return (
@@ -667,9 +682,7 @@ function Dots({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
           const n = dots[key] ?? 0;
           return (
             <li key={key} className={n > 0 ? 'is-on' : ''}>
-              <span className="grow clamp" title={labelOf(key, view.posts, board)}>
-                {labelOf(key, view.posts, board)}
-              </span>
+              <Expandable text={labelOf(key, view.posts, board)} className="grow" />
               <span className="board-stepper">
                 <button className="icon-btn" aria-label="Punkt entfernen" disabled={n === 0} onClick={() => change(key, -1)}>
                   <Minus />
@@ -688,7 +701,7 @@ function Dots({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
           );
         })}
       </ul>
-      <button className="btn btn-primary btn-large" onClick={submit} disabled={busy || used === 0}>
+      <button className="btn btn-primary btn-large board-submit" onClick={submit} disabled={busy || used === 0}>
         Punkte abgeben <Send />
       </button>
     </>
@@ -741,9 +754,7 @@ function Rate({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
       <ul className="board-rate-list">
         {board.targets.map((key) => (
           <li key={key} className="card card-pad stack-s">
-            <strong className="clamp" title={labelOf(key, view.posts, board)}>
-              {labelOf(key, view.posts, board)}
-            </strong>
+            <Expandable as="strong" text={labelOf(key, view.posts, board)} />
             {scales.map((scale, s) => (
               <div key={s} className="board-rate-row">
                 <span className="small muted">{scale.label}</span>
@@ -765,7 +776,7 @@ function Rate({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
           </li>
         ))}
       </ul>
-      <button className="btn btn-primary btn-large" onClick={submit} disabled={busy || rated === 0}>
+      <button className="btn btn-primary btn-large board-submit" onClick={submit} disabled={busy || rated === 0}>
         Einschätzung abgeben ({rated}/{board.targets.length}) <Send />
       </button>
     </>
@@ -794,9 +805,7 @@ function TableView({ view, slide }: { view: ParticipantView; slide: BoardSlide }
             <tr key={r.key}>
               <td className="tabular">{i + 1}</td>
               <td>
-                <strong className="clamp" title={labelOf(r.key, view.posts, board)}>
-                  {labelOf(r.key, view.posts, board)}
-                </strong>
+                <Expandable as="strong" text={labelOf(r.key, view.posts, board)} />
               </td>
               {slide.config.columns.map((_, j) => (
                 <td key={j}>{r.fields[j] || '–'}</td>
@@ -835,14 +844,14 @@ export function ParkingButton({ parking, token }: { parking: ParkingView[]; toke
   const current = parking.find((p) => p.slideId === open) ?? null;
   return (
     <>
-      <div className="parking-bar">
-        {parking.map((p) => (
-          <button key={p.slideId} className="btn parking-btn" onClick={() => setOpen(p.slideId)}>
-            <Plus /> {p.title}
-            {p.mine.length > 0 && <span className="pill tabular">{p.mine.length}</span>}
-          </button>
-        ))}
-      </div>
+      {parking.map((p) => (
+        <button key={p.slideId} className="pill parking-pill" title={p.title} aria-label={p.title} onClick={() => setOpen(p.slideId)}>
+          <Plus />
+          <span className="parking-label">{p.title}</span>
+          <span className="parking-label-short">Parken</span>
+          {p.mine.length > 0 && <span className="tabular">· {p.mine.length}</span>}
+        </button>
+      ))}
       {current && (
         <div className="sheet-backdrop" onClick={() => setOpen(null)}>
           <div

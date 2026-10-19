@@ -30,6 +30,15 @@ function writeToken(code: string, token: string) {
   }
 }
 
+/** Breite auf dem Desktop: Kartenwand und Pinnwand nutzen den Platz, Sammeln etwas schmaler */
+function mainWidth(view: ParticipantView): string {
+  const slide = view.slide;
+  if (!slide || view.leaderboard) return '';
+  if (slide.type === 'pinboard') return 'is-wide';
+  if (slide.type === 'board') return slide.config.mode === 'collect' ? 'is-medium' : 'is-wide';
+  return '';
+}
+
 export default function ParticipantPage({ code }: { code: string }) {
   const [token, setToken] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -108,6 +117,7 @@ export default function ParticipantPage({ code }: { code: string }) {
           <span className="p-title">{view.run.title}</span>
         </span>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+          <ParkingButton parking={view.parking} token={token} />
           <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />
           {handoutUrl && (
             <Link className="pill" to={handoutUrl} target="_blank">
@@ -124,9 +134,8 @@ export default function ParticipantPage({ code }: { code: string }) {
       <ConnectionBadge status={status} />
       <CountdownAlert countdown={view.countdown} offset={offset} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
-      <main className={`p-main ${view.slide?.type === 'board' && !view.leaderboard ? 'is-wide' : ''}`}>
+      <main className={`p-main ${mainWidth(view)}`}>
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
-        <ParkingButton parking={view.parking} token={token} />
       </main>
       <footer className="p-footer">
         <LegalLinks imprint={false} />

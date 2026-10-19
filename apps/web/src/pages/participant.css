@@ -2,6 +2,8 @@
   min-height: 100dvh;
   display: grid;
   grid-template-rows: auto 1fr auto;
+  /* Spalte nie breiter als der Bildschirm – sonst schiebt eine volle Kopfzeile alles nach rechts */
+  grid-template-columns: minmax(0, 1fr);
 }
 .p-header {
   display: flex;
@@ -583,22 +585,7 @@
   margin: 0;
 }
 
-/* Parkplatz und Countdown */
-.parking-bar {
-  position: sticky;
-  bottom: 12px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 8px;
-  pointer-events: none;
-}
-.parking-btn {
-  pointer-events: auto;
-  box-shadow: var(--shadow-2);
-  background: var(--surface);
-}
+/* Parkplatz-Blatt */
 .sheet-backdrop {
   position: fixed;
   inset: 0;
@@ -820,5 +807,92 @@
   }
   .board-lane-cells .clamp {
     --clamp: 4;
+  }
+}
+
+/* Gekürzte Texte klappen beim Antippen auf; beim Clustern die ausgewählte Karte */
+.clamp.is-expandable {
+  cursor: pointer;
+}
+.clamp.is-open,
+.board-chip.is-selected .clamp {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+
+/* Parkplatz in der Kopfzeile – überdeckt keine Inhalte */
+.parking-pill {
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.parking-pill svg {
+  width: 14px;
+  height: 14px;
+}
+.parking-label {
+  max-width: 16em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.parking-label-short {
+  display: none;
+}
+@media (max-width: 560px) {
+  .parking-label {
+    display: none;
+  }
+  .parking-label-short {
+    display: inline;
+  }
+}
+
+/* Bewerten: große Stufen-Knöpfe über die volle Breite */
+.board-rate-row .segmented {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  justify-self: stretch;
+  width: 100%;
+}
+.board-rate-row .segmented button {
+  min-height: 40px;
+  min-width: 0;
+}
+
+/* Handy: Abgeben bei langen Listen immer erreichbar */
+@media (max-width: 899px) {
+  .board-submit {
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+    box-shadow: var(--shadow-2);
+  }
+  /* Deckend auch im deaktivierten Zustand – sonst schimmert der Inhalt dahinter durch */
+  .board-submit:disabled {
+    opacity: 1;
+    background: color-mix(in srgb, var(--primary) 40%, var(--surface));
+    border-color: transparent;
+  }
+}
+
+@media (min-width: 900px) {
+  .p-main.is-medium {
+    width: min(960px, 100%);
+    padding-inline: 40px;
+  }
+  .board-collect:not(.has-cards) {
+    grid-template-columns: minmax(0, 640px);
+  }
+  /* Pinnwand: Spalten nebeneinander */
+  .p-main.is-wide .pin-columns {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    align-items: start;
+  }
+  .p-main.is-wide .compose {
+    max-width: 640px;
   }
 }
