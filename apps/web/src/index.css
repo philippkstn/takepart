@@ -646,3 +646,48 @@ a.pill:hover {
   clip: rect(0 0 0 0);
   white-space: nowrap;
 }
+
+/* Protokoll einer Kartenwand (Archiv und Freigabe) */
+.protocol-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.protocol-group {
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.protocol-group.is-unsorted {
+  background: transparent;
+  border-style: dashed;
+}
+.protocol-group h3 {
+  font-size: 0.95rem;
+  margin-bottom: 6px;
+}
+.protocol-group ul {
+  margin: 0;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+}
+.protocol-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.protocol-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-strong);
+}
+.protocol-table td {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}

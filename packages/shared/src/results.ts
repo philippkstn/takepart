@@ -1,5 +1,6 @@
 import type { ResponsePayloads } from './responses.ts';
 import type { SlideConfigs } from './slides.ts';
+import { dotTotals } from './board.ts';
 import { countWords, type WordCount } from './words.ts';
 
 /** Gespeicherte Quiz-Antwort: Auswahl plus beim Abgeben berechnete Punkte. */
@@ -17,7 +18,24 @@ export type SlideResults =
   | { type: 'ranking'; voters: number; items: { index: number; score: number; averagePosition: number | null }[] }
   | { type: 'quiz'; voters: number; counts: number[]; correctVoters: number }
   | { type: 'feedback'; voters: number; distribution: number[]; average: number | null; comments: string[] }
-  | { type: 'sentence'; voters: number; words: WordCount[] };
+  | { type: 'sentence'; voters: number; words: WordCount[] }
+  | BoardResults;
+
+/** Einschätzungen eines Eintrags: je Kriterium Anzahl, Durchschnitt (Stufenindex) und Verteilung */
+export interface BoardRating {
+  n: number[];
+  average: (number | null)[];
+  distribution: number[][];
+}
+
+export interface BoardResults {
+  type: 'board';
+  voters: number;
+  /** Punkte je Eintrag (nur Punkte-Folien) */
+  dots: Record<string, number>;
+  /** Einschätzungen je Eintrag (nur Bewerten-Folien) */
+  ratings: Record<string, BoardRating>;
+}
 
 const avg = (sum: number, n: number) => (n === 0 ? null : Math.round((sum / n) * 100) / 100);
 
@@ -96,6 +114,32 @@ export function feedbackResults(rows: ResponsePayloads['feedback'][]): SlideResu
 
 export function sentenceResults(rows: ResponsePayloads['sentence'][]): SlideResults {
   return { type: 'sentence', voters: rows.length, words: countWords(rows.map((r) => r.word)) };
+}
+
+export function boardResults(config: SlideConfigs['board'], rows: ResponsePayloads['board'][]): BoardResults {
+  const ratings: Record<string, BoardRating> = {};
+  const scales = config.scales;
+  for (const r of rows) {
+    for (const [key, values] of Object.entries(r.ratings ?? {})) {
+      const entry = (ratings[key] ??= {
+        n: scales.map(() => 0),
+        average: scales.map(() => null),
+        distribution: scales.map((s) => s.levels.map(() => 0)),
+      });
+      values.forEach((v, i) => {
+        if (v === null || i >= scales.length || v >= scales[i]!.levels.length) return;
+        entry.n[i]!++;
+        entry.distribution[i]![v]!++;
+      });
+    }
+  }
+  for (const entry of Object.values(ratings)) {
+    entry.average = entry.distribution.map((d, i) => {
+      const n = entry.n[i]!;
+      return n === 0 ? null : Math.round((d.reduce((sum, count, level) => sum + count * level, 0) / n) * 100) / 100;
+    });
+  }
+  return { type: 'board', voters: rows.length, dots: dotTotals(rows), ratings };
 }
 
 /**

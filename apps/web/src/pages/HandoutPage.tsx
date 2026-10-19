@@ -1,4 +1,4 @@
-import type { HandoutData } from '@slides/shared';
+import { BOARD_MODE_LABELS, type HandoutData } from '@slides/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { useParams } from 'react-router';
@@ -69,6 +69,40 @@ export default function HandoutPage() {
               <div className="handout-card">
                 <span className="label">Gemeinsam geschriebener Satz</span>
                 <p className="handout-sentence">{s.sentence}</p>
+              </div>
+            )}
+            {s.type === 'board' && (
+              <div className="handout-card">
+                <span className="label">{BOARD_MODE_LABELS[s.mode]}</span>
+                {s.headline && <h2>{s.headline}</h2>}
+                <table className="protocol-table">
+                  <thead>
+                    <tr>
+                      <th>Thema</th>
+                      <th>Karten</th>
+                      {s.entries.some((e) => e.place) && <th>Feld</th>}
+                      {s.entries.some((e) => e.dots !== null) && <th>Punkte</th>}
+                      {s.entries.some((e) => e.rating) && <th>Einschätzung</th>}
+                      {s.columns.map((c, j) => (
+                        <th key={j}>{c}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {s.entries.map((e, j) => (
+                      <tr key={j}>
+                        <td>{e.label}</td>
+                        <td className="tabular">{e.cards}</td>
+                        {s.entries.some((x) => x.place) && <td>{e.place ?? '–'}</td>}
+                        {s.entries.some((x) => x.dots !== null) && <td className="tabular">{e.dots ?? '–'}</td>}
+                        {s.entries.some((x) => x.rating) && <td>{e.rating ?? '–'}</td>}
+                        {s.columns.map((_, k) => (
+                          <td key={k}>{e.fields[k] || '–'}</td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
             {s.type === 'results' && (

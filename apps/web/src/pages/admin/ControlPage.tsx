@@ -41,7 +41,9 @@ import { useLive } from '../../lib/live.ts';
 import { isNumber, usePref } from '../../lib/prefs.ts';
 import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
+import { BoardPanel } from './BoardPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
+import { CountdownBadge } from '../../components/Countdown.tsx';
 import './admin.css';
 
 export default function ControlPage() {
@@ -177,6 +179,12 @@ export default function ControlPage() {
               // Du siehst die Folie weiter – nur der Beamer ist dunkel (Hinweis unten)
               view={blank ? { ...view.display, blank: null } : view.display}
               offset={offset}
+              // Kartenwand direkt in der Vorschau ordnen (nicht, solange gezeigt oder gezeichnet wird)
+              onBoard={
+                slide?.type === 'board' && tool === 'none' && !ended
+                  ? (op) => command({ action: 'board', slideId: slide.id, op })
+                  : undefined
+              }
               overlay={
                 <>
                   <InkOverlay ink={ink} />
@@ -276,6 +284,7 @@ export default function ControlPage() {
                 <Square size={15} /> Weiß
               </button>
             </span>
+            <CountdownControl view={view} offset={offset} command={command} />
             <HandoutToggle runId={runId} url={view.handoutUrl} />
           </div>
         </section>
@@ -294,8 +303,18 @@ type Cmd = (cmd: HostCommand) => Promise<void>;
 function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: boolean }) {
   const slide = view.slide!;
   const clear = () => {
-    if (window.confirm('Alle Antworten dieser Folie in dieser Durchführung löschen?'))
-      void command({ action: 'clear-responses', slideId: slide.id });
+    const question =
+      slide.type === 'board'
+        ? {
+            collect: 'Alle Karten dieser Folie löschen?',
+            cluster: 'Alle Gruppen dieser Wand auflösen? Die Karten kommen zurück in die Ablage.',
+            place: 'Alle Zuordnungen dieser Folie zurücksetzen?',
+            dots: 'Alle Punkte dieser Folie löschen?',
+            rate: 'Alle Bewertungen dieser Folie löschen?',
+            table: 'Alle Zeilen der Tabelle löschen?',
+          }[slide.config.mode]
+        : 'Alle Antworten dieser Folie in dieser Durchführung löschen?';
+    if (window.confirm(question)) void command({ action: 'clear-responses', slideId: slide.id });
   };
 
   switch (slide.type) {
@@ -451,6 +470,10 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
     case 'open':
       return <PostPanel view={view} command={command} onClear={clear} />;
 
+    case 'board':
+      if (slide.config.mode === 'collect') return <PostPanel view={view} command={command} onClear={clear} />;
+      return <BoardPanel view={view} command={command} busy={busy} onClear={clear} />;
+
     default:
       return (
         <div className="stack">
@@ -526,12 +549,12 @@ function PostPanel({ view, command, onClear }: { view: HostView; command: Cmd; o
   const pending = view.posts.filter((p) => p.status === 'pending');
   const visible = view.posts.filter((p) => p.status === 'visible');
   const rest = view.posts.filter((p) => p.status === 'answered' || p.status === 'hidden');
-  const columns = slide.type === 'pinboard' ? slide.config.columns : null;
+  const columns = slide.type === 'pinboard' ? slide.config.columns : slide.type === 'board' ? slide.config.tags : null;
 
   return (
     <div className="stack">
       <div className="row-between">
-        <h3>{slide.type === 'qa' ? 'Fragen' : 'Beiträge'}</h3>
+        <h3>{slide.type === 'qa' ? 'Fragen' : slide.type === 'board' ? 'Karten' : 'Beiträge'}</h3>
         <div className="segmented">
           <button aria-pressed={filter === 'open'} onClick={() => setFilter('open')}>
             Aktuell
@@ -689,6 +712,52 @@ function PresenterClock({ view, offset, onReset }: { view: HostView; offset: num
         {new Date(now).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
       </span>
     </span>
+  );
+}
+
+/** Countdown für Arbeitsphasen und Pausen – erscheint auf Beamer und Handys. */
+function CountdownControl({ view, offset, command }: { view: HostView; offset: number; command: Cmd }) {
+  const running = view.countdown;
+  const start = (seconds: number) => void command({ action: 'countdown', seconds });
+  if (running) {
+    const remaining = Math.max(0, running.endsAt - (Date.now() + offset));
+    return (
+      <span className="row countdown-control">
+        <CountdownBadge countdown={running} offset={offset} className="pill" />
+        <button className="btn btn-small" onClick={() => start(Math.ceil(remaining / 1000) + 60)} title="Eine Minute mehr">
+          +1 Min.
+        </button>
+        <button className="btn btn-small" onClick={() => void command({ action: 'countdown', seconds: null })}>
+          <X /> Timer aus
+        </button>
+      </span>
+    );
+  }
+  return (
+    <label className="row countdown-control" title="Countdown auf Beamer und Handys">
+      <Timer size={15} aria-hidden />
+      <select
+        className="select select-small"
+        value=""
+        aria-label="Countdown starten"
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === 'custom') {
+            const input = window.prompt('Wie viele Minuten?', '15');
+            const minutes = input ? Number(input.replace(',', '.')) : NaN;
+            if (minutes > 0 && minutes <= 240) start(Math.round(minutes * 60));
+          } else if (v) start(Number(v) * 60);
+        }}
+      >
+        <option value="">Timer …</option>
+        {[1, 2, 3, 5, 10, 15, 20, 30, 45].map((m) => (
+          <option key={m} value={m}>
+            {m} Minuten
+          </option>
+        ))}
+        <option value="custom">Eigene Dauer …</option>
+      </select>
+    </label>
   );
 }
 

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BOARD_KEY } from './board.ts';
 import type { SlideConfigs, SlideType } from './slides.ts';
 import { validateSingleWord, validateTerm } from './words.ts';
 
@@ -15,6 +16,11 @@ export const responsePayloads = {
   quiz: z.object({ choice: z.number().int().min(0) }),
   feedback: z.object({ rating: z.number().int().min(1).max(5), comment: z.string().trim().max(500).default('') }),
   sentence: z.object({ word: z.string().max(60) }),
+  /** Kartenwand: Punkte je Eintrag bzw. Stufe je Kriterium (null = nicht eingeschätzt) */
+  board: z.object({
+    dots: z.record(z.string().regex(BOARD_KEY), z.number().int().min(0).max(10)).optional(),
+    ratings: z.record(z.string().regex(BOARD_KEY), z.array(z.number().int().min(0).max(6).nullable()).min(1).max(2)).optional(),
+  }),
 } as const;
 
 export type ResponseSlideType = keyof typeof responsePayloads;
@@ -94,6 +100,29 @@ export function validateResponse<T extends ResponseSlideType>(
       if (!r.ok) return r;
       return { ok: true, value: { word: r.word } as ResponsePayloads[T] };
     }
+    case 'board': {
+      const c = config as SlideConfigs['board'];
+      const v = value as ResponsePayloads['board'];
+      if (c.mode === 'dots') {
+        const dots = Object.fromEntries(Object.entries(v.dots ?? {}).filter(([, n]) => n > 0));
+        const sum = Object.values(dots).reduce((a, b) => a + b, 0);
+        if (sum === 0) return { ok: false, error: 'Bitte mindestens einen Punkt vergeben' };
+        if (sum > c.dots) return { ok: false, error: `Höchstens ${c.dots} Punkte` };
+        if (!c.stack && Object.values(dots).some((n) => n > 1)) return { ok: false, error: 'Höchstens ein Punkt pro Eintrag' };
+        return { ok: true, value: { dots } as ResponsePayloads[T] };
+      }
+      if (c.mode === 'rate') {
+        const ratings: Record<string, (number | null)[]> = {};
+        for (const [key, values] of Object.entries(v.ratings ?? {})) {
+          if (values.length !== c.scales.length) return { ok: false, error: 'Ungültige Bewertung' };
+          if (values.some((x, i) => x !== null && x >= c.scales[i]!.levels.length)) return { ok: false, error: 'Unbekannte Stufe' };
+          if (values.some((x) => x !== null)) ratings[key] = values;
+        }
+        if (Object.keys(ratings).length === 0) return { ok: false, error: 'Bitte mindestens einen Eintrag einschätzen' };
+        return { ok: true, value: { ratings } as ResponsePayloads[T] };
+      }
+      return { ok: false, error: 'Auf dieser Folie wird nicht abgestimmt' };
+    }
   }
   return { ok: false, error: 'Ungültige Antwort' };
 }
@@ -101,6 +130,12 @@ export function validateResponse<T extends ResponseSlideType>(
 export const postInput = z.object({
   text: z.string().trim().min(1, 'Bitte etwas eingeben').max(500, 'Höchstens 500 Zeichen'),
   column: z.number().int().min(0).max(4).optional(),
+});
+
+/** Eigene Karte einer Kartenwand ändern */
+export const cardEditInput = z.object({
+  text: z.string().trim().min(1, 'Bitte etwas eingeben').max(300, 'Höchstens 300 Zeichen'),
+  column: z.number().int().min(0).max(4).nullable().optional(),
 });
 export type PostInput = z.infer<typeof postInput>;
 

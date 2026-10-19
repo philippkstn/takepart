@@ -1,5 +1,11 @@
 import { randomBytes, randomInt } from 'node:crypto';
 import {
+  boardRights,
+  groupKey,
+  levelLabel,
+  parseBoardKey,
+  type BoardSummary,
+  type HandoutBoardEntry,
   assetUrl,
   buildSteps,
   hostCommand,
@@ -15,13 +21,16 @@ import {
   type HostCommand,
   type PublicSlide,
   type SlideConfigs,
+  type SlideResults,
   type RunState,
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireHost } from './auth.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
+import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
+import { CommandError } from './errors.ts';
 import { exportCsv } from './export.ts';
 import type { LiveHub } from './live.ts';
 import { computeResults, effectiveQuiz, loadSlides, sentenceText } from './snapshot.ts';
@@ -39,7 +48,7 @@ export function withRunLock<T>(runId: number, fn: () => Promise<T>): Promise<T> 
   return next;
 }
 
-export class CommandError extends Error {}
+export { CommandError };
 
 export async function loadRunState(db: Db, runId: number): Promise<{ state: RunState; presentationId: number; ended: boolean } | null> {
   const row = await one<{ state: string; presentation_id: number; ended_at: Date | null }>(
@@ -188,8 +197,16 @@ export function applyCommand(
     case 'timer-reset':
       s.timerStartedAt = now;
       break;
+    case 'countdown':
+      s.countdown = cmd.seconds === null ? null : { endsAt: now + cmd.seconds * 1000, seconds: cmd.seconds };
+      break;
+    case 'board-rights':
+      assertSlide(cmd.slideId);
+      s.boardRights = { ...s.boardRights, [cmd.slideId]: cmd.rights };
+      break;
     case 'post-status':
     case 'clear-responses':
+    case 'board':
       break;
   }
   return s;
@@ -266,11 +283,21 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           }
           return;
         }
+        if (cmd.action === 'board') {
+          const slide = slides.find((s) => s.id === cmd.slideId);
+          if (slide?.type !== 'board') throw new CommandError('Keine Kartenwand');
+          await applyBoardOp(db, id, slides, slide, cmd.op);
+          return;
+        }
         if (cmd.action === 'clear-responses') {
-          if (!slides.some((s) => s.id === cmd.slideId)) throw new CommandError('Folie nicht gefunden');
+          const slide = slides.find((s) => s.id === cmd.slideId);
+          if (!slide) throw new CommandError('Folie nicht gefunden');
+          if (slide.type === 'board') await clearBoardSlide(db, id, slide);
           await transaction(db, async (conn) => {
             await exec(conn, 'DELETE FROM responses WHERE run_id = ? AND slide_id = ?', [id, cmd.slideId]);
-            await exec(conn, 'DELETE FROM posts WHERE run_id = ? AND slide_id = ?', [id, cmd.slideId]);
+            // Kartenwand: Karten gehören zur Wand – nur das Sammeln löscht sie
+            if (slide.type !== 'board' || slide.config.mode === 'collect')
+              await exec(conn, 'DELETE FROM posts WHERE run_id = ? AND slide_id = ?', [id, cmd.slideId]);
           });
           const state = structuredClone(run.state);
           delete state.quiz[cmd.slideId];
@@ -376,6 +403,58 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   });
 }
 
+/**
+ * Kartenwand in der Freigabe: nur Gruppen (Überschriften) mit Zählungen, Feldern,
+ * Punkten und Einschätzungen – nie die Texte einzelner Karten.
+ */
+function handoutBoard(config: SlideConfigs['board'], board: BoardSummary, results: SlideResults | null, headline: string): HandoutSlide[] {
+  const { view } = board;
+  const groupName = (key: string) => {
+    const parsed = parseBoardKey(key);
+    return parsed?.kind === 'group' ? (view.groups.find((g) => g.id === parsed.id) ?? null) : null;
+  };
+  const entry = (key: string): HandoutBoardEntry | null => {
+    const g = groupName(key);
+    if (!g) return null;
+    const place = view.places[key];
+    const rating = results?.type === 'board' ? results.ratings[key] : undefined;
+    return {
+      label: g.name,
+      cards: g.cards,
+      place: place ? [config.lanes[place.lane]?.title, config.lanes[place.lane]?.cells[place.cell]].filter(Boolean).join(' · ') : null,
+      dots: config.mode === 'dots' && results?.type === 'board' ? (results.dots[key] ?? 0) : null,
+      rating: rating ? config.scales.map((sc, i) => `${sc.label} ${levelLabel(sc.levels, rating.average[i] ?? null)}`).join(' · ') : null,
+      fields: [],
+    };
+  };
+  let keys: string[];
+  switch (config.mode) {
+    case 'collect':
+      return [];
+    case 'cluster':
+      keys = view.groups.map((g) => groupKey(g.id));
+      break;
+    case 'table':
+      keys = view.rows.map((r) => r.key);
+      break;
+    case 'dots': {
+      const dots = results?.type === 'board' ? results.dots : {};
+      keys = [...view.targets].sort((a, b) => (dots[b] ?? 0) - (dots[a] ?? 0));
+      break;
+    }
+    default:
+      keys = view.targets;
+  }
+  const entries = keys.flatMap((key) => {
+    const e = entry(key);
+    if (!e) return [];
+    if (config.mode === 'table') e.fields = view.rows.find((r) => r.key === key)?.fields ?? [];
+    return [e];
+  });
+  if (entries.length === 0) return [];
+  return [{ type: 'board', headline, mode: config.mode, columns: config.mode === 'table' ? config.columns : [], entries }];
+}
+
 export async function runResults(db: Db, runId: number) {
   const run = await one<{ id: number; presentation_id: number; title: string; state: string; started_at: Date; ended_at: Date | null }>(
     db,
@@ -413,28 +492,31 @@ export async function runResults(db: Db, runId: number) {
     startedAt: run.started_at,
     endedAt: run.ended_at,
     participants: Number(participants),
-    slides: slides.map((slide) => {
-      const own = responses.filter((r) => r.slide_id === slide.id);
-      // Satz-Spiel: Ergebnis ist der gebaute Satz, nicht die letzte Runde.
-      const relevant = slide.type === 'sentence' ? own.filter((r) => r.round === sentenceState(state, slide.id).round) : own;
-      return {
-        id: slide.id,
-        type: slide.type,
-        typeLabel: SLIDE_TYPE_LABELS[slide.type],
-        headline: slideHeadline(slide),
-        config: slide.config,
-        results: computeResults(
-          slide,
-          relevant.map((r) => json(r.payload)),
-        ),
-        responses: isPostType(slide.type) ? posts.filter((p) => p.slide_id === slide.id).length : own.length,
-        posts: posts
-          .filter((p) => p.slide_id === slide.id)
-          .map((p) => ({ id: p.id, authorName: p.author_name, text: p.text, column: p.column_index, status: p.status, votes: p.votes })),
-        sentence: slide.type === 'sentence' ? sentenceText(slide, state) : null,
-        quiz: slide.type === 'quiz' ? effectiveQuiz(state, slide.id, Date.now()) : null,
-      };
-    }),
+    slides: await Promise.all(
+      slides.map(async (slide) => {
+        const own = responses.filter((r) => r.slide_id === slide.id);
+        // Satz-Spiel: Ergebnis ist der gebaute Satz, nicht die letzte Runde.
+        const relevant = slide.type === 'sentence' ? own.filter((r) => r.round === sentenceState(state, slide.id).round) : own;
+        return {
+          id: slide.id,
+          type: slide.type,
+          typeLabel: SLIDE_TYPE_LABELS[slide.type],
+          headline: slideHeadline(slide),
+          config: slide.config,
+          results: computeResults(
+            slide,
+            relevant.map((r) => json(r.payload)),
+          ),
+          responses: isPostType(slide.type) ? posts.filter((p) => p.slide_id === slide.id).length : own.length,
+          posts: posts
+            .filter((p) => p.slide_id === slide.id)
+            .map((p) => ({ id: p.id, authorName: p.author_name, text: p.text, column: p.column_index, status: p.status, votes: p.votes })),
+          sentence: slide.type === 'sentence' ? sentenceText(slide, state) : null,
+          quiz: slide.type === 'quiz' ? effectiveQuiz(state, slide.id, Date.now()) : null,
+          board: slide.type === 'board' ? await boardSummary(db, runId, slides, slide, boardRights(state, slide)) : null,
+        };
+      }),
+    ),
   };
 }
 
@@ -467,6 +549,7 @@ export async function handoutData(db: Db, token: string) {
       const start = sentenceStart((s.config as SlideConfigs['sentence']).start);
       return s.sentence && s.sentence !== start ? [{ type: 'sentence', headline: s.headline, sentence: s.sentence }] : [];
     }
+    if (s.type === 'board') return s.board ? handoutBoard(s.config as SlideConfigs['board'], s.board, s.results, s.headline) : [];
     if (!s.results || s.results.voters === 0) return [];
     if (!['choice', 'scale', 'wordcloud', 'ranking', 'quiz', 'feedback'].includes(s.type)) return []; // Inhalte einzelner Personen
     const results = s.results.type === 'feedback' ? { ...s.results, comments: [] } : s.results;

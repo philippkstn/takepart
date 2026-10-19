@@ -2,6 +2,7 @@ import type { SlideType } from '@slides/shared';
 import {
   Cloud,
   Image,
+  LayoutGrid,
   Lightbulb,
   ListChecks,
   ListOrdered,
@@ -29,6 +30,7 @@ export const SLIDE_ICONS: Record<SlideType, LucideIcon> = {
   feedback: Star,
   qa: MessageCircleQuestion,
   sentence: TextCursorInput,
+  board: LayoutGrid,
   image: Image,
 };
 

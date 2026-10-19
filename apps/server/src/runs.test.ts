@@ -1,4 +1,4 @@
-import { initialRunState, sentenceState, type RunState } from '@slides/shared';
+import { boardRights, initialRunState, sentenceState, type RunState } from '@slides/shared';
 import { describe, expect, it } from 'vitest';
 import { applyCommand, CommandError } from './runs.ts';
 import { effectiveQuiz } from './snapshot.ts';
@@ -94,5 +94,21 @@ describe('Steuerbefehle', () => {
     expect(s.slideId).toBe(slides.at(-1));
     s = applyCommand(s, { action: 'jump', index: 0 }, slides);
     expect(s.slideId).toBe(slides[0]);
+  });
+});
+
+describe('Workshop-Befehle', () => {
+  it('startet und beendet den Countdown', () => {
+    let s = applyCommand(initialRunState(10), { action: 'countdown', seconds: 300 }, slides, 1000);
+    expect(s.countdown).toEqual({ endsAt: 301_000, seconds: 300 });
+    s = applyCommand(s, { action: 'countdown', seconds: null }, slides);
+    expect(s.countdown).toBeNull();
+  });
+
+  it('setzt die Rechte der Teilnehmenden je Folie', () => {
+    const s = applyCommand(initialRunState(10), { action: 'board-rights', slideId: 20, rights: 'all' }, slides);
+    expect(boardRights(s, { id: 20, config: { rights: 'host' } })).toBe('all');
+    expect(boardRights(s, { id: 30, config: { rights: 'own' } })).toBe('own');
+    expect(() => applyCommand(s, { action: 'board-rights', slideId: 99, rights: 'all' }, slides)).toThrow(CommandError);
   });
 });

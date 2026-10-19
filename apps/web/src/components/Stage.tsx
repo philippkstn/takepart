@@ -1,10 +1,12 @@
-import { assetUrl, SLIDE_TYPE_LABELS, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
+import { assetUrl, SLIDE_TYPE_LABELS, type BoardOp, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
 import { ChevronUp, EyeOff, MessageCircleQuestion, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
+import { BoardStage } from './board/BoardStage.tsx';
 import { BuildLayer } from './BuildLayer.tsx';
+import { CountdownBadge } from './Countdown.tsx';
 import { SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
@@ -15,7 +17,18 @@ import './stage.css';
  * Bildschirm erscheint. Alle Maße in em, die Schriftgröße folgt der Fläche
  * (Container Query), damit die Vorschau im Steuerpult genauso aussieht.
  */
-export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset?: number; overlay?: ReactNode }) {
+export function Stage({
+  view,
+  offset = 0,
+  overlay,
+  onBoard,
+}: {
+  view: DisplayView;
+  offset?: number;
+  overlay?: ReactNode;
+  /** Nur im Steuerpult: Kartenwand per Drag & Drop ordnen */
+  onBoard?: (op: BoardOp) => void;
+}) {
   const slide = view.slide;
   // Importierte Folien laufen randlos, ohne Kopfzeile – wie in PowerPoint.
   const image = !view.leaderboard && slide?.type === 'image' ? slide : null;
@@ -26,7 +39,7 @@ export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset
   const content = view.leaderboard ? (
     <LeaderboardStage view={view} />
   ) : slide ? (
-    <SlideStage view={view} slide={slide} offset={offset} />
+    <SlideStage view={view} slide={slide} offset={offset} onBoard={onBoard} />
   ) : (
     <div className="stage-empty">Noch keine Folie</div>
   );
@@ -41,6 +54,7 @@ export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset
               <header className="stage-top">
                 {view.run.brand?.logoUrl && <img className="stage-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />}
                 <span className="stage-stats">
+                  <CountdownBadge countdown={view.countdown} offset={offset} className="stage-countdown" />
                   <span title="Verbunden">
                     <Users /> <span className="tabular">{view.participants}</span>
                   </span>
@@ -111,6 +125,11 @@ export function Stage({ view, offset = 0, overlay }: { view: DisplayView; offset
               </motion.div>
             )}
           </AnimatePresence>
+          {image && view.countdown && (
+            <div className="stage-countdown-float">
+              <CountdownBadge countdown={view.countdown} offset={offset} className="stage-countdown" />
+            </div>
+          )}
           {overlay}
           <BlankScreen mode={view.blank} />
         </div>
@@ -220,9 +239,22 @@ function AnswerCount({ answers }: { answers: number }) {
   );
 }
 
-function SlideStage({ view, slide, offset }: { view: DisplayView; slide: PublicSlide; offset: number }) {
+function SlideStage({
+  view,
+  slide,
+  offset,
+  onBoard,
+}: {
+  view: DisplayView;
+  slide: PublicSlide;
+  offset: number;
+  onBoard?: (op: BoardOp) => void;
+}) {
   const label = SLIDE_TYPE_LABELS[slide.type];
   switch (slide.type) {
+    case 'board':
+      return <BoardStage view={view} slide={slide} onBoard={onBoard} />;
+
     case 'content':
       return (
         <div className={`stage-content ${slide.config.showJoin && view.run.code ? 'with-join' : ''}`}>

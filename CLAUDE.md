@@ -38,6 +38,14 @@ npm run build
 - Bühne ist immer **16:9** (Beamer letterboxt). Laserpointer/Zeichnen nutzen auf die Bühne normierte Koordinaten und laufen direkt über den Host-WebSocket (`live.ts`, `inkEvent`) – die einzige bewusste Ausnahme von „Live-Zustand liegt in der DB“: flüchtig, gelöscht bei Folienwechsel.
 - Freigabe (`/h/:token`, `handoutData` in `runs.ts`) enthält nur Folien und zusammengefasste Ergebnisse – keine Namen, Freitexte, Fragen, Kommentare, Ranglisten.
 
+## Kartenwand (Workshops)
+
+- Folientyp `board` mit `mode`: `collect` (Karten sammeln), `cluster` (Wand/Mindmap), `place` (Bahnen mit Feldern – Spalten, Prozess, 2×2-Matrix), `dots` (Klebepunkte), `rate` (1–2 Kriterien, bei zweien Matrix), `table` (Top-N mit Verantwortlichen). Folien mit gleichem `config.board` teilen Karten und Gruppen – verknüpft über den Namen, nie über Folien-IDs (Duplizieren!).
+- Karten sind `posts` (Moderation ergänzt mit `participant_id NULL`), Gruppen `board_groups` (je Durchführung + Wand), Platzierungen/Tabellenzeilen `board_places` (je Folie, `target` = `c<postId>`/`g<groupId>`). Punkte und Bewertungen sind `responses`; erlaubte Einträge prüft die Route (`targetsOf`), nicht `validateResponse`. Server-Logik in `apps/server/src/board.ts`.
+- Rechte der Teilnehmenden je Folie: `host` | `own` | `all` (`config.rights`, live überschreibbar über `RunState.boardRights`); erlaubte Befehle in `PARTICIPANT_BOARD_OPS`.
+- `anytime` auf Sammel-Folien = Parkplatz: Karten von jeder Folie aus. `RunState.countdown` = Timer auf Beamer und Handys.
+- Freigabe enthält nur Gruppen mit Zählungen, Feldern, Punkten, Einschätzungen und Tabellenfeldern – nie Kartentexte (die nur im Archiv/CSV).
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

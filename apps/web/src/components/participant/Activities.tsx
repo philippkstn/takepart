@@ -4,6 +4,7 @@ import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useCountdown } from '../../lib/live.ts';
 import { BuildLayer } from '../BuildLayer.tsx';
+import { BoardActivity } from './BoardActivity.tsx';
 import { useToast } from '../ui.tsx';
 
 type Slide<T extends PublicSlide['type']> = Extract<PublicSlide, { type: T }>;
@@ -700,5 +701,7 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
       return <Pinboard view={view} slide={slide} token={token} />;
     case 'qa':
       return <Qa view={view} slide={slide} token={token} />;
+    case 'board':
+      return <BoardActivity view={view} slide={slide} token={token} />;
   }
 }

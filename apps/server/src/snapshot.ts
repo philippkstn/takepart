@@ -1,4 +1,5 @@
 import {
+  boardResults,
   buildSentence,
   choiceResults,
   feedbackResults,
@@ -24,6 +25,7 @@ import {
   type SlideResults,
   type SlideType,
 } from '@slides/shared';
+import { loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { json, one, query, type Conn } from './db.ts';
 
@@ -53,7 +55,11 @@ export interface Snapshot {
   index: number;
   /** Antworten auf die aktuelle Folie (beim Satz-Spiel: aktuelle Runde) */
   responses: { participantId: number; payload: unknown }[];
-  posts: (PostView & { participantId: number })[];
+  posts: SnapshotPost[];
+  /** Kartenwand der aktuellen Folie */
+  board: BoardData | null;
+  /** Sammel-Folien, die jederzeit Karten annehmen (Parkplatz), mit ihren Karten */
+  parking: { slide: BoardSlide; posts: SnapshotPost[] }[];
   /** participantId → hochgevotete Post-IDs der aktuellen Folie */
   votes: Map<number, Set<number>>;
   names: Map<number, string>;
@@ -61,6 +67,9 @@ export interface Snapshot {
   counts: Map<number, number>;
   now: number;
 }
+
+/** Beitrag mit Person (null: von der Moderation ergänzte Karte) */
+export type SnapshotPost = PostView & { participantId: number | null };
 
 interface RunRow extends BrandRow {
   id: number;
@@ -119,9 +128,21 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
 
   let responses: Snapshot['responses'] = [];
   let posts: Snapshot['posts'] = [];
+  let board: BoardData | null = null;
   const votes = new Map<number, Set<number>>();
 
-  if (current && isPostType(current.type)) {
+  if (current?.type === 'board') {
+    board = await loadBoard(db, runId, slides, current);
+    posts = board.cards.map(cardToPost);
+    if (current.config.mode === 'dots' || current.config.mode === 'rate') {
+      const rows = await query<{ participant_id: number; payload: string }>(
+        db,
+        'SELECT participant_id, payload FROM responses WHERE run_id = ? AND slide_id = ? AND round = 1 ORDER BY id',
+        [runId, current.id],
+      );
+      responses = rows.map((r) => ({ participantId: r.participant_id, payload: json(r.payload) }));
+    }
+  } else if (current && isPostType(current.type)) {
     const rows = await query<{
       id: number;
       participant_id: number;
@@ -177,7 +198,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   );
   const names = new Map(nameRows.map((r) => [r.id, r.name]));
 
-  let board: LeaderboardEntry[] = [];
+  let ranking: LeaderboardEntry[] = [];
   if (slides.some((s) => s.type === 'quiz')) {
     const quizRows = await query<{ participant_id: number; payload: string }>(
       db,
@@ -185,7 +206,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
         WHERE r.run_id = ? AND s.type = 'quiz'`,
       [runId],
     );
-    board = leaderboard(
+    ranking = leaderboard(
       quizRows.map((r) => {
         const a = json<QuizAnswer>(r.payload);
         return { participantId: r.participant_id, name: names.get(r.participant_id) ?? null, points: a.points, correct: a.correct };
@@ -202,6 +223,20 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   );
   const counts = new Map<number, number>();
   for (const r of countRows) counts.set(r.slide_id, (counts.get(r.slide_id) ?? 0) + Number(r.n));
+
+  // Parkplatz: Sammel-Folien, die von jeder Folie aus Karten annehmen
+  const parkingSlides = slides.filter(
+    (s): s is BoardSlide => s.type === 'board' && s.config.mode === 'collect' && s.config.anytime && s.id !== current?.id,
+  );
+  const parkingCards = await loadCards(
+    db,
+    runId,
+    parkingSlides.map((s) => s.id),
+  );
+  const parking = parkingSlides.map((slide) => ({
+    slide,
+    posts: parkingCards.filter((c) => c.slideId === slide.id).map(cardToPost),
+  }));
 
   const notes = current
     ? ((await one<{ notes: string | null }>(db, 'SELECT notes FROM slides WHERE id = ?', [current.id]))?.notes ?? '')
@@ -228,11 +263,27 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     index,
     responses,
     posts,
+    board,
+    parking,
     votes,
     names,
-    leaderboard: board,
+    leaderboard: ranking,
     counts,
     now,
+  };
+}
+
+function cardToPost(c: BoardData['cards'][number]): SnapshotPost {
+  return {
+    id: c.id,
+    participantId: c.participantId,
+    authorName: null,
+    text: c.text,
+    column: c.column,
+    status: c.status,
+    votes: c.votes,
+    createdAt: c.createdAt,
+    group: c.group,
   };
 }
 
@@ -253,6 +304,9 @@ export function computeResults(slide: Slide, payloads: unknown[]): SlideResults 
       return feedbackResults(payloads as ResponsePayloads['feedback'][]);
     case 'sentence':
       return sentenceResults(payloads as ResponsePayloads['sentence'][]);
+    case 'board':
+      if (slide.config.mode !== 'dots' && slide.config.mode !== 'rate') return null;
+      return boardResults(slide.config, payloads as ResponsePayloads['board'][]);
     default:
       return null;
   }
@@ -272,12 +326,12 @@ export function sentenceText(slide: Slide & { type: 'sentence' }, state: RunStat
 
 const byVotes = (a: PostView, b: PostView) => b.votes - a.votes || a.createdAt - b.createdAt;
 
-export function stripPost({ participantId: _p, ...post }: PostView & { participantId: number }): PostView {
+export function stripPost({ participantId: _p, ...post }: SnapshotPost): PostView {
   return post;
 }
 
 /** Beiträge, die öffentlich sichtbar sind (Beamer und Publikum). */
-export function publicPosts(snap: Snapshot): (PostView & { participantId: number })[] {
+export function publicPosts(snap: Snapshot): SnapshotPost[] {
   const slide = snap.current;
   if (!slide) return [];
   const visible = snap.posts.filter((p) => p.status === 'visible' || (slide.type === 'qa' && p.status === 'answered'));

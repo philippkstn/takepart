@@ -3,6 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { LegalLinks } from '../components/LegalLinks.tsx';
 import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
+import { ParkingButton } from '../components/participant/BoardActivity.tsx';
+import { CountdownBadge } from '../components/Countdown.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
 import { brandStyle } from '../lib/brand.ts';
@@ -46,7 +48,7 @@ export default function ParticipantPage({ code }: { code: string }) {
     void join();
   }, [join]);
 
-  const { view, status, handoutUrl: endedHandout } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
+  const { view, status, offset, handoutUrl: endedHandout } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
   const handoutUrl = endedHandout ?? view?.handoutUrl ?? null;
 
   if (joinError) {
@@ -105,6 +107,7 @@ export default function ParticipantPage({ code }: { code: string }) {
           <span className="p-title">{view.run.title}</span>
         </span>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+          <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />
           {handoutUrl && (
             <Link className="pill" to={handoutUrl} target="_blank">
               Folien
@@ -120,6 +123,7 @@ export default function ParticipantPage({ code }: { code: string }) {
       <ConnectionBadge status={status} />
       <main className="p-main">
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
+        <ParkingButton parking={view.parking} token={token} />
       </main>
       <footer className="p-footer">
         <LegalLinks imprint={false} />

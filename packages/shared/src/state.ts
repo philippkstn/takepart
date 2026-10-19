@@ -1,6 +1,15 @@
 import { z } from 'zod';
 import type { LeaderboardEntry, SlideResults } from './results.ts';
-import type { Slide, SlideConfigs, SlideType } from './slides.ts';
+import { BOARD_KEY } from './board.ts';
+import {
+  BOARD_RIGHTS,
+  type BoardConfig,
+  type BoardMode,
+  type BoardRights,
+  type Slide,
+  type SlideConfigs,
+  type SlideType,
+} from './slides.ts';
 import type { WordCount } from './words.ts';
 
 /* ───────────────────────── Zustand einer Durchführung ───────────────────────── */
@@ -46,6 +55,34 @@ export interface RunState {
   build?: Record<string, number>;
   /** Schwarz- oder Weißbild auf dem Beamer (wie „B“/„W“ in PowerPoint) */
   blank?: 'black' | 'white' | null;
+  /** Countdown für Arbeitsphasen und Pausen – auf Beamer und Handys */
+  countdown?: Countdown | null;
+  /** Live geänderte Rechte der Teilnehmenden je Kartenwand-Folie (sonst gilt die Folie) */
+  boardRights?: Record<string, BoardRights>;
+}
+
+/** Rechte der Teilnehmenden auf einer Wand-Folie: live gesetzt oder aus der Folie */
+export function boardRights(state: RunState, slide: { id: number; config: Pick<BoardConfig, 'rights'> }): BoardRights {
+  return state.boardRights?.[slide.id] ?? slide.config.rights;
+}
+
+/** Moderationsbefehle, die Teilnehmende mit dem Recht „alle bearbeiten“ ausführen dürfen */
+export const PARTICIPANT_BOARD_OPS = [
+  'group-add',
+  'group-rename',
+  'group-delete',
+  'group-move',
+  'assign',
+  'place',
+  'card-add',
+  'card-edit',
+] as const;
+
+export interface Countdown {
+  /** Ende (Serverzeit, ms) */
+  endsAt: number;
+  /** Ursprüngliche Dauer in Sekunden – für den Fortschritt */
+  seconds: number;
 }
 
 export function initialRunState(firstSlideId: number | null): RunState {
@@ -70,6 +107,37 @@ export function sentenceState(state: RunState, slideId: number): SentenceState {
 }
 
 /* ───────────────────────── Steuerbefehle des Hosts ───────────────────────── */
+
+const boardKey = z.string().regex(BOARD_KEY);
+const groupName = z.string().trim().min(1, 'Bitte eine Überschrift angeben').max(120);
+const cardText = z.string().trim().min(1, 'Bitte etwas eingeben').max(300, 'Höchstens 300 Zeichen');
+const delta = z.union([z.literal(1), z.literal(-1)]);
+
+/** Moderation einer Kartenwand: Gruppen, Einordnen, Karten ergänzen, Ergebnistabelle */
+export const boardOp = z.discriminatedUnion('op', [
+  z.object({ op: z.literal('group-add'), name: groupName, postIds: z.array(z.number().int()).max(100).default([]) }),
+  z.object({ op: z.literal('group-rename'), groupId: z.number().int(), name: groupName }),
+  z.object({ op: z.literal('group-delete'), groupId: z.number().int() }),
+  z.object({ op: z.literal('group-move'), groupId: z.number().int(), delta }),
+  /** Karte in eine Gruppe legen (null = zurück in die Ablage) */
+  z.object({ op: z.literal('assign'), postId: z.number().int(), groupId: z.number().int().nullable() }),
+  /** Eintrag in ein Feld legen (null = zurück in die Ablage) */
+  z.object({
+    op: z.literal('place'),
+    key: boardKey,
+    lane: z.number().int().min(0).max(3).nullable(),
+    cell: z.number().int().min(0).max(7).nullable(),
+  }),
+  z.object({ op: z.literal('card-add'), text: cardText, groupId: z.number().int().nullable().default(null) }),
+  z.object({ op: z.literal('card-edit'), postId: z.number().int(), text: cardText }),
+  z.object({ op: z.literal('row-add'), key: boardKey }),
+  z.object({ op: z.literal('row-remove'), key: boardKey }),
+  z.object({ op: z.literal('row-move'), key: boardKey, delta }),
+  /** Die N Einträge mit den meisten Punkten als Zeilen übernehmen */
+  z.object({ op: z.literal('rows-top'), n: z.number().int().min(1).max(20) }),
+  z.object({ op: z.literal('row-fields'), key: boardKey, fields: z.array(z.string().trim().max(300)).max(5) }),
+]);
+export type BoardOp = z.infer<typeof boardOp>;
 
 export const hostCommand = z.discriminatedUnion('action', [
   z.object({ action: z.literal('goto'), slideId: z.number().int() }),
@@ -98,6 +166,18 @@ export const hostCommand = z.discriminatedUnion('action', [
   z.object({ action: z.literal('clear-responses'), slideId: z.number().int() }),
   z.object({ action: z.literal('timer-reset') }),
   z.object({ action: z.literal('blank'), mode: z.enum(['black', 'white']).nullable() }),
+  /** Countdown starten (Sekunden) oder beenden (null) */
+  z.object({
+    action: z.literal('countdown'),
+    seconds: z
+      .number()
+      .int()
+      .min(1)
+      .max(4 * 3600)
+      .nullable(),
+  }),
+  z.object({ action: z.literal('board'), slideId: z.number().int(), op: boardOp }),
+  z.object({ action: z.literal('board-rights'), slideId: z.number().int(), rights: z.enum(BOARD_RIGHTS) }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
 
@@ -116,6 +196,54 @@ export interface PostView {
   /** nur in der Teilnehmer-Ansicht: eigener Beitrag / selbst hochgevotet */
   mine?: boolean;
   voted?: boolean;
+  /** Kartenwand: Gruppe, in der die Karte liegt */
+  group?: number | null;
+}
+
+/* ───────────── Kartenwand ───────────── */
+
+export interface BoardGroupView {
+  id: number;
+  name: string;
+  /** Anzahl Karten in der Gruppe */
+  cards: number;
+}
+
+/**
+ * Zustand einer Kartenwand für die aktuelle Folie. Die Karten selbst stehen in
+ * `posts` (mit `group`), Einträge werden über Schlüssel (`c<id>`, `g<id>`) adressiert.
+ */
+export interface BoardView {
+  name: string;
+  mode: BoardMode;
+  groups: BoardGroupView[];
+  /** Einträge dieser Folie (Zuordnen, Punkte, Bewerten) – bei „Top N“ in Punkte-Reihenfolge */
+  targets: string[];
+  /** Platzierungen auf dieser Folie (Zuordnen) */
+  places: Record<string, { lane: number; cell: number }>;
+  /** Zeilen der Ergebnistabelle in Reihenfolge */
+  rows: { key: string; fields: string[] }[];
+  /** Punkte aus den anderen Punkte-Folien dieser Wand – für Top-Auswahl und Tabelle */
+  totals: Record<string, number>;
+  /** Was Teilnehmende gerade dürfen */
+  rights: BoardRights;
+  /** Nur Teilnehmende auf Sammel-Folien: wie viele Karten noch gehen */
+  remaining?: number;
+}
+
+/** Wand einer Folie im Archiv: Ansicht wie live plus alle Karten */
+export interface BoardSummary {
+  view: BoardView;
+  cards: PostView[];
+}
+
+/** Sammel-Folie, die jederzeit Karten annimmt (Parkplatz) – erreichbar von jeder Folie aus */
+export interface ParkingView {
+  slideId: number;
+  title: string;
+  tags: string[];
+  remaining: number;
+  mine: PostView[];
 }
 
 /** Folie, wie sie das Publikum sieht – bei Quizfragen ohne Lösung, bis sie aufgelöst ist. */
@@ -180,6 +308,9 @@ export interface ParticipantView {
   handoutUrl: string | null;
   /** Aufgedeckter Animationsschritt der aktuellen Folie */
   buildStep: number;
+  board: BoardView | null;
+  parking: ParkingView[];
+  countdown: Countdown | null;
 }
 
 export interface DisplayView {
@@ -206,6 +337,8 @@ export interface DisplayView {
   /** Aufgedeckter Animationsschritt der aktuellen Folie */
   buildStep: number;
   blank: 'black' | 'white' | null;
+  board: BoardView | null;
+  countdown: Countdown | null;
 }
 
 export interface HostSlideSummary {
@@ -276,7 +409,18 @@ export type HandoutSlide =
   | { type: 'image'; title: string; image: string; width: number; height: number }
   | { type: 'content'; title: string; body: string }
   | { type: 'results'; slide: PublicSlide; results: SlideResults }
-  | { type: 'sentence'; headline: string; sentence: string };
+  | { type: 'sentence'; headline: string; sentence: string }
+  | { type: 'board'; headline: string; mode: BoardMode; columns: string[]; entries: HandoutBoardEntry[] };
+
+/** Zusammengefasster Eintrag einer Kartenwand – Gruppen, nie einzelne Karten */
+export interface HandoutBoardEntry {
+  label: string;
+  cards: number;
+  place: string | null;
+  dots: number | null;
+  rating: string | null;
+  fields: string[];
+}
 
 export interface HandoutData {
   title: string;

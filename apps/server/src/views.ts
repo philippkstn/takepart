@@ -1,4 +1,6 @@
 import {
+  boardRights,
+  cardKey,
   assetThumbUrl,
   buildSteps,
   assetUrl,
@@ -15,7 +17,10 @@ import {
   type QuizView,
   type RunInfo,
   type SentenceView,
+  type BoardView,
+  type ParkingView,
 } from '@slides/shared';
+import { buildBoardView } from './board.ts';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
 
 /** Aufgedeckter Animationsschritt der aktuellen Folie (begrenzt auf die vorhandenen Schritte) */
@@ -74,8 +79,68 @@ function sentenceView(snap: Snapshot, withWords: boolean): SentenceView | null {
   return view;
 }
 
+function boardViewOf(snap: Snapshot): BoardView | null {
+  const slide = snap.current;
+  if (slide?.type !== 'board' || !snap.board) return null;
+  return buildBoardView(slide, snap.board, boardRights(snap.run.state, slide));
+}
+
+/** Karten, die eine Person auf ihrem Gerät braucht – nicht die ganze Wand. */
+function participantBoardPosts(snap: Snapshot, board: BoardView, participantId: number): PostView[] {
+  const slide = snap.current;
+  if (slide?.type !== 'board') return [];
+  const own = (p: { participantId: number | null }) => p.participantId === participantId;
+  const visible = snap.posts.filter((p) => p.status === 'visible');
+  let posts: typeof snap.posts;
+  switch (slide.config.mode) {
+    case 'collect':
+      posts = snap.posts.filter(own);
+      break;
+    case 'cluster':
+    case 'place':
+      // Gemeinsames Bearbeiten: alle Karten, sonst nur die eigenen
+      posts = board.rights === 'all' ? visible : visible.filter(own);
+      if (slide.config.mode === 'place') {
+        const keys = new Set(board.targets);
+        posts = posts.filter((p) => keys.has(cardKey(p.id)));
+      }
+      break;
+    case 'dots':
+    case 'rate': {
+      const keys = new Set(board.targets);
+      posts = visible.filter((p) => keys.has(cardKey(p.id)));
+      break;
+    }
+    case 'table': {
+      const keys = new Set(board.rows.map((r) => r.key));
+      posts = visible.filter((p) => keys.has(cardKey(p.id)));
+      break;
+    }
+  }
+  return posts.map((p) => ({ ...stripPost(p), mine: own(p) }));
+}
+
+function parkingViews(snap: Snapshot, participantId: number): ParkingView[] {
+  return snap.parking.map(({ slide, posts }) => {
+    const mine = posts.filter((p) => p.participantId === participantId);
+    return {
+      slideId: slide.id,
+      title: slide.config.prompt || slide.config.board,
+      tags: slide.config.tags,
+      remaining: Math.max(0, slide.config.maxCards - mine.length),
+      mine: mine.map((p) => ({ ...stripPost(p), mine: true })),
+    };
+  });
+}
+
 function answerCount(snap: Snapshot): number {
   if (!snap.current) return 0;
+  if (snap.current.type === 'board') {
+    const mode = snap.current.config.mode;
+    if (mode === 'dots' || mode === 'rate') return snap.responses.length;
+    if (mode === 'collect') return new Set(snap.posts.map((p) => p.participantId)).size;
+    return snap.posts.filter((p) => p.status === 'visible').length;
+  }
   if (snap.posts.length > 0 || snap.current.type === 'qa') return new Set(snap.posts.map((p) => p.participantId)).size;
   return snap.responses.length;
 }
@@ -102,6 +167,13 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     }));
   } else if (slide?.type === 'open') {
     posts = snap.posts.filter((p) => p.participantId === participantId).map((p) => ({ ...stripPost(p), mine: true }));
+  }
+  const board = boardViewOf(snap);
+  if (board) {
+    posts = participantBoardPosts(snap, board, participantId);
+    if (slide?.type === 'board' && slide.config.mode === 'collect') {
+      board.remaining = Math.max(0, slide.config.maxCards - posts.length);
+    }
   }
 
   let quizPoints: number | null = null;
@@ -134,6 +206,9 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     leaderboard: state.leaderboard,
     handoutUrl: handoutUrl(snap),
     buildStep: buildStepOf(snap),
+    board,
+    parking: parkingViews(snap, participantId),
+    countdown: state.countdown ?? null,
   };
 }
 
@@ -154,7 +229,9 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
   if (slide?.type === 'sentence') results = null;
   if (!state.resultsVisible) results = null;
 
-  const posts = state.resultsVisible || slide?.type === 'qa' ? publicPosts(snap).map(stripPost) : [];
+  // Kartenwand: Karten sind die Beschriftung der Wand und bleiben sichtbar – außer beim Sammeln.
+  const boardLabels = slide?.type === 'board' && slide.config.mode !== 'collect';
+  const posts = state.resultsVisible || slide?.type === 'qa' || boardLabels ? publicPosts(snap).map(stripPost) : [];
   const spotlight = posts.find((p) => p.id === state.spotlight) ?? null;
 
   return {
@@ -178,6 +255,8 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     preload: preloadFor(snap),
     buildStep: buildStepOf(snap),
     blank: state.blank ?? null,
+    board: boardViewOf(snap),
+    countdown: state.countdown ?? null,
   };
 }
 
@@ -215,6 +294,8 @@ export function hostView(snap: Snapshot, participants: number): HostView {
     preload: [],
     buildStep: buildStepOf(snap),
     blank: state.blank ?? null,
+    board: boardViewOf(snap),
+    countdown: state.countdown ?? null,
     state,
     displayToken: snap.run.displayToken,
     presentationId: snap.run.presentationId,

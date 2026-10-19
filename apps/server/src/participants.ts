@@ -1,5 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import {
+  boardOp,
+  boardRights,
+  cardEditInput,
+  PARTICIPANT_BOARD_OPS,
+  type ResponsePayloads,
   FINAL_RESPONSE_TYPES,
   isPostType,
   isResponseType,
@@ -14,7 +19,10 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { exec, isDuplicateKey, json, one, transaction, type Db } from './db.ts';
+import { applyBoardOp, loadBoard, targetsOf } from './board.ts';
+import { CommandError } from './errors.ts';
 import type { LiveHub } from './live.ts';
+import { withRunLock } from './runs.ts';
 import { effectiveQuiz, loadSlides } from './snapshot.ts';
 
 /**
@@ -83,11 +91,14 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     const run = await one<{ state: string; presentation_id: number }>(db, 'SELECT state, presentation_id FROM runs WHERE id = ?', [runId]);
     if (!run) return null;
     const state = json<RunState>(run.state);
-    if (state.slideId !== slideId) return { error: 'Diese Folie ist nicht mehr aktiv' } as const;
+    const slides = await loadSlides(db, run.presentation_id);
+    const slide = slides.find((s) => s.id === slideId);
+    // Parkplatz: Sammel-Folien mit „jederzeit“ nehmen auch Karten an, wenn sie nicht gezeigt werden.
+    const anytime = slide?.type === 'board' && slide.config.mode === 'collect' && slide.config.anytime;
+    if (state.slideId !== slideId && !anytime) return { error: 'Diese Folie ist nicht mehr aktiv' } as const;
     if (state.locked.includes(slideId)) return { error: 'Die Abstimmung ist geschlossen' } as const;
-    const slide = (await loadSlides(db, run.presentation_id)).find((s) => s.id === slideId);
     if (!slide) return { error: 'Folie nicht gefunden' } as const;
-    return { state, slide } as const;
+    return { state, slide, slides } as const;
   }
 
   // Viele Teilnehmende sitzen hinter derselben Firmen-IP: Limits pro Token, nicht pro IP.
@@ -160,6 +171,13 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       if (!p.name) return reply.code(409).send({ error: 'Bitte zuerst einen Namen eingeben' });
       payload = { choice, correct, ms, points: quizPoints(correct, ms, slide.config.timeLimit) } satisfies QuizAnswer;
     }
+    if (slide.type === 'board') {
+      // Nur Einträge, die auf dieser Folie zur Wahl stehen
+      const allowed = new Set(targetsOf(slide.config, await loadBoard(db, p.runId, ctx.slides, slide)));
+      const value = result.value as ResponsePayloads['board'];
+      const keys = Object.keys(value.dots ?? value.ratings ?? {});
+      if (keys.some((k) => !allowed.has(k))) return reply.code(409).send({ error: 'Die Auswahl hat sich geändert – bitte noch einmal' });
+    }
     if (slide.type === 'sentence') {
       const s = sentenceState(state, slide.id);
       if (s.done) return reply.code(409).send({ error: 'Der Satz ist fertig' });
@@ -198,6 +216,22 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       return reply.code(400).send({ error: `Höchstens ${slide.config.maxLength} Zeichen` });
     }
     let column: number | null = null;
+    if (slide.type === 'board') {
+      if (slide.config.mode !== 'collect') return reply.code(400).send({ error: 'Auf dieser Folie werden keine Karten gesammelt' });
+      if (body.data.text.length > 300) return reply.code(400).send({ error: 'Höchstens 300 Zeichen' });
+      const own = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id = ? AND participant_id = ?', [
+        p.runId,
+        slide.id,
+        p.id,
+      ]);
+      if (Number(own?.n ?? 0) >= slide.config.maxCards) {
+        return reply.code(429).send({ error: `Höchstens ${slide.config.maxCards} ${slide.config.maxCards === 1 ? 'Karte' : 'Karten'}` });
+      }
+      if (slide.config.tags.length > 0) {
+        column = body.data.column ?? null;
+        if (column !== null && column >= slide.config.tags.length) return reply.code(400).send({ error: 'Unbekannte Kennzeichnung' });
+      }
+    }
     if (slide.type === 'pinboard') {
       column = body.data.column ?? 0;
       if (column >= slide.config.columns.length) return reply.code(400).send({ error: 'Unbekannte Spalte' });
@@ -219,6 +253,93 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     );
     live.notify(p.runId);
     return { ok: true, status };
+  });
+
+  /** Eigene Karte einer Kartenwand ändern oder löschen – solange gesammelt wird. */
+  async function ownCard(request: FastifyRequest, reply: FastifyReply) {
+    const p = await auth(request, reply);
+    if (!p) return null;
+    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
+    const post = await one<{ slide_id: number }>(db, 'SELECT slide_id FROM posts WHERE id = ? AND run_id = ? AND participant_id = ?', [
+      id,
+      p.runId,
+      p.id,
+    ]);
+    if (!post) return (void reply.code(404).send({ error: 'Karte nicht gefunden' }), null);
+    const ctx = await currentSlide(p.runId, post.slide_id);
+    if (!ctx) return (void reply.code(404).send({ error: 'Nicht gefunden' }), null);
+    if ('error' in ctx) return (void reply.code(409).send({ error: ctx.error }), null);
+    if (ctx.slide.type !== 'board' || ctx.slide.config.mode !== 'collect') {
+      return (void reply.code(400).send({ error: 'Diese Karte lässt sich hier nicht ändern' }), null);
+    }
+    return { p, id, slide: ctx.slide };
+  }
+
+  app.patch('/api/p/posts/:id', perParticipant(60), async (request, reply) => {
+    const ctx = await ownCard(request, reply);
+    if (!ctx) return;
+    const body = cardEditInput.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Ungültige Eingabe' });
+    const column = body.data.column ?? null;
+    if (column !== null && column >= ctx.slide.config.tags.length) return reply.code(400).send({ error: 'Unbekannte Kennzeichnung' });
+    await exec(db, 'UPDATE posts SET text = ?, column_index = ? WHERE id = ?', [body.data.text, column, ctx.id]);
+    live.notify(ctx.p.runId);
+    return { ok: true };
+  });
+
+  app.delete('/api/p/posts/:id', perParticipant(60), async (request, reply) => {
+    const ctx = await ownCard(request, reply);
+    if (!ctx) return;
+    await exec(db, 'DELETE FROM posts WHERE id = ?', [ctx.id]);
+    live.notify(ctx.p.runId);
+    return { ok: true };
+  });
+
+  /**
+   * Teilnehmende arbeiten an der Wand mit – nur wenn freigegeben: „own“ erlaubt,
+   * die eigenen Karten einzuordnen, „all“ das gemeinsame Bearbeiten der ganzen Wand.
+   */
+  app.post('/api/p/board', perParticipant(120), async (request, reply) => {
+    const p = await auth(request, reply);
+    if (!p) return;
+    const body = z.object({ slideId: z.number().int(), op: boardOp }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Ungültige Eingabe' });
+    const { op } = body.data;
+    const ctx = await currentSlide(p.runId, body.data.slideId);
+    if (!ctx) return reply.code(404).send({ error: 'Nicht gefunden' });
+    if ('error' in ctx) return reply.code(409).send({ error: ctx.error });
+    const { slide, state } = ctx;
+    if (slide.type !== 'board' || (slide.config.mode !== 'cluster' && slide.config.mode !== 'place')) {
+      return reply.code(400).send({ error: 'Hier kann nichts verschoben werden' });
+    }
+    const rights = boardRights(state, slide);
+    if (rights === 'host') return reply.code(403).send({ error: 'Die Moderation ordnet die Karten' });
+    if (!(PARTICIPANT_BOARD_OPS as readonly string[]).includes(op.op))
+      return reply.code(403).send({ error: 'Das darf nur die Moderation' });
+
+    if (rights === 'own') {
+      const isOwn = async (postId: number) =>
+        !!(await one(db, 'SELECT id FROM posts WHERE id = ? AND run_id = ? AND participant_id = ?', [postId, p.runId, p.id]));
+      const allowed =
+        (op.op === 'assign' && (await isOwn(op.postId))) ||
+        (op.op === 'place' && op.key.startsWith('c') && (await isOwn(Number(op.key.slice(1))))) ||
+        (op.op === 'group-add' && op.postIds.length > 0 && (await Promise.all(op.postIds.map(isOwn))).every(Boolean));
+      if (!allowed) return reply.code(403).send({ error: 'Du kannst nur deine eigenen Karten einordnen' });
+    }
+    try {
+      await withRunLock(p.runId, () =>
+        op.op === 'card-add'
+          ? applyBoardOp(db, p.runId, ctx.slides, slide, op, p.id)
+          : op.op === 'group-add'
+            ? applyBoardOp(db, p.runId, ctx.slides, slide, op, p.id)
+            : applyBoardOp(db, p.runId, ctx.slides, slide, op),
+      );
+    } catch (err) {
+      if (err instanceof CommandError) return reply.code(409).send({ error: err.message });
+      throw err;
+    }
+    live.notify(p.runId);
+    return { ok: true };
   });
 
   app.post('/api/p/posts/:id/vote', perParticipant(120), async (request, reply) => {

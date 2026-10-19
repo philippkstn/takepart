@@ -1,0 +1,488 @@
+/*
+ * Kartenwand auf der Bühne. Karten neutral (Fläche, feiner Rahmen), Gruppen als
+ * Spalten auf --surface-2. Kennzeichnungen sind Text, keine Farben. Größen in em.
+ */
+.board-title {
+  font-size: 1.55em;
+}
+.board-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.board-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+  gap: 0.6em;
+  align-content: start;
+  min-height: 0;
+  overflow: hidden;
+}
+.board-card {
+  display: grid;
+  gap: 0.3em;
+  padding: 0.55em 0.75em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  font-size: 0.82em;
+  font-weight: 550;
+  line-height: 1.25;
+  transition:
+    border-color 160ms var(--ease),
+    box-shadow 160ms var(--ease);
+}
+.board-card[draggable='true'] {
+  cursor: grab;
+}
+.board-card.is-focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 0.15em var(--accent);
+}
+.board-card.is-group {
+  font-weight: 700;
+}
+.board-card-text {
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+.board-tag {
+  justify-self: start;
+  font-size: 0.78em;
+  font-weight: 650;
+  color: var(--ink-2);
+  padding: 0.05em 0.45em;
+  border-radius: 0.3em;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.board-hint {
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--ink-3);
+  margin-left: 0.4em;
+}
+.board-more {
+  font-size: 0.75em;
+  color: var(--ink-3);
+  font-weight: 600;
+  padding: 0 0.3em;
+}
+
+.is-dense .board-card {
+  font-size: 0.7em;
+  padding: 0.4em 0.6em;
+}
+.is-denser .board-card {
+  font-size: 0.58em;
+  padding: 0.3em 0.5em;
+}
+.board-cards.is-dense {
+  grid-template-columns: repeat(auto-fill, minmax(9em, 1fr));
+  gap: 0.45em;
+}
+
+/* Clustern */
+.cluster-wall {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10.5em, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 0.7em;
+  overflow: hidden;
+}
+.cluster-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45em;
+  min-height: 0;
+  padding: 0.6em;
+  border-radius: 0.5em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.cluster-group.is-unsorted,
+.cluster-group.is-new {
+  background: transparent;
+  border-style: dashed;
+}
+.cluster-group.is-new {
+  align-items: center;
+  justify-content: center;
+}
+.cluster-name {
+  font-size: 0.9em;
+  line-height: 1.2;
+}
+.cluster-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4em;
+  align-content: start;
+  min-height: 0;
+}
+.is-drop {
+  transition:
+    background 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+.is-drop.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.board-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--ink-3);
+  text-align: center;
+}
+.board-new svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+/* Mindmap */
+.mindmap-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+.mindmap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+.mindmap-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mindmap-lines line {
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.mindmap-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  max-width: 13em;
+  padding: 0.7em 1em;
+  border-radius: 0.5em;
+  background: var(--primary);
+  color: var(--primary-ink);
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.2;
+}
+.mindmap-node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 11em;
+  max-height: 46%;
+  display: flex;
+}
+.mindmap-node .cluster-group {
+  width: 100%;
+  background: var(--surface);
+}
+
+/* Ablage als Leiste unter Mindmap und Zuordnung */
+.board-tray {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.45em 0.6em;
+  border: 1px dashed var(--border-strong);
+  border-radius: 0.5em;
+  min-height: 2.6em;
+  overflow: hidden;
+}
+.board-tray-label {
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.board-tray-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  gap: 0.4em;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.board-tray-items .board-card {
+  max-width: 14em;
+  flex-shrink: 0;
+}
+.board-tray-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--ink-3);
+  padding: 0.3em 0.6em;
+  border: 1px dashed var(--border-strong);
+  border-radius: 0.4em;
+  white-space: nowrap;
+}
+.board-tray-new svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+/* Zuordnen */
+.place {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+}
+.place-grid {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 0.5em;
+}
+.place-grid.has-y {
+  grid-template-columns: auto 1fr;
+}
+.place-axis-y {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  align-self: center;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+.place-axis-x {
+  grid-column: -2;
+  justify-self: center;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+.place-lanes {
+  display: grid;
+  grid-auto-rows: minmax(0, 1fr);
+  gap: 0.5em;
+  min-height: 0;
+}
+.place-lane {
+  display: grid;
+  gap: 0.5em;
+  min-height: 0;
+}
+.place-lane-title {
+  align-self: center;
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.place-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+  min-height: 0;
+  padding: 0.5em;
+  border-radius: 0.5em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+.place-cell-title {
+  font-size: 0.78em;
+  font-weight: 700;
+}
+
+/* Ergebnisse */
+.board-results {
+  max-width: none;
+}
+
+/* Matrix aus zwei Kriterien */
+.rating-matrix {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 1.2em;
+}
+.rating-plot-wrap {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: 1fr auto;
+  gap: 0.4em;
+  min-height: 0;
+}
+.rating-plot-wrap .place-axis-x {
+  grid-column: 2;
+}
+.rating-plot {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 0.25em;
+  min-height: 0;
+}
+.rating-quadrant {
+  padding: 0.4em 0.6em;
+  border-radius: 0.4em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+.rating-quadrant.q1,
+.rating-quadrant.q3 {
+  text-align: right;
+}
+.rating-quadrant.q2,
+.rating-quadrant.q3 {
+  display: flex;
+  align-items: flex-end;
+}
+.rating-quadrant.q3 {
+  justify-content: flex-end;
+}
+.rating-point {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 1.7em;
+  height: 1.7em;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--chart);
+  color: #fff;
+  font-size: 0.75em;
+  font-weight: 700;
+  border: 2px solid var(--surface);
+  transition:
+    left 400ms var(--ease),
+    top 400ms var(--ease);
+}
+.rating-point.is-static {
+  position: static;
+  transform: none;
+  flex-shrink: 0;
+}
+.rating-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4em;
+  align-content: start;
+  overflow: hidden;
+  font-size: 0.78em;
+}
+.rating-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  font-weight: 600;
+}
+.rating-legend .faint {
+  font-size: 0.85em;
+  white-space: nowrap;
+}
+
+/* Tabelle */
+.board-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78em;
+}
+.board-table th {
+  text-align: left;
+  font-size: 0.8em;
+  color: var(--ink-3);
+  font-weight: 700;
+  padding: 0.4em 0.6em;
+  border-bottom: 1px solid var(--border-strong);
+}
+.board-table td {
+  padding: 0.6em;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  font-weight: 550;
+}
+.board-table-topic {
+  font-weight: 700 !important;
+  display: grid;
+  gap: 0.3em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rating-point,
+  .board-card,
+  .is-drop {
+    transition: none;
+  }
+}
+
+/* Kompakter: Gruppen-Marken einzeilig, Felder mit mehreren Spalten, flache Ablage */
+.board-card.is-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5em;
+}
+.board-card.is-group .board-tag {
+  flex-shrink: 0;
+}
+.place-cell .cluster-cards {
+  grid-template-columns: repeat(auto-fill, minmax(8.5em, 1fr));
+}
+.board-tray {
+  flex-shrink: 0;
+  min-height: 0;
+}
+.board-tray .board-card {
+  font-size: 0.68em;
+  padding: 0.3em 0.6em;
+}
+.cluster-group.is-unsorted .cluster-cards {
+  overflow: auto;
+}
+.mindmap-node {
+  max-height: 40%;
+}
+.mindmap.is-many .mindmap-node {
+  width: 8.5em;
+  font-size: 0.8em;
+}
+.mindmap.is-many .mindmap-center {
+  max-width: 9em;
+  font-size: 0.85em;
+}
+.mindmap.is-many .mindmap-node {
+  max-height: 24%;
+}

@@ -1,7 +1,8 @@
-import type { PublicSlide, SlideResults, SlideType } from '@slides/shared';
+import type { BoardConfig, BoardSummary, PublicSlide, SlideResults, SlideType } from '@slides/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronUp, Download, Radio, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
+import { BoardProtocol } from '../../components/board/BoardProtocol.tsx';
 import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { FullScreenSpinner, useToast } from '../../components/ui.tsx';
@@ -17,6 +18,7 @@ interface ArchiveSlide {
   responses: number;
   posts: { id: number; authorName: string | null; text: string; column: number | null; status: string; votes: number }[];
   sentence: string | null;
+  board: BoardSummary | null;
 }
 
 interface RunResults {
@@ -87,7 +89,8 @@ export default function ArchivePage() {
           </div>
           {s.headline && <h2>{s.headline}</h2>}
           {s.sentence && <p className="sentence-preview">{s.sentence}</p>}
-          {s.results && s.results.voters > 0 && s.type !== 'sentence' && (
+          {s.board && <BoardProtocol config={s.config as BoardConfig} summary={s.board} results={s.results} />}
+          {s.results && s.results.voters > 0 && s.type !== 'sentence' && s.type !== 'board' && (
             <SlideResultsView slide={{ id: s.id, type: s.type, position: i, config: s.config } as PublicSlide} results={s.results} />
           )}
           {s.posts.length > 0 && (
@@ -100,6 +103,9 @@ export default function ArchivePage() {
                       {p.authorName && <span>{p.authorName}</span>}
                       {s.type === 'pinboard' && p.column !== null && 'columns' in s.config && (
                         <span className="pill">{s.config.columns[p.column]}</span>
+                      )}
+                      {s.type === 'board' && p.column !== null && 'tags' in s.config && (
+                        <span className="pill">{s.config.tags[p.column]}</span>
                       )}
                       {p.votes > 0 && (
                         <span className="pill">

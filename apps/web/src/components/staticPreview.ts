@@ -40,5 +40,7 @@ export function staticPreview(
     // Ohne Angabe im Endzustand (alle Animationen aufgedeckt)
     buildStep: opts.buildStep ?? 50,
     blank: null,
+    board: null,
+    countdown: null,
   };
 }

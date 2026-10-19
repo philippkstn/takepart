@@ -429,3 +429,192 @@
   width: 100%;
   height: auto;
 }
+
+/* ───────────── Kartenwand ───────────── */
+
+.board-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.board-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding-right: 4px;
+}
+.board-chip.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+.board-chip-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 12px 14px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.board-group {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.board-group h3 {
+  font-size: 1rem;
+}
+.board-move {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  box-shadow: var(--shadow-2);
+}
+.board-targets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.board-edit {
+  flex-wrap: nowrap;
+}
+.board-arrange {
+  flex-direction: column;
+  align-items: stretch;
+}
+.board-own {
+  display: block;
+}
+.board-budget {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.board-budget-dots {
+  display: inline-flex;
+  gap: 5px;
+}
+.board-budget-dots span {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--chart);
+}
+.board-budget-dots span.is-left {
+  background: var(--chart);
+}
+.board-vote-list,
+.board-rate-list,
+.board-table-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.board-vote-list li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 10px 10px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+.board-vote-list li.is-on {
+  border-color: var(--accent);
+}
+.board-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.board-stepper-n {
+  min-width: 2ch;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+.board-rate-row {
+  display: grid;
+  gap: 4px;
+}
+.board-rate-row .segmented {
+  justify-self: start;
+  flex-wrap: wrap;
+}
+.board-rate-row .segmented button {
+  min-width: 3em;
+}
+.board-done-list {
+  margin: 4px 0 0;
+  padding-left: 1.1em;
+}
+.board-table-list dl {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.board-table-list dt {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.board-table-list dd {
+  margin: 0;
+}
+
+/* Parkplatz und Countdown */
+.parking-bar {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  pointer-events: none;
+}
+.parking-btn {
+  pointer-events: auto;
+  box-shadow: var(--shadow-2);
+  background: var(--surface);
+}
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgb(0 0 0 / 35%);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 12px;
+}
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 85dvh;
+  overflow: auto;
+}
+.p-countdown.is-done {
+  color: var(--danger);
+}

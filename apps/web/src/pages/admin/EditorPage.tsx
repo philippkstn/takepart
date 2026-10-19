@@ -1,4 +1,7 @@
 import {
+  BOARD_MODE_HINTS,
+  BOARD_MODE_LABELS,
+  BOARD_MODES,
   buildSteps,
   SLIDE_TYPE_HINTS,
   SLIDE_TYPE_LABELS,
@@ -78,8 +81,8 @@ export default function EditorPage() {
   const onError = (err: unknown) => toast(errorMessage(err), 'error');
 
   const addSlide = useMutation({
-    mutationFn: (type: SlideType) =>
-      api<{ id: number }>(`/api/presentations/${id}/slides`, { body: { type, afterId: selected?.id ?? null } }),
+    mutationFn: ({ type, config }: { type: SlideType; config?: unknown }) =>
+      api<{ id: number }>(`/api/presentations/${id}/slides`, { body: { type, afterId: selected?.id ?? null, config } }),
     onSuccess: async ({ id: newId }) => {
       setAdding(false);
       await refresh();
@@ -268,8 +271,8 @@ export default function EditorPage() {
           </div>
           {adding && (
             <div className="type-picker anim-rise">
-              {CREATABLE_SLIDE_TYPES.map((t) => (
-                <button key={t} className="type-option" onClick={() => addSlide.mutate(t)} disabled={addSlide.isPending}>
+              {CREATABLE_SLIDE_TYPES.filter((t) => t !== 'board').map((t) => (
+                <button key={t} className="type-option" onClick={() => addSlide.mutate({ type: t })} disabled={addSlide.isPending}>
                   <span className="slide-type-icon">
                     <SlideIcon type={t} />
                   </span>
@@ -277,6 +280,26 @@ export default function EditorPage() {
                     <strong>{SLIDE_TYPE_LABELS[t]}</strong>
                     <span className="small faint" style={{ display: 'block' }}>
                       {SLIDE_TYPE_HINTS[t]}
+                    </span>
+                  </span>
+                </button>
+              ))}
+              <span className="label type-picker-label">Workshop: {SLIDE_TYPE_LABELS.board}</span>
+              {BOARD_MODES.map((mode) => (
+                <button
+                  key={mode}
+                  className="type-option"
+                  disabled={addSlide.isPending}
+                  // Neue Schritte arbeiten mit der zuletzt verwendeten Wand weiter
+                  onClick={() => addSlide.mutate({ type: 'board', config: { mode, board: lastBoard(slides, selected) } })}
+                >
+                  <span className="slide-type-icon">
+                    <SlideIcon type="board" />
+                  </span>
+                  <span>
+                    <strong>{BOARD_MODE_LABELS[mode]}</strong>
+                    <span className="small faint" style={{ display: 'block' }}>
+                      {BOARD_MODE_HINTS[mode]}
                     </span>
                   </span>
                 </button>
@@ -338,6 +361,13 @@ export default function EditorPage() {
       )}
     </main>
   );
+}
+
+/** Name der Kartenwand, mit der ein neuer Schritt weiterarbeitet: die letzte vor der Auswahl. */
+function lastBoard(slides: Slide[], selected: Slide | null): string {
+  const upTo = selected ? slides.slice(0, slides.indexOf(selected) + 1) : slides;
+  const found = [...upTo].reverse().find((s) => s.type === 'board') ?? slides.find((s) => s.type === 'board');
+  return found?.type === 'board' ? found.config.board : 'Karten';
 }
 
 /** Formular + Vorschau einer Folie. Änderungen werden nach kurzer Pause gespeichert. */
@@ -411,7 +441,12 @@ function SlideEditor({ slide, presentation, index }: { slide: Slide; presentatio
           </span>
         </div>
         <form className="stack" onSubmit={(e) => e.preventDefault()}>
-          <SlideForm slide={slide} value={draft} onChange={onChange} />
+          <SlideForm
+            slide={slide}
+            value={draft}
+            onChange={onChange}
+            boards={[...new Set(presentation.slides.flatMap((s) => (s.type === 'board' ? [s.config.board] : [])))]}
+          />
         </form>
         {error && <div className="error-box">{error}</div>}
         <NotesField key={slide.id} slideId={slide.id} presentationId={presentation.id} initial={presentation.notes[slide.id] ?? ''} />

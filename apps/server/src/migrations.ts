@@ -174,4 +174,40 @@ export const migrations: Migration[] = [
       `ALTER TABLE runs ADD COLUMN handout_token CHAR(32) NULL AFTER display_token, ADD UNIQUE KEY uq_runs_handout_token (handout_token)`,
     ],
   },
+  {
+    // Kartenwand: Gruppen (Cluster) je Wand, Platzierungen und Tabellenzeilen je Folie.
+    // Karten sind Beiträge (posts); von der Moderation ergänzte Karten haben keine Person.
+    name: '005_board',
+    statements: [
+      `CREATE TABLE board_groups (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        run_id INT UNSIGNED NOT NULL,
+        board VARCHAR(60) NOT NULL,
+        name VARCHAR(120) NOT NULL,
+        position INT NOT NULL DEFAULT 0,
+        participant_id INT UNSIGNED NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        INDEX idx_board_groups_run (run_id, board),
+        CONSTRAINT fk_board_groups_run FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE,
+        CONSTRAINT fk_board_groups_participant FOREIGN KEY (participant_id) REFERENCES participants (id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `ALTER TABLE posts
+        MODIFY participant_id INT UNSIGNED NULL,
+        ADD COLUMN group_id INT UNSIGNED NULL AFTER column_index,
+        ADD CONSTRAINT fk_posts_group FOREIGN KEY (group_id) REFERENCES board_groups (id) ON DELETE SET NULL`,
+      // target: 'c<postId>' oder 'g<groupId>'; lane/cell beim Zuordnen, position/fields in der Ergebnistabelle
+      `CREATE TABLE board_places (
+        run_id INT UNSIGNED NOT NULL,
+        slide_id INT UNSIGNED NOT NULL,
+        target VARCHAR(12) NOT NULL,
+        lane TINYINT UNSIGNED NULL,
+        cell TINYINT UNSIGNED NULL,
+        position INT NOT NULL DEFAULT 0,
+        fields TEXT NULL,
+        PRIMARY KEY (run_id, slide_id, target),
+        CONSTRAINT fk_board_places_run FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE,
+        CONSTRAINT fk_board_places_slide FOREIGN KEY (slide_id) REFERENCES slides (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
 ];

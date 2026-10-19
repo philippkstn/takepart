@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  boardResults,
+  boardTargets,
+  dotTotals,
+  levelLabel,
+  parseBoardKey,
   appendWord,
   buildSentence,
   countWords,
@@ -95,5 +100,55 @@ describe('Auswertungen', () => {
     expect(validateResponse('choice', choice, { choices: [2] })).toEqual({ ok: true, value: { choices: [2] } });
     const ranking = parseConfig('ranking', { options: ['a', 'b', 'c'] });
     expect(validateResponse('ranking', ranking, { order: [0, 0, 1] }).ok).toBe(false);
+  });
+});
+
+describe('Kartenwand', () => {
+  const board = (patch: Record<string, unknown>) => parseConfig('board', patch);
+
+  it('zählt Punkte und begrenzt sie auf das Budget', () => {
+    const config = board({ mode: 'dots', dots: 3, stack: true });
+    expect(validateResponse('board', config, { dots: { g1: 2, g2: 1 } })).toEqual({ ok: true, value: { dots: { g1: 2, g2: 1 } } });
+    expect(validateResponse('board', config, { dots: { g1: 4 } }).ok).toBe(false);
+    expect(validateResponse('board', config, { dots: {} }).ok).toBe(false);
+    expect(validateResponse('board', config, { dots: { x1: 1 } }).ok).toBe(false);
+    const single = board({ mode: 'dots', dots: 3, stack: false });
+    expect(validateResponse('board', single, { dots: { g1: 2 } }).ok).toBe(false);
+  });
+
+  it('prüft Bewertungen gegen die Stufen und wertet sie aus', () => {
+    const config = board({
+      mode: 'rate',
+      scales: [
+        { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] },
+        { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'] },
+      ],
+    });
+    expect(validateResponse('board', config, { ratings: { g1: [4, 0] } }).ok).toBe(false);
+    expect(validateResponse('board', config, { ratings: { g1: [3] } }).ok).toBe(false);
+    const ok = validateResponse('board', config, { ratings: { g1: [3, null], g2: [null, null] } });
+    expect(ok).toEqual({ ok: true, value: { ratings: { g1: [3, null] } } });
+    const r = boardResults(config, [{ ratings: { g1: [3, 0] } }, { ratings: { g1: [1, 2] } }]);
+    expect(r.ratings.g1).toEqual({
+      n: [2, 2],
+      average: [2, 1],
+      distribution: [
+        [0, 1, 0, 1],
+        [1, 0, 1, 0],
+      ],
+    });
+    expect(levelLabel(['S', 'M', 'L', 'XL'], 2.4)).toBe('L');
+  });
+
+  it('wählt Gruppen, sobald es welche gibt, und filtert die Top N nach Punkten', () => {
+    const cards = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    const config = board({ mode: 'rate', top: 0 });
+    expect(boardTargets(config, cards, [], {})).toEqual(['c1', 'c2', 'c3']);
+    expect(boardTargets(config, cards, [{ id: 7 }, { id: 8 }], {})).toEqual(['g7', 'g8']);
+    const top = board({ mode: 'rate', top: 2, targets: 'cards' });
+    expect(boardTargets(top, cards, [{ id: 7 }], { c3: 4, c1: 1, c2: 1 })).toEqual(['c3', 'c1']);
+    expect(dotTotals([{ dots: { g1: 2 } }, { dots: { g1: 1, g2: 3 } }, {}])).toEqual({ g1: 3, g2: 3 });
+    expect(parseBoardKey('g12')).toEqual({ kind: 'group', id: 12 });
+    expect(parseBoardKey('g0')).toBeNull();
   });
 });

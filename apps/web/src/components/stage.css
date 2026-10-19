@@ -653,3 +653,33 @@
 .stage-blank.tone-white {
   background: #fff;
 }
+
+/* Countdown */
+.countdown-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 700;
+}
+.countdown-badge svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+.stage-countdown {
+  padding: 0.2em 0.7em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 1.15em;
+}
+.stage-countdown.is-done {
+  color: var(--danger);
+  border-color: currentColor;
+}
+.stage-countdown-float {
+  position: absolute;
+  top: 1em;
+  right: 1em;
+  font-size: min(1.7cqw, 3cqh);
+}

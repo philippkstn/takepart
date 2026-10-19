@@ -9,3 +9,4 @@ export * from './results.ts';
 export * from './state.ts';
 export * from './words.ts';
 export * from './deck.ts';
+export * from './board.ts';

@@ -38,7 +38,7 @@ export async function insertDemoBrands(conn: Conn) {
 export const DEMO_TITLE = 'TakePart Demo – alle Funktionen';
 
 /** Ein Foliensatz, der jede Aktivität einmal zeigt – in der Reihenfolge eines echten Vortrags. */
-export const DEMO_SLIDES: { type: SlideType; config: unknown }[] = [
+export const DEMO_SLIDES: { type: SlideType; config: unknown; notes?: string }[] = [
   {
     type: 'content',
     config: { title: 'Willkommen bei TakePart', body: 'Mach mit – auf dem Handy oder im Browser. Kein Konto nötig.', showJoin: true },
@@ -81,6 +81,120 @@ export const DEMO_SLIDES: { type: SlideType; config: unknown }[] = [
   { type: 'brainstorm', config: { question: 'Wie machen wir Vorträge interaktiver?', allowVotes: true } },
   { type: 'pinboard', config: { title: 'Kurze Retro: Wie lief das letzte Projekt?', columns: ['Lief gut', 'Verbessern', 'Ideen'] } },
   ...SENTENCE_STARTERS.map((start) => ({ type: 'sentence' as const, config: { start } })),
+  // Workshop: Kartenwände über mehrere Folien – jede Variante einmal
+  {
+    type: 'content',
+    config: {
+      title: 'Workshop: Kartenwand',
+      body: 'Karten sammeln, clustern, zuordnen, Punkte kleben, bewerten und die Top 3 festhalten – gemeinsam, live.',
+      showJoin: false,
+    },
+    notes:
+      'Folien mit demselben Wand-Namen teilen sich Karten und Gruppen. Für Arbeitsphasen den Timer im Steuerpult starten – er erscheint auf Beamer und Handys.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Parkplatz', mode: 'collect', prompt: 'Parkplatz: Lösungsideen für später', maxCards: 10, anytime: true },
+    notes: 'Jederzeit offen: Teilnehmende parken Ideen von jeder Folie aus über den Knopf unten auf dem Handy.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: 'Hindernisse',
+      mode: 'collect',
+      prompt: 'Was hindert uns heute daran, erfolgreicher zu sein?',
+      maxCards: 5,
+      tags: ['Vertrieb', 'Marketing', 'Leitung'],
+    },
+    notes: 'Höchstens 5 Karten pro Person, jede mit Rolle. Ergebnisse verbergen, solange geschrieben wird.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: 'Hindernisse',
+      mode: 'place',
+      prompt: 'Wo im Prozess sitzen die Hindernisse?',
+      targets: 'cards',
+      rights: 'own',
+      showUnsorted: true,
+      lanes: [
+        { title: 'Neukunden', cells: ['Marketing', 'Lead', 'Opportunity', 'Angebot', 'Unterschrift'] },
+        { title: 'Bestandskunden', cells: ['Zielkunden', 'Potenzial', 'Ansprache', 'Qualifizieren', 'Übergabe'] },
+      ],
+    },
+    notes: 'Prozess-Board mit zwei Bahnen: Jede Person ordnet ihre eigenen Karten selbst ein.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Hindernisse', mode: 'cluster', prompt: 'Ähnliche Hindernisse bündeln', rights: 'host' },
+    notes:
+      'Reihum vorstellen: Karte im Steuerpult „Groß zeigen“ und in der Vorschau auf eine Gruppe ziehen. Noch nicht eingeordnete Karten sieht nur die Moderation. Rechte bei Bedarf live auf „Alle bearbeiten gemeinsam“ umschalten.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Hindernisse', mode: 'dots', prompt: 'Wo wäre der Nutzen am größten, wenn das Hindernis weg wäre?', dots: 3 },
+    notes: 'Drei Klebepunkte, auch mehrere auf dieselbe Gruppe. Ergebnisse erst nach dem Abstimmen zeigen.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: 'Hindernisse',
+      mode: 'rate',
+      prompt: 'Nutzen und Aufwand der Top 5',
+      top: 5,
+      scales: [
+        { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] },
+        { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'] },
+      ],
+    },
+    notes: 'Zwei Kriterien ergeben die Matrix aus den Durchschnitten. Nur die Top 5 nach Punkten.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: 'Hindernisse',
+      mode: 'place',
+      prompt: 'Gemeinsam einordnen',
+      lanes: [
+        { title: 'hoch', cells: ['Quick Wins', 'Strategisch'] },
+        { title: 'gering', cells: ['Mitnehmen', 'Zurückstellen'] },
+      ],
+      xLabel: 'Aufwand: gering → hoch',
+      yLabel: 'Nutzen',
+    },
+    notes: 'Matrix 2×2: Gruppen im Plenum per Drag & Drop einordnen.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Hindernisse', mode: 'table', prompt: 'Unsere Top 3' },
+    notes: 'Im Steuerpult „Top 3 nach Punkten übernehmen“ und die Felder gemeinsam ausfüllen.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Ideen', mode: 'collect', prompt: 'Wie könnten wir unsere Meetings verbessern?', maxCards: 3 },
+  },
+  {
+    type: 'board',
+    config: { board: 'Ideen', mode: 'cluster', prompt: 'Bessere Meetings', layout: 'mindmap', rights: 'all', showUnsorted: true },
+    notes: 'Mindmap, die alle gemeinsam bearbeiten: Karten verschieben, Gruppen anlegen und umbenennen.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Ideen', mode: 'dots', prompt: 'Was probieren wir zuerst aus?', dots: 2, stack: false, targets: 'cards' },
+    notes: 'Zwei Punkte, höchstens einer pro Karte.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: 'Ideen',
+      mode: 'rate',
+      prompt: 'Wie leicht lässt sich das umsetzen?',
+      targets: 'cards',
+      top: 3,
+      scales: [{ label: 'Umsetzbarkeit', levels: ['schwer', 'mittel', 'leicht'] }],
+    },
+    notes: 'Ein Kriterium ergibt eine Rangliste.',
+  },
   { type: 'qa', config: { title: 'Eure Fragen', moderated: true } },
   { type: 'feedback', config: { question: 'Wie hat dir der Vortrag gefallen?', withComment: true } },
   { type: 'content', config: { title: 'Danke fürs Mitmachen!', body: 'Die Ergebnisse gibt es im Anschluss.', showJoin: false } },
@@ -89,11 +203,12 @@ export const DEMO_SLIDES: { type: SlideType; config: unknown }[] = [
 /** Hängt den Demo-Foliensatz an eine Präsentation an (ab Position `from`). */
 export async function insertDemoSlides(conn: Conn, presentationId: number, from = 0) {
   for (const [i, s] of DEMO_SLIDES.entries()) {
-    await exec(conn, 'INSERT INTO slides (presentation_id, position, type, config) VALUES (?, ?, ?, ?)', [
+    await exec(conn, 'INSERT INTO slides (presentation_id, position, type, config, notes) VALUES (?, ?, ?, ?, ?)', [
       presentationId,
       from + i,
       s.type,
       JSON.stringify(parseConfig(s.type, s.config)),
+      s.notes ?? null,
     ]);
   }
 }

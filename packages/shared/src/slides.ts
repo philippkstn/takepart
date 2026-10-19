@@ -18,6 +18,7 @@ export const SLIDE_TYPES = [
   'feedback',
   'qa',
   'sentence',
+  'board',
   'image',
 ] as const;
 export type SlideType = (typeof SLIDE_TYPES)[number];
@@ -38,6 +39,7 @@ export const SLIDE_TYPE_LABELS: Record<SlideType, string> = {
   feedback: 'Feedback',
   qa: 'Fragen (Q&A)',
   sentence: 'Satz vervollständigen',
+  board: 'Kartenwand',
   image: 'Folie',
 };
 
@@ -54,6 +56,7 @@ export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
   feedback: 'Sterne-Bewertung mit optionalem Kommentar',
   qa: 'Fragen mit Namen, Upvotes und Freigabe',
   sentence: 'Satzanfang vorgeben, das häufigste Wort wird angehängt',
+  board: 'Karten sammeln, clustern, zuordnen, punkten und bewerten',
   image: 'Importierte Folie aus PDF/PowerPoint',
 };
 
@@ -114,6 +117,97 @@ export const sentenceConfig = z.object({
   start: text(300).default(''),
 });
 /**
+ * Kartenwand für Workshop-Übungen. Mehrere Folien teilen sich eine Wand über
+ * ihren Namen (`board`): Auf der ersten werden Karten gesammelt, auf den
+ * folgenden geclustert, zugeordnet, gepunktet und bewertet. So liegen die
+ * Übungsschritte im normalen Folienablauf zwischen den Anleitungsfolien.
+ */
+export const BOARD_MODES = ['collect', 'cluster', 'place', 'dots', 'rate', 'table'] as const;
+export type BoardMode = (typeof BOARD_MODES)[number];
+export const BOARD_MODE_LABELS: Record<BoardMode, string> = {
+  collect: 'Karten sammeln',
+  cluster: 'Clustern',
+  place: 'Zuordnen',
+  dots: 'Punkte kleben',
+  rate: 'Bewerten',
+  table: 'Ergebnistabelle',
+};
+export const BOARD_MODE_HINTS: Record<BoardMode, string> = {
+  collect: 'Jede Person schreibt Karten – eine Idee pro Karte',
+  cluster: 'Karten zu Gruppen bündeln, als Wand oder Mindmap',
+  place: 'Karten oder Gruppen in Spalten, Prozessschritte oder eine Matrix',
+  dots: 'Klebepunkte auf Gruppen oder Karten verteilen',
+  rate: 'Einträge einschätzen, z. B. Nutzen und Aufwand in S bis XL',
+  table: 'Top-Themen mit Verantwortlichen und nächsten Schritten',
+};
+export const BOARD_RIGHTS = ['host', 'own', 'all'] as const;
+export type BoardRights = (typeof BOARD_RIGHTS)[number];
+export const BOARD_RIGHTS_LABELS: Record<BoardRights, string> = {
+  host: 'Nur Moderation',
+  own: 'Eigene Karten einordnen',
+  all: 'Alle bearbeiten gemeinsam',
+};
+const shortLabel = (max: number) => z.string().trim().min(1, 'Beschriftung darf nicht leer sein').max(max);
+export const boardLane = z.object({
+  title: text(60).default(''),
+  cells: z.array(shortLabel(60)).min(1).max(8),
+});
+export const boardScale = z.object({
+  label: shortLabel(40),
+  levels: z.array(shortLabel(20)).min(2).max(7),
+});
+export const boardConfig = z.object({
+  /** Name der Wand – Folien mit gleichem Namen arbeiten mit denselben Karten */
+  board: z.string().trim().min(1, 'Bitte einen Namen für die Kartenwand angeben').max(60).default('Karten'),
+  mode: z.enum(BOARD_MODES).default('collect'),
+  prompt: text(300).default(''),
+  /* Sammeln */
+  maxCards: z.number().int().min(1).max(20).default(5),
+  /** Optionale Kennzeichnung je Karte, z. B. Rollen (höchstens fünf) */
+  tags: z.array(shortLabel(40)).max(5).default([]),
+  /** Karten jederzeit annehmen, auch wenn die Folie nicht gezeigt wird (Parkplatz) */
+  anytime: z.boolean().default(false),
+  /* Clustern */
+  layout: z.enum(['wall', 'mindmap']).default('wall'),
+  /* Zuordnen: Bahnen mit eigenen Feldern; zwei Bahnen à zwei Felder ergeben eine Matrix */
+  lanes: z
+    .array(boardLane)
+    .min(1)
+    .max(4)
+    .default([{ title: '', cells: ['Spalte 1', 'Spalte 2', 'Spalte 3'] }]),
+  xLabel: text(60).default(''),
+  yLabel: text(60).default(''),
+  /* Clustern und Zuordnen */
+  /**
+   * Was Teilnehmende auf der Wand dürfen: nichts (nur Moderation), eigene Karten
+   * einordnen oder gemeinsam alles bearbeiten (Karten verschieben und ändern,
+   * Gruppen anlegen und umbenennen). Im Steuerpult live umschaltbar.
+   */
+  rights: z.enum(BOARD_RIGHTS).default('host'),
+  /** Noch nicht eingeordnete Karten auf dem Beamer zeigen */
+  showUnsorted: z.boolean().default(false),
+  /* Zuordnen, Punkte, Bewerten: worauf sich die Folie bezieht */
+  targets: z.enum(['auto', 'cards', 'groups']).default('auto'),
+  /** Nur die N Einträge mit den meisten Punkten (0 = alle) */
+  top: z.number().int().min(0).max(30).default(0),
+  /* Punkte */
+  dots: z.number().int().min(1).max(10).default(3),
+  /** Mehrere Punkte auf denselben Eintrag erlaubt */
+  stack: z.boolean().default(true),
+  /* Bewerten: ein oder zwei Kriterien; bei zweien entsteht eine Matrix */
+  scales: z
+    .array(boardScale)
+    .min(1)
+    .max(2)
+    .default([{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] }]),
+  /** Felder der Matrix bei zwei Kriterien: oben links, oben rechts, unten links, unten rechts */
+  quadrants: z.array(text(40)).length(4).default(['Quick Wins', 'Strategisch', 'Mitnehmen', 'Zurückstellen']),
+  /* Ergebnistabelle */
+  columns: z.array(shortLabel(40)).min(1).max(5).default(['Lösungsrichtung', 'Verantwortlich', 'Nächster Schritt', 'Bis']),
+});
+export type BoardConfig = z.infer<typeof boardConfig>;
+
+/**
  * Aufbau-Animationen einer importierten Folie (aus der PPTX). Das Folienbild zeigt
  * den Endzustand; noch nicht aufgedeckte Elemente werden mit Flächen in der
  * gemessenen Umgebungsfarbe abgedeckt. Nur Eingangseffekte lassen sich so
@@ -170,6 +264,7 @@ export const slideConfigSchemas = {
   feedback: feedbackConfig,
   qa: qaConfig,
   sentence: sentenceConfig,
+  board: boardConfig,
   image: imageConfig,
 } satisfies Record<SlideType, z.ZodType>;
 
@@ -198,6 +293,10 @@ export function parseConfig<T extends SlideType>(type: T, config: unknown): Slid
 
 /** Überschrift, die eine Folie in Listen und auf dem Beamer trägt. */
 export function slideHeadline(slide: Pick<Slide, 'type' | 'config'>): string {
+  if (slide.type === 'board') {
+    const b = slide.config as BoardConfig;
+    return b.prompt.trim() || `${BOARD_MODE_LABELS[b.mode]}: ${b.board}`;
+  }
   const c = slide.config as Record<string, unknown>;
   const value = (c.question ?? c.title ?? c.start ?? '') as string;
   return value.trim();
@@ -220,7 +319,7 @@ export const assetUrl = (asset: string) => `/api/assets/${asset}`;
 export const assetThumbUrl = (asset: string) => `/api/assets/${asset}/thumb`;
 
 /** Folientypen, deren Beiträge als einzelne Karten (Posts) gespeichert werden. */
-export const POST_TYPES = ['open', 'brainstorm', 'pinboard', 'qa'] as const satisfies readonly SlideType[];
+export const POST_TYPES = ['open', 'brainstorm', 'pinboard', 'qa', 'board'] as const satisfies readonly SlideType[];
 export type PostSlideType = (typeof POST_TYPES)[number];
 export function isPostType(type: SlideType): type is PostSlideType {
   return (POST_TYPES as readonly string[]).includes(type);

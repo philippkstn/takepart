@@ -1,4 +1,4 @@
-import { SLIDE_TYPE_LABELS, slideHeadline, type QuizAnswer, type ResponsePayloads, type Slide } from '@slides/shared';
+import { parseBoardKey, SLIDE_TYPE_LABELS, slideHeadline, type QuizAnswer, type ResponsePayloads, type Slide } from '@slides/shared';
 import { json, one, query, type Db } from './db.ts';
 import { loadSlides } from './snapshot.ts';
 
@@ -29,31 +29,44 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
     [runId],
   );
   const posts = await query<{
+    id: number;
     slide_id: number;
-    participant_id: number;
+    participant_id: number | null;
     author_name: string | null;
     text: string;
     column_index: number | null;
     status: string;
     votes: number;
+    group_id: number | null;
     created_at: Date;
   }>(db, 'SELECT * FROM posts WHERE run_id = ? ORDER BY slide_id, id', [runId]);
 
-  const base = (slideId: number, participantId: number) => {
+  // Kartenwand: Gruppen und Kartentexte, um Punkte und Bewertungen lesbar zu machen
+  const groups = await query<{ id: number; name: string }>(db, 'SELECT id, name FROM board_groups WHERE run_id = ?', [runId]);
+  const groupNames = new Map(groups.map((g) => [g.id, g.name]));
+  const cardTexts = new Map(posts.map((p) => [p.id, p.text]));
+  const label = (key: string) => {
+    const parsed = parseBoardKey(key);
+    if (!parsed) return key;
+    const text = parsed.kind === 'group' ? groupNames.get(parsed.id) : cardTexts.get(parsed.id);
+    return text ?? key;
+  };
+
+  const base = (slideId: number, participantId: number | null) => {
     const s = bySlide.get(slideId)!;
     return [
       String(s.index),
       SLIDE_TYPE_LABELS[s.slide.type],
       slideHeadline(s.slide),
-      String(number.get(participantId) ?? ''),
-      names.get(participantId) ?? '',
+      participantId === null ? '' : String(number.get(participantId) ?? ''),
+      participantId === null ? 'Moderation' : (names.get(participantId) ?? ''),
     ];
   };
 
   for (const r of responses) {
     const s = bySlide.get(r.slide_id);
     if (!s) continue;
-    const [answer, details] = describe(s.slide, json(r.payload));
+    const [answer, details] = describe(s.slide, json(r.payload), label);
     rows.push([...base(r.slide_id, r.participant_id), String(r.round), answer, details, r.created_at.toISOString()]);
   }
   for (const p of posts) {
@@ -63,6 +76,10 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
       s.slide.type === 'pinboard' && p.column_index !== null
         ? `Spalte: ${s.slide.config.columns[p.column_index] ?? p.column_index + 1}`
         : '',
+      s.slide.type === 'board' && p.column_index !== null
+        ? `Kennzeichnung: ${s.slide.config.tags[p.column_index] ?? p.column_index + 1}`
+        : '',
+      p.group_id !== null ? `Gruppe: ${groupNames.get(p.group_id) ?? p.group_id}` : '',
       p.votes > 0 ? `${p.votes} Stimmen` : '',
       p.status === 'visible' ? '' : `Status: ${p.status}`,
     ]
@@ -76,7 +93,7 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
   return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
 }
 
-function describe(slide: Slide, payload: unknown): [string, string] {
+function describe(slide: Slide, payload: unknown, label: (key: string) => string): [string, string] {
   switch (slide.type) {
     case 'choice': {
       const p = payload as ResponsePayloads['choice'];
@@ -101,6 +118,26 @@ function describe(slide: Slide, payload: unknown): [string, string] {
     }
     case 'sentence':
       return [(payload as ResponsePayloads['sentence']).word, ''];
+    case 'board': {
+      const p = payload as ResponsePayloads['board'];
+      if (p.dots)
+        return [
+          Object.entries(p.dots)
+            .map(([k, n]) => `${label(k)}: ${n}`)
+            .join(' | '),
+          'Punkte',
+        ];
+      const scales = slide.config.scales;
+      return [
+        Object.entries(p.ratings ?? {})
+          .map(
+            ([k, values]) =>
+              `${label(k)}: ${values.map((v, i) => `${scales[i]?.label ?? i + 1} ${v === null ? '–' : (scales[i]?.levels[v] ?? v)}`).join(', ')}`,
+          )
+          .join(' | '),
+        'Bewertung',
+      ];
+    }
     default:
       return [JSON.stringify(payload), ''];
   }

@@ -821,3 +821,53 @@
   color: #18181a;
   background: rgb(255 255 255 / 78%);
 }
+
+/* ───────────── Kartenwand im Steuerpult ───────────── */
+
+.select-small {
+  padding: 0.3em 0.5em;
+  font-size: 0.85rem;
+  min-height: 0;
+}
+.board-rights {
+  flex-wrap: wrap;
+  justify-self: start;
+}
+.board-rights button {
+  font-size: 0.8rem;
+}
+.board-inline-form {
+  flex-wrap: nowrap;
+}
+.board-group-edit {
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.board-group-name {
+  font-weight: 700;
+}
+.board-row-edit .field input {
+  font-size: 0.9rem;
+}
+.countdown-control {
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+.countdown-control .countdown-badge svg {
+  width: 15px;
+  height: 15px;
+}
+.countdown-control .is-done {
+  color: var(--danger);
+}
+.type-picker-label {
+  padding: 10px 8px 2px;
+}
+.lane-edit {
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
