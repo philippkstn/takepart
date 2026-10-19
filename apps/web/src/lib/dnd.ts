@@ -30,13 +30,8 @@ const THRESHOLD = 6;
 /** Zieht ab einer kleinen Bewegung eine Karte (Schlüssel `key`) mit Vorschau `label`. */
 export function startDrag(e: ReactPointerEvent, key: string, label: string) {
   if (e.button !== 0) return;
-  // Loslassen auch außerhalb des Fensters mitbekommen
   const handle = e.currentTarget as Element;
-  try {
-    handle.setPointerCapture(e.pointerId);
-  } catch {
-    /* ältere Browser: dann eben ohne */
-  }
+  const pointerId = e.pointerId;
   const startX = e.clientX;
   const startY = e.clientY;
   let ghost: HTMLDivElement | null = null;
@@ -52,6 +47,13 @@ export function startDrag(e: ReactPointerEvent, key: string, label: string) {
   const move = (ev: PointerEvent) => {
     if (!ghost) {
       if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < THRESHOLD) return;
+      // Zeiger erst beim echten Ziehen übernehmen – ein einfacher Klick bleibt beim angeklickten Element
+      // (z. B. zum Aufklappen gekürzter Karten); so kommt auch ein Loslassen außerhalb des Fensters an.
+      try {
+        handle.setPointerCapture(pointerId);
+      } catch {
+        /* ältere Browser: dann eben ohne */
+      }
       ghost = document.createElement('div');
       ghost.className = 'drag-ghost';
       ghost.textContent = label.length > 80 ? `${label.slice(0, 80)} …` : label;

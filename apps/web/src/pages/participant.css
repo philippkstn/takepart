@@ -633,11 +633,16 @@
   min-width: 0;
   /* Abstand als Rand, nicht als Innenabstand – sonst schaut beim Kürzen eine halbe Zeile hervor */
   margin: 10px 4px;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .board-place-item {
   flex-wrap: wrap;
   padding: 4px 6px 4px 0;
+}
+/* Feldauswahl unter dem Kartentext, damit lange Karten nicht in eine schmale Spalte gequetscht werden */
+.board-place-item .select-compact {
+  flex: 1 1 100%;
+  margin: 0 6px 6px 8px;
 }
 .select-compact {
   width: auto;
