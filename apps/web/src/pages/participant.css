@@ -708,8 +708,8 @@
 
 @media (min-width: 900px) {
   .p-main.is-wide {
-    width: min(1280px, 100%);
-    padding-inline: 24px;
+    width: min(1320px, 100%);
+    padding-inline: 40px;
   }
   /* Ablage links als feste Spalte, rechts die Wand bzw. die Felder */
   .board-layout {
@@ -785,23 +785,9 @@
   }
 }
 
-/* Desktop mit Maus: Feldauswahl erst bei Hover oder Tastaturfokus – gezogen wird mit der Maus */
-@media (min-width: 900px) and (pointer: fine) {
+/* Desktop: Karten werden gezogen – keine Feldauswahl an jeder Karte */
+@media (min-width: 900px) {
   .board-place-item .select-compact {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    overflow: hidden;
-  }
-  .board-place-item:hover .select-compact,
-  .board-place-item:focus-within .select-compact {
-    position: static;
-    width: 100%;
-    height: auto;
-    opacity: 1;
-  }
-  .board-place-item {
-    position: relative;
+    display: none;
   }
 }

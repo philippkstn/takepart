@@ -292,7 +292,7 @@ function Arrange({ view, slide, token }: { view: ParticipantView; slide: BoardSl
     const unplaced = keys.filter((k) => !board.places[k]);
     return (
       <div className="stack">
-        <p className="small muted">Karte am Griff in das passende Feld ziehen – oder das Feld auswählen.</p>
+        <p className="small muted">Karte am Griff in das passende Feld ziehen.</p>
         <div className="board-layout">
           <DropSection title="Noch nicht eingeordnet" onDrop={(key) => place(key, null, null)} muted side>
             {unplaced.length > 0 ? (
