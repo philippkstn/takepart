@@ -217,7 +217,8 @@ function BlankScreen({ mode }: { mode: DisplayView['blank'] }) {
   return <div className={`stage-blank tone-${last.current}${mode ? ' is-on' : ''}`} aria-hidden={!mode} />;
 }
 
-function usePageVisible(): boolean {
+/** Verdeckte Tabs zeichnen nicht – dort Aufbau-Schritte ohne Animation zeigen */
+export function usePageVisible(): boolean {
   const [visible, setVisible] = useState(() => document.visibilityState === 'visible');
   useEffect(() => {
     const onChange = () => setVisible(document.visibilityState === 'visible');

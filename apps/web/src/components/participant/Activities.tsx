@@ -1,9 +1,10 @@
 import { assetUrl, type ParticipantView, type PostView, type PublicSlide, type ResponsePayloads } from '@slides/shared';
 import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, RotateCcw, Send, Star, Trophy } from 'lucide-react';
-import { useState, type FormEvent, type ReactNode } from 'react';
+import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useCountdown } from '../../lib/live.ts';
 import { BuildLayer } from '../BuildLayer.tsx';
+import { usePageVisible } from '../Stage.tsx';
 import { BoardActivity } from './BoardActivity.tsx';
 import { useToast } from '../ui.tsx';
 
@@ -107,14 +108,15 @@ function NameGate({ view, token, reason, children }: { view: ParticipantView; to
 
 /** Importierte Folie zum Mitlesen; antippen öffnet sie groß zum Zoomen. */
 function ImageSlide({ slide, step }: { slide: Slide<'image'>; step: number }) {
+  const visible = usePageVisible();
   // Ohne Bildkennung hat die Vortragende das Mitlesen ausgeschaltet.
   if (!slide.config.asset) return <Info icon={<Hourglass size={20} />}>Schau auf die Präsentation – gleich geht es weiter.</Info>;
   const src = assetUrl(slide.config.asset);
-  // Noch nicht aufgedeckte Elemente bleiben auch hier verdeckt (ohne Animation)
+  // Aufbau-Animationen laufen wie auf dem Beamer mit; wer später dazukommt, sieht den aktuellen Stand
   return (
-    <div className="p-slide anim-rise">
+    <div className="p-slide anim-rise" style={{ '--slide-ratio': slide.config.width / slide.config.height } as CSSProperties}>
       <img src={src} alt={slide.config.title || 'Aktuelle Folie'} width={slide.config.width} height={slide.config.height} />
-      <BuildLayer builds={slide.config.builds} step={step} image={src} animate={false} slideId={slide.id} />
+      <BuildLayer builds={slide.config.builds} step={step} image={src} animate={visible} slideId={slide.id} />
     </div>
   );
 }

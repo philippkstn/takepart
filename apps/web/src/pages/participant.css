@@ -742,7 +742,7 @@
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
-  .board-collect {
+  .board-collect.has-cards {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
     gap: 24px;
@@ -890,12 +890,18 @@
 }
 
 @media (min-width: 900px) {
+  /* Freigegebene Folie: so breit wie möglich, aber ganz im Fenster sichtbar */
+  .p-main.is-slide {
+    width: min(1320px, 100%);
+    padding-inline: 40px;
+  }
+  .p-main.is-slide .p-slide {
+    width: min(100%, calc((100dvh - 150px) * var(--slide-ratio, 1.7778)));
+    justify-self: center;
+  }
   .p-main.is-medium {
     width: min(960px, 100%);
     padding-inline: 40px;
-  }
-  .board-collect:not(.has-cards) {
-    grid-template-columns: minmax(0, 640px);
   }
   /* Pinnwand: Spalten nebeneinander */
   .p-main.is-wide .pin-columns {

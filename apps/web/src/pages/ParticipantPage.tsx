@@ -30,12 +30,14 @@ function writeToken(code: string, token: string) {
   }
 }
 
-/** Breite auf dem Desktop: Kartenwand und Pinnwand nutzen den Platz, Sammeln etwas schmaler */
+/** Breite auf dem Desktop: Kartenwand, Pinnwand und freigegebene Folien nutzen den Platz, Sammeln etwas schmaler */
 function mainWidth(view: ParticipantView): string {
   const slide = view.slide;
   if (!slide || view.leaderboard) return '';
   if (slide.type === 'pinboard') return 'is-wide';
-  if (slide.type === 'board') return slide.config.mode === 'collect' ? 'is-medium' : 'is-wide';
+  if (slide.type === 'image' && slide.config.asset) return 'is-slide';
+  // Sammeln: erst mit eigenen Karten breiter (Formular und Karten nebeneinander), vorher schmal und mittig
+  if (slide.type === 'board') return slide.config.mode !== 'collect' ? 'is-wide' : view.posts.length > 0 ? 'is-medium' : '';
   return '';
 }
 
