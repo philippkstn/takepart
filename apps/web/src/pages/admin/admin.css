@@ -415,7 +415,7 @@
 }
 /* Vorschau nur so hoch, dass Navigation und Steuerung darunter ohne Scrollen sichtbar bleiben */
 .control-center > .preview-frame {
-  width: min(100%, max(440px, calc((100dvh - 420px) * 16 / 9)));
+  width: min(100%, max(440px, calc((100dvh - 330px) * 16 / 9)));
   justify-self: center;
 }
 .control-nav {
@@ -1041,4 +1041,20 @@
   display: grid;
   gap: 6px;
   max-width: 320px;
+}
+
+/* Reiter der Steuerung unter der Vorschau */
+.control-tabs {
+  justify-self: start;
+}
+.control-tabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.control-tab-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
 }
