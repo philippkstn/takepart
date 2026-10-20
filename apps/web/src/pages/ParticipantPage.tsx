@@ -146,7 +146,8 @@ export default function ParticipantPage({ code }: { code: string }) {
             )}
           </span>
         </header>
-        <PhaseBanner countdown={view.countdown} offset={offset} />
+        {/* In der Pause zählt nur die Pausenzeit */}
+        {!view.pause && <PhaseBanner countdown={view.countdown} offset={offset} />}
       </div>
       <ConnectionBadge status={status} />
       {/* Hinweise oben stapeln, statt sich zu überdecken */}

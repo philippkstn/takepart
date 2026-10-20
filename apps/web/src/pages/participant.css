@@ -1061,6 +1061,10 @@ button.board-group-name:hover {
     width: min(100%, calc((100dvh - 150px) * var(--slide-ratio, 1.7778)));
     justify-self: center;
   }
+  /* Mit Phasen-Leiste unter der Kopfzeile entsprechend weniger Höhe */
+  .p-shell:has(.phase-banner) .p-main.is-slide .p-slide {
+    width: min(100%, calc((100dvh - 250px) * var(--slide-ratio, 1.7778)));
+  }
   .p-main.is-medium {
     width: min(960px, 100%);
     padding-inline: 40px;
