@@ -156,6 +156,8 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap, partici
     // Beendete Durchführung: keine laufenden Anzeigen übernehmen
     countdown: null,
     blank: null,
+    pause: null,
+    pauseVotes: undefined,
   };
 }
 

@@ -62,7 +62,32 @@ export interface RunState {
   boardRights?: Record<string, BoardRights>;
   /** Gruppeneinteilung je „Gruppen bilden“-Folie: Teilnehmer-IDs je Gruppe */
   teams?: Record<string, number[][]>;
+  /** Pausenmodus: Pausenansicht auf Beamer und Handys; jedes Blättern beendet ihn */
+  pause?: Pause | null;
+  /** Rückmeldungen der aktuellen Pause je Teilnehmer-ID (beim Start geleert) */
+  pauseVotes?: Record<string, PauseVote>;
 }
+
+/** Laufende Pause – gleiche Form wie der Countdown (für Restzeit, Hinweise und Töne) */
+export interface Pause extends Countdown {
+  /** Energie-Frage auf den Handys stellen */
+  question: boolean;
+}
+
+export interface PauseVote {
+  /** Energie 1 (leer) … 5 (voll) */
+  energy?: number;
+  /** „Ich bin wieder da“ */
+  ready?: boolean;
+}
+
+/** Rückmeldung während der Pause (`POST /api/p/pause`) – mindestens eins von beiden */
+export const pauseVoteInput = z
+  .object({
+    energy: z.number().int().min(1).max(5).optional(),
+    ready: z.boolean().optional(),
+  })
+  .refine((v) => v.energy !== undefined || v.ready !== undefined, 'Keine Angabe');
 
 /** Rechte der Teilnehmenden auf einer Wand-Folie: live gesetzt oder aus der Folie */
 export function boardRights(state: RunState, slide: { id: number; config: Pick<BoardConfig, 'rights'> }): BoardRights {
@@ -179,6 +204,18 @@ export const hostCommand = z.discriminatedUnion('action', [
       .max(4 * 3600)
       .nullable(),
   }),
+  /** Pausenmodus starten (auch neu starten), verlängern, beenden */
+  z.object({
+    action: z.literal('pause-start'),
+    seconds: z
+      .number()
+      .int()
+      .min(60)
+      .max(4 * 3600),
+    question: z.boolean().default(true),
+  }),
+  z.object({ action: z.literal('pause-extend'), seconds: z.number().int().min(60).max(3600).default(300) }),
+  z.object({ action: z.literal('pause-end') }),
   z.object({ action: z.literal('board'), slideId: z.number().int(), op: boardOp }),
   z.object({ action: z.literal('board-rights'), slideId: z.number().int(), rights: z.enum(BOARD_RIGHTS) }),
   /** Gruppen bilden: neu einteilen – n Gruppen oder Gruppen à n Personen, auf Wunsch nach Kennzeichnung gemischt */
@@ -343,6 +380,32 @@ export interface ParticipantView {
   countdown: Countdown | null;
   /** Eigene Gruppe aus der letzten Einteilung bis zur aktuellen Folie */
   team: ParticipantTeam | null;
+  /** Laufende Pause mit der eigenen Rückmeldung */
+  pause?: ParticipantPause | null;
+}
+
+export interface ParticipantPause extends Pause {
+  vote: PauseVote | null;
+}
+
+/** Pause auf dem Beamer: nur zusammengefasste Zahlen, nie einzelne Rückmeldungen */
+export interface DisplayPause extends Pause {
+  /** Bisherige Beiträge (Antworten und Karten) aller Folien */
+  contributions: number;
+  /** Bisher beigetretene Teilnehmende */
+  participants: number;
+}
+
+/** Stand der Pause im Steuerpult */
+export interface PauseStats {
+  /** „Ich bin wieder da“ gemeldet */
+  ready: number;
+  /** Verbundene Teilnehmende */
+  connected: number;
+  /** Anzahl Antworten auf die Energie-Frage je Stufe 1…5 */
+  energy: [number, number, number, number, number];
+  /** Durchschnitt der Energie (null ohne Antworten) */
+  energyAverage: number | null;
 }
 
 /** Person in einer Gruppeneinteilung; die ID bekommt nur das Steuerpult (zum Verschieben) */
@@ -395,6 +458,7 @@ export interface DisplayView {
   board: BoardView | null;
   countdown: Countdown | null;
   teams: TeamsView | null;
+  pause?: DisplayPause | null;
 }
 
 export interface HostSlideSummary {
@@ -424,6 +488,8 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   startedAt: number;
   targetMinutes: number | null;
   handoutUrl: string | null;
+  /** Rückmeldungen der laufenden Pause */
+  pauseStats?: PauseStats | null;
 }
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────

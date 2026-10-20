@@ -8,6 +8,7 @@ import { BoardStage } from './board/BoardStage.tsx';
 import { ScrollingResults } from '../lib/autoScroll.tsx';
 import { BuildLayer } from './BuildLayer.tsx';
 import { CountdownBadge } from './Countdown.tsx';
+import { PauseScreen } from './PauseScreen.tsx';
 import { SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
@@ -132,6 +133,7 @@ export function Stage({
             </div>
           )}
           {overlay}
+          <PauseScreen pause={view.pause} code={view.run.code} offset={offset} />
           <BlankScreen mode={view.blank} />
         </div>
       </div>

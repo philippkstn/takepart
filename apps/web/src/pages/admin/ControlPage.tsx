@@ -45,6 +45,7 @@ import { BoardPanel } from './BoardPanel.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
+import { PauseControl } from './PauseControl.tsx';
 import './admin.css';
 
 export default function ControlPage() {
@@ -69,7 +70,7 @@ export default function ControlPage() {
   };
 
   // Tastatur und Presenter wie in PowerPoint (siehe presenterKeys.ts)
-  usePresenterKeys(command, view?.display.blank ?? null);
+  usePresenterKeys(command, view?.display.blank ?? null, undefined, !!view?.pause);
 
   if (loading) return <FullScreenSpinner />;
   if (!loggedIn) return <Navigate to="/login" replace />;
@@ -298,6 +299,9 @@ export default function ControlPage() {
             </ControlGroup>
             <ControlGroup label="Timer">
               <CountdownControl view={view} offset={offset} command={command} />
+            </ControlGroup>
+            <ControlGroup label="Pause">
+              <PauseControl view={view} offset={offset} command={command} />
             </ControlGroup>
             <ControlGroup label="Teilen">
               <HandoutToggle runId={runId} url={view.handoutUrl} />

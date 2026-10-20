@@ -8,7 +8,7 @@ import { InkOverlay } from '../components/Ink.tsx';
 import { Stage } from '../components/Stage.tsx';
 import { ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
-import { useCountdownSounds } from '../lib/countdownSound.ts';
+import { playEnd, playWarning, useCountdownMoments, useCountdownSounds } from '../lib/countdownSound.ts';
 import { useLive } from '../lib/live.ts';
 import { usePresenterKeys } from '../lib/presenterKeys.ts';
 import { authStatus } from '../lib/passkey.ts';
@@ -29,6 +29,8 @@ export default function DisplayPage() {
   const [idle, setIdle] = useState(false);
   const runId = view?.run.id;
   const sound = useCountdownSounds(view?.countdown ?? null, offset);
+  // Pause: dieselben Töne eine Minute vor Ende und bei Ablauf
+  useCountdownMoments(view?.pause ?? null, offset, (moment) => (moment === 'warning' ? playWarning() : playEnd()));
 
   useEffect(() => {
     const onChange = () => setFullscreen(!!document.fullscreenElement);
@@ -64,6 +66,7 @@ export default function DisplayPage() {
       }
       return false;
     },
+    !!view?.pause,
   );
 
   if (status === 'rejected') {
@@ -104,7 +107,7 @@ export default function DisplayPage() {
       </div>
       <Preload urls={view.preload} />
       <ConnectionBadge status={status} />
-      {view.countdown && sound.locked && (
+      {(view.countdown || view.pause) && sound.locked && (
         <button className="display-sound btn btn-small" onClick={sound.unlock} title="Ton für den Countdown freigeben">
           <VolumeX /> Ton aktivieren
         </button>
