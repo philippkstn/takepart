@@ -10,3 +10,4 @@ export * from './state.ts';
 export * from './words.ts';
 export * from './deck.ts';
 export * from './board.ts';
+export * from './teams.ts';

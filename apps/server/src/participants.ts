@@ -320,11 +320,15 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     if (rights === 'own') {
       const isOwn = async (postId: number) =>
         !!(await one(db, 'SELECT id FROM posts WHERE id = ? AND run_id = ? AND participant_id = ?', [postId, p.runId, p.id]));
+      const ownGroup = async (groupId: number) =>
+        !!(await one(db, 'SELECT id FROM board_groups WHERE id = ? AND run_id = ? AND participant_id = ?', [groupId, p.runId, p.id]));
       const allowed =
         (op.op === 'assign' && (await isOwn(op.postId))) ||
+        (op.op === 'card-edit' && (await isOwn(op.postId))) ||
+        (op.op === 'group-rename' && (await ownGroup(op.groupId))) ||
         (op.op === 'place' && op.key.startsWith('c') && (await isOwn(Number(op.key.slice(1))))) ||
         (op.op === 'group-add' && op.postIds.length > 0 && (await Promise.all(op.postIds.map(isOwn))).every(Boolean));
-      if (!allowed) return reply.code(403).send({ error: 'Du kannst nur deine eigenen Karten einordnen' });
+      if (!allowed) return reply.code(403).send({ error: 'Du kannst nur deine eigenen Karten und Gruppen bearbeiten' });
     }
     try {
       await withRunLock(p.runId, () =>

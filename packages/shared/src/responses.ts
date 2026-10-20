@@ -21,6 +21,8 @@ export const responsePayloads = {
     dots: z.record(z.string().regex(BOARD_KEY), z.number().int().min(0).max(10)).optional(),
     ratings: z.record(z.string().regex(BOARD_KEY), z.array(z.number().int().min(0).max(6).nullable()).min(1).max(2)).optional(),
   }),
+  /** Gruppen bilden: gewählte Kennzeichnung (null = keine Angabe) */
+  teams: z.object({ tag: z.number().int().min(0).nullable() }),
 } as const;
 
 export type ResponseSlideType = keyof typeof responsePayloads;
@@ -122,6 +124,12 @@ export function validateResponse<T extends ResponseSlideType>(
         return { ok: true, value: { ratings } as ResponsePayloads[T] };
       }
       return { ok: false, error: 'Auf dieser Folie wird nicht abgestimmt' };
+    }
+    case 'teams': {
+      const c = config as SlideConfigs['teams'];
+      const v = value as ResponsePayloads['teams'];
+      if (v.tag !== null && v.tag >= c.tags.length) return { ok: false, error: 'Unbekannte Auswahl' };
+      return { ok: true, value: { tag: v.tag } as ResponsePayloads[T] };
     }
   }
   return { ok: false, error: 'Ungültige Antwort' };

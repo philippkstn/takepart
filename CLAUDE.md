@@ -45,7 +45,14 @@ npm run build
 - Karten sind `posts` (Moderation ergänzt mit `participant_id NULL`), Gruppen `board_groups` (je Durchführung + Wand), Platzierungen/Tabellenzeilen `board_places` (je Folie, `target` = `c<postId>`/`g<groupId>`). Punkte und Bewertungen sind `responses`; erlaubte Einträge prüft die Route (`targetsOf`), nicht `validateResponse`. Server-Logik in `apps/server/src/board.ts`.
 - Rechte der Teilnehmenden je Folie: `host` | `own` | `all` (`config.rights`, live überschreibbar über `RunState.boardRights`); erlaubte Befehle in `PARTICIPANT_BOARD_OPS`.
 - `anytime` auf Sammel-Folien = Parkplatz: Karten von jeder Folie aus. `RunState.countdown` = Timer auf Beamer und Handys.
-- Freigabe enthält nur Gruppen mit Zählungen, Feldern, Punkten, Einschätzungen und Tabellenfeldern – nie Kartentexte (die nur im Archiv/CSV).
+- Freigabe enthält nur Gruppen mit Zählungen, Feldern, Punkten, Einschätzungen und Tabellenfeldern – nie Kartentexte (die nur im Archiv/CSV/Fotoprotokoll).
+- Bei „eigene Karten“ dürfen Teilnehmende ihre Karten ändern und selbst angelegte Gruppen umbenennen (`board_groups.participant_id`, `BoardView.ownGroups`).
+
+## Gruppen bilden & Fotoprotokoll
+
+- Folientyp `teams`: Name (NameGate) und optional eine Kennzeichnung (Antwort `{ tag }`). Einteilung in `RunState.teams[slideId]` (Teilnehmer-IDs je Gruppe), Befehle `teams-make|fill|move|clear` laufen in der `/command`-Route (brauchen DB), Algorithmus pure in `packages/shared/src/teams.ts`. Teilnehmende sehen ihre Gruppe aus der letzten Einteilung bis zur aktuellen Folie (`participantTeam`). Nie in der Freigabe.
+- Fotoprotokoll `/admin/runs/:id/protokoll` (`ProtocolPage.tsx`): druckoptimiert (A4 quer), PDF über den Druckdialog – keine PDF-Software auf dem Server.
+- Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`).
 
 ## Design
 

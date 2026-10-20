@@ -26,7 +26,7 @@ Your audience joins with a 6-digit code or QR code – no account, no app. You r
 
 **Run the whole talk in TakePart:** import your slides as PDF (export from PowerPoint, Keynote or Google Slides) and place interactive slides between them. Speaker notes and build animations (elements appearing click by click) come along from the `.pptx` if you add it. A presenter view shows notes, the next slide, a timer and the clock; a laser pointer and pen draw on the shared screen; afterwards you can share the slides and aggregated results with the audience via a link.
 
-Plus: optional branding per presentation (logo, accent and chart colour), multiple accounts with passkey and/or password login (each account only sees its own presentations), import/export of whole presentations including sessions, an archive of every session with CSV export, and a demo deck that shows every feature.
+Plus: optional branding per presentation (logo, accent and chart colour), multiple accounts with passkey and/or password login (each account only sees its own presentations), import/export of whole presentations including sessions, automatic group assignment (random, by size or count, mixed by role), an archive of every session with CSV export and a print-ready photo protocol (PDF), and a demo deck that shows every feature.
 
 ## Quick start (Docker)
 

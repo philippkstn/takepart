@@ -21,6 +21,7 @@ import {
   type ParkingView,
 } from '@slides/shared';
 import { buildBoardView } from './board.ts';
+import { participantTeam, teamsView } from './teams.ts';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
 
 /** Aufgedeckter Animationsschritt der aktuellen Folie (begrenzt auf die vorhandenen Schritte) */
@@ -171,6 +172,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
   const board = boardViewOf(snap);
   if (board) {
     posts = participantBoardPosts(snap, board, participantId);
+    board.ownGroups = snap.board!.groups.filter((g) => g.participantId === participantId).map((g) => g.id);
     if (slide?.type === 'board' && slide.config.mode === 'collect') {
       board.remaining = Math.max(0, slide.config.maxCards - posts.length);
     }
@@ -209,6 +211,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     board,
     parking: parkingViews(snap, participantId),
     countdown: state.countdown ?? null,
+    team: participantTeam(snap, participantId),
   };
 }
 
@@ -257,6 +260,7 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     blank: state.blank ?? null,
     board: boardViewOf(snap),
     countdown: state.countdown ?? null,
+    teams: teamsView(snap, false),
   };
 }
 
@@ -296,6 +300,7 @@ export function hostView(snap: Snapshot, participants: number): HostView {
     blank: state.blank ?? null,
     board: boardViewOf(snap),
     countdown: state.countdown ?? null,
+    teams: teamsView(snap, true),
     state,
     displayToken: snap.run.displayToken,
     presentationId: snap.run.presentationId,

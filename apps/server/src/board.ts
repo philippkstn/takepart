@@ -40,6 +40,8 @@ export interface BoardGroup {
   id: number;
   name: string;
   position: number;
+  /** Wer die Gruppe angelegt hat (null = Moderation) – nur für Rechte, nie in Ansichten */
+  participantId: number | null;
 }
 
 export interface BoardPlace {
@@ -100,10 +102,11 @@ export async function loadCards(db: Conn, runId: number, slideIds: number[]): Pr
 }
 
 export async function loadGroups(db: Conn, runId: number, board: string): Promise<BoardGroup[]> {
-  return query<BoardGroup>(db, 'SELECT id, name, position FROM board_groups WHERE run_id = ? AND board = ? ORDER BY position, id', [
-    runId,
-    board,
-  ]);
+  return query<BoardGroup>(
+    db,
+    'SELECT id, name, position, participant_id AS participantId FROM board_groups WHERE run_id = ? AND board = ? ORDER BY position, id',
+    [runId, board],
+  );
 }
 
 export async function loadPlaces(db: Conn, runId: number, slideId: number): Promise<BoardPlace[]> {

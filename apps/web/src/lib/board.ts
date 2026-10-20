@@ -59,3 +59,12 @@ export function axisPosition(levels: number, average: number | null): number {
 }
 
 export { cardKey, groupKey };
+
+/** Überschrift aus einem Kartentext: an einer Wortgrenze gekürzt statt mitten im Wort */
+export function shortName(text: string, max = 80): string {
+  const t = text.trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const space = cut.lastIndexOf(' ');
+  return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,.;:–-]+$/, '')} …`;
+}

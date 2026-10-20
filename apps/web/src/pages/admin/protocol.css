@@ -1,0 +1,209 @@
+/*
+ * Fotoprotokoll: ruhiges Dokument für Bildschirm und Druck (A4 quer). Karten als
+ * Kärtchen mit feinem Rahmen, Gruppen und Felder als Spalten auf --surface-2.
+ */
+.protocol {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+  display: grid;
+  gap: 24px;
+}
+.protocol-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.protocol-cover,
+.protocol-page {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 40px 44px;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+.protocol-cover {
+  min-height: 560px;
+}
+.protocol-brand img {
+  height: 48px;
+  width: auto;
+}
+.protocol-kicker {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  letter-spacing: 0.02em;
+}
+.protocol-cover h1 {
+  font-size: 2.4rem;
+  line-height: 1.15;
+  margin: 0;
+}
+.protocol-page h2 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+  margin: 2px 0 0;
+}
+.protocol-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 8px 0 0;
+  padding: 16px 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.protocol-facts dt {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+}
+.protocol-facts dd {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+.protocol-toc {
+  margin: 0;
+  padding-left: 1.4em;
+  display: grid;
+  gap: 6px;
+  columns: 2;
+}
+.protocol-toc li {
+  break-inside: avoid;
+}
+.protocol-toc li span + span {
+  margin-left: 0.5em;
+  font-size: 0.85em;
+}
+
+/* Spalten: Gruppen, Felder, Pinnwand, Gruppeneinteilung */
+.protocol-columns {
+  display: grid;
+  gap: 12px;
+  align-items: start;
+}
+.protocol-columns.is-auto {
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.protocol-column {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  break-inside: avoid;
+}
+.protocol-column.is-muted {
+  border-style: dashed;
+}
+.protocol-column h3,
+.protocol-lane {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* Karten */
+.protocol-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+}
+.protocol-column .protocol-notes {
+  grid-template-columns: 1fr;
+}
+.protocol-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  break-inside: avoid;
+  overflow-wrap: break-word;
+}
+.protocol-note-meta {
+  font-size: 0.75rem;
+  color: var(--ink-3);
+}
+.protocol-names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.protocol-sentence {
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+.protocol-bars {
+  max-width: 820px;
+}
+.protocol-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.protocol-table th,
+.protocol-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.protocol-table th {
+  font-size: 0.8rem;
+  color: var(--ink-3);
+  font-weight: 600;
+}
+.protocol-table tr {
+  break-inside: avoid;
+}
+
+@media print {
+  @page {
+    size: A4 landscape;
+    margin: 12mm;
+  }
+  .no-print,
+  .topbar {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .protocol {
+    width: 100%;
+    padding: 0;
+    gap: 0;
+    font-size: 11pt;
+  }
+  .protocol-cover,
+  .protocol-page {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    break-after: page;
+  }
+  .protocol-cover {
+    min-height: 0;
+  }
+  /* Flächen und Rahmen auch beim Drucken zeigen */
+  .protocol-column,
+  .protocol-note,
+  .protocol .bar-fill {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

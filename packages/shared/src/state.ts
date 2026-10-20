@@ -59,6 +59,8 @@ export interface RunState {
   countdown?: Countdown | null;
   /** Live geänderte Rechte der Teilnehmenden je Kartenwand-Folie (sonst gilt die Folie) */
   boardRights?: Record<string, BoardRights>;
+  /** Gruppeneinteilung je „Gruppen bilden“-Folie: Teilnehmer-IDs je Gruppe */
+  teams?: Record<string, number[][]>;
 }
 
 /** Rechte der Teilnehmenden auf einer Wand-Folie: live gesetzt oder aus der Folie */
@@ -178,6 +180,24 @@ export const hostCommand = z.discriminatedUnion('action', [
   }),
   z.object({ action: z.literal('board'), slideId: z.number().int(), op: boardOp }),
   z.object({ action: z.literal('board-rights'), slideId: z.number().int(), rights: z.enum(BOARD_RIGHTS) }),
+  /** Gruppen bilden: neu einteilen – n Gruppen oder Gruppen à n Personen, auf Wunsch nach Kennzeichnung gemischt */
+  z.object({
+    action: z.literal('teams-make'),
+    slideId: z.number().int(),
+    mode: z.enum(['count', 'size']),
+    n: z.number().int().min(1).max(100),
+    mix: z.boolean().default(false),
+  }),
+  /** Wer noch keiner Gruppe angehört, kommt in die kleinsten Gruppen */
+  z.object({ action: z.literal('teams-fill'), slideId: z.number().int() }),
+  /** Eine Person von Hand verschieben (team null = keine Gruppe) */
+  z.object({
+    action: z.literal('teams-move'),
+    slideId: z.number().int(),
+    participantId: z.number().int(),
+    team: z.number().int().min(0).nullable(),
+  }),
+  z.object({ action: z.literal('teams-clear'), slideId: z.number().int() }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
 
@@ -229,6 +249,8 @@ export interface BoardView {
   rights: BoardRights;
   /** Nur Teilnehmende auf Sammel-Folien: wie viele Karten noch gehen */
   remaining?: number;
+  /** Nur Teilnehmende: selbst angelegte Gruppen – die dürfen sie auch mit „eigene Karten“ umbenennen */
+  ownGroups?: number[];
 }
 
 /** Wand einer Folie im Archiv: Ansicht wie live plus alle Karten */
@@ -311,6 +333,31 @@ export interface ParticipantView {
   board: BoardView | null;
   parking: ParkingView[];
   countdown: Countdown | null;
+  /** Eigene Gruppe aus der letzten Einteilung bis zur aktuellen Folie */
+  team: ParticipantTeam | null;
+}
+
+/** Person in einer Gruppeneinteilung; die ID bekommt nur das Steuerpult (zum Verschieben) */
+export interface TeamMember {
+  id?: number;
+  name: string;
+  tag: number | null;
+}
+
+/** Gruppen bilden: Stand auf Beamer und im Steuerpult */
+export interface TeamsView {
+  groups: { name: string; members: TeamMember[] }[];
+  /** Mit Namen, aber (noch) ohne Gruppe */
+  unassigned: TeamMember[];
+  /** Beigetreten, aber noch ohne Namen – können nicht eingeteilt werden */
+  unnamed: number;
+}
+
+export interface ParticipantTeam {
+  slideId: number;
+  name: string;
+  /** Die anderen in der Gruppe */
+  members: string[];
 }
 
 export interface DisplayView {
@@ -339,6 +386,7 @@ export interface DisplayView {
   blank: 'black' | 'white' | null;
   board: BoardView | null;
   countdown: Countdown | null;
+  teams: TeamsView | null;
 }
 
 export interface HostSlideSummary {

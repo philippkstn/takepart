@@ -63,6 +63,8 @@ export interface Snapshot {
   /** participantId → hochgevotete Post-IDs der aktuellen Folie */
   votes: Map<number, Set<number>>;
   names: Map<number, string>;
+  /** Alle Teilnehmenden der Durchführung, auch ohne Namen */
+  participantTotal: number;
   leaderboard: LeaderboardEntry[];
   counts: Map<number, number>;
   now: number;
@@ -197,6 +199,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     [runId],
   );
   const names = new Map(nameRows.map((r) => [r.id, r.name]));
+  const total = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ?', [runId]);
 
   let ranking: LeaderboardEntry[] = [];
   if (slides.some((s) => s.type === 'quiz')) {
@@ -267,6 +270,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     parking,
     votes,
     names,
+    participantTotal: Number(total?.n ?? 0),
     leaderboard: ranking,
     counts,
     now,

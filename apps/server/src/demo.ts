@@ -209,6 +209,16 @@ export const DEMO_SLIDES: { type: SlideType; config: unknown; notes?: string }[]
     },
     notes: 'Ein Kriterium ergibt eine Rangliste.',
   },
+  {
+    type: 'teams',
+    config: {
+      title: 'Gruppen für die nächste Übung',
+      tagLabel: 'Woher kommst du?',
+      tags: ['Vertrieb', 'Marketing', 'Technik', 'Sonstiges'],
+    },
+    notes:
+      'Alle geben ihren Namen und ihren Bereich an. Im Steuerpult Anzahl oder Größe der Gruppen wählen, „nach Bereich mischen“ und „Gruppen bilden“. Jede Person sieht ihre Gruppe auf dem Handy.',
+  },
   { type: 'qa', config: { title: 'Eure Fragen', moderated: true } },
   { type: 'feedback', config: { question: 'Wie hat dir der Vortrag gefallen?', withComment: true } },
   { type: 'content', config: { title: 'Danke fürs Mitmachen!', body: 'Die Ergebnisse gibt es im Anschluss.', showJoin: false } },

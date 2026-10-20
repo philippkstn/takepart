@@ -42,6 +42,7 @@ import { isNumber, usePref } from '../../lib/prefs.ts';
 import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
+import { TeamsPanel } from './TeamsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
 import './admin.css';
@@ -488,6 +489,9 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
     case 'board':
       if (slide.config.mode === 'collect') return <PostPanel view={view} command={command} onClear={clear} />;
       return <BoardPanel view={view} command={command} busy={busy} onClear={clear} />;
+
+    case 'teams':
+      return <TeamsPanel view={view} command={command} busy={busy} />;
 
     default:
       return (

@@ -1,6 +1,6 @@
 import type { BoardConfig, BoardSummary, PublicSlide, SlideResults, SlideType } from '@slides/shared';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { ArrowLeft, ChevronUp, Download, Radio, Trash2 } from 'lucide-react';
+import { ArrowLeft, ChevronUp, Download, FileText, Radio, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { BoardProtocol } from '../../components/board/BoardProtocol.tsx';
 import { SlideResultsView } from '../../components/Results.tsx';
@@ -19,6 +19,7 @@ interface ArchiveSlide {
   posts: { id: number; authorName: string | null; text: string; column: number | null; status: string; votes: number }[];
   sentence: string | null;
   board: BoardSummary | null;
+  teams: { name: string; members: string[] }[] | null;
 }
 
 interface RunResults {
@@ -66,6 +67,9 @@ export default function ArchivePage() {
               <Radio /> Läuft noch – zum Steuerpult
             </Link>
           )}
+          <Link className="btn" to={`/admin/runs/${run.id}/protokoll`}>
+            <FileText /> Fotoprotokoll (PDF)
+          </Link>
           <a className="btn" href={`/api/runs/${run.id}/export.csv`} download>
             <Download /> CSV-Export
           </a>
@@ -90,6 +94,22 @@ export default function ArchivePage() {
           {s.headline && <h2>{s.headline}</h2>}
           {s.sentence && <p className="sentence-preview">{s.sentence}</p>}
           {s.board && <BoardProtocol config={s.config as BoardConfig} summary={s.board} results={s.results} />}
+          {s.teams && s.teams.length > 0 && (
+            <div className="protocol-groups">
+              {s.teams.map((t) => (
+                <section key={t.name} className="protocol-group">
+                  <h3>
+                    {t.name} <span className="faint tabular">· {t.members.length}</span>
+                  </h3>
+                  <ul>
+                    {t.members.map((m, j) => (
+                      <li key={j}>{m}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
           {s.results && s.results.voters > 0 && s.type !== 'sentence' && s.type !== 'board' && (
             <SlideResultsView slide={{ id: s.id, type: s.type, position: i, config: s.config } as PublicSlide} results={s.results} />
           )}

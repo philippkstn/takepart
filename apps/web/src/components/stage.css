@@ -727,3 +727,53 @@
 .stage-countdown-popup.is-end svg {
   color: var(--danger);
 }
+
+/* Gruppen bilden */
+.stage-results.teams-stage {
+  max-width: none;
+  justify-content: flex-start;
+}
+.teams-names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45em;
+}
+.teams-names li {
+  padding: 0.35em 0.8em;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-weight: 550;
+}
+.teams-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11em, 1fr));
+  gap: 0.75em;
+  align-content: start;
+}
+.teams-group {
+  padding: 0.8em 1em;
+  border-radius: 0.5em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.teams-group h2 {
+  margin: 0 0 0.4em;
+  font-size: 1.05em;
+}
+.teams-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25em;
+  font-size: 0.9em;
+}
+.teams-tag {
+  margin-left: 0.45em;
+  color: var(--ink-3);
+  font-size: 0.8em;
+}

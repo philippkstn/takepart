@@ -130,8 +130,8 @@ function remapKeys<T>(record: Record<string, T> | undefined, map: (key: string) 
   return out;
 }
 
-/** Live-Zustand einer Durchführung auf neue Folien- und Beitrags-IDs umschreiben. */
-export function remapState(state: RunState, slides: IdMap, posts: IdMap): RunState {
+/** Live-Zustand einer Durchführung auf neue Folien-, Beitrags- und Teilnehmer-IDs umschreiben. */
+export function remapState(state: RunState, slides: IdMap, posts: IdMap, participants: IdMap = new Map()): RunState {
   const slideKey = (key: string) => {
     const next = slides.get(Number(key));
     return next ? String(next) : null;
@@ -145,6 +145,14 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap): RunSta
     sentence: remapKeys(state.sentence, slideKey),
     build: state.build ? remapKeys(state.build, slideKey) : undefined,
     boardRights: state.boardRights ? remapKeys(state.boardRights, slideKey) : undefined,
+    teams: state.teams
+      ? Object.fromEntries(
+          Object.entries(remapKeys(state.teams, slideKey)).map(([k, teams]) => [
+            k,
+            teams.map((ids) => ids.flatMap((id) => participants.get(id) ?? [])),
+          ]),
+        )
+      : undefined,
     // Beendete Durchführung: keine laufenden Anzeigen übernehmen
     countdown: null,
     blank: null,
@@ -496,7 +504,7 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
         );
       }
 
-      const state = remapState(run.state as unknown as RunState, slides, posts);
+      const state = remapState(run.state as unknown as RunState, slides, posts, participants);
       await exec(conn, 'UPDATE runs SET state = ? WHERE id = ?', [JSON.stringify(state), runId]);
     }
     return presentationId;

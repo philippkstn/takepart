@@ -49,3 +49,29 @@ describe('Import: Verweise umschreiben', () => {
     expect(remapPayload({ choice: 1 }, posts, groups)).toEqual({ choice: 1 });
   });
 });
+
+describe('Import: Gruppeneinteilung', () => {
+  it('schreibt Folien- und Teilnehmer-IDs der Gruppen um und lässt Unbekannte weg', () => {
+    const state: RunState = {
+      ...initialRunState(10),
+      teams: {
+        '10': [
+          [1, 2],
+          [3, 99],
+        ],
+        '98': [[1]],
+      },
+    };
+    const next = remapState(
+      state,
+      slides,
+      posts,
+      new Map([
+        [1, 501],
+        [2, 502],
+        [3, 503],
+      ]),
+    );
+    expect(next.teams).toEqual({ '110': [[501, 502], [503]] });
+  });
+});

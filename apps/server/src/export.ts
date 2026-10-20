@@ -1,4 +1,12 @@
-import { parseBoardKey, SLIDE_TYPE_LABELS, slideHeadline, type QuizAnswer, type ResponsePayloads, type Slide } from '@slides/shared';
+import {
+  parseBoardKey,
+  SLIDE_TYPE_LABELS,
+  slideHeadline,
+  type QuizAnswer,
+  type ResponsePayloads,
+  type RunState,
+  type Slide,
+} from '@slides/shared';
 import { json, one, query, type Db } from './db.ts';
 import { loadSlides } from './snapshot.ts';
 
@@ -8,7 +16,7 @@ import { loadSlides } from './snapshot.ts';
  * Teilnehmende erscheinen als laufende Nummer, nicht mit ihrem internen Token.
  */
 export async function exportCsv(db: Db, runId: number): Promise<string | null> {
-  const run = await one<{ presentation_id: number }>(db, 'SELECT presentation_id FROM runs WHERE id = ?', [runId]);
+  const run = await one<{ presentation_id: number; state: string }>(db, 'SELECT presentation_id, state FROM runs WHERE id = ?', [runId]);
   if (!run) return null;
   const slides = await loadSlides(db, run.presentation_id);
   const bySlide = new Map(slides.map((s, i) => [s.id, { slide: s, index: i + 1 }]));
@@ -68,6 +76,14 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
     if (!s) continue;
     const [answer, details] = describe(s.slide, json(r.payload), label);
     rows.push([...base(r.slide_id, r.participant_id), String(r.round), answer, details, r.created_at.toISOString()]);
+  }
+  // Gruppen bilden: je Person eine Zeile mit ihrer Gruppe
+  const teams = json<RunState>(run.state).teams ?? {};
+  for (const [slideId, assigned] of Object.entries(teams)) {
+    if (!bySlide.has(Number(slideId))) continue;
+    assigned.forEach((ids, i) => {
+      for (const id of ids) rows.push([...base(Number(slideId), id), '', `Gruppe ${i + 1}`, 'Gruppeneinteilung', '']);
+    });
   }
   for (const p of posts) {
     const s = bySlide.get(p.slide_id);
@@ -137,6 +153,10 @@ function describe(slide: Slide, payload: unknown, label: (key: string) => string
           .join(' | '),
         'Bewertung',
       ];
+    }
+    case 'teams': {
+      const tag = (payload as ResponsePayloads['teams']).tag;
+      return [tag === null ? '–' : (slide.config.tags[tag] ?? `#${tag + 1}`), slide.config.tagLabel || 'Kennzeichnung'];
     }
     default:
       return [JSON.stringify(payload), ''];

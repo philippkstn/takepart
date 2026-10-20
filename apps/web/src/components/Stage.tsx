@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
 import { BoardStage } from './board/BoardStage.tsx';
+import { ScrollingResults } from '../lib/autoScroll.tsx';
 import { BuildLayer } from './BuildLayer.tsx';
 import { CountdownBadge } from './Countdown.tsx';
 import { SlideResultsView } from './Results.tsx';
@@ -253,6 +254,54 @@ function Headline({ kicker, text }: { kicker: string; text: string }) {
   );
 }
 
+/** Gruppen bilden: erst die Namen der Beigetretenen, nach dem Einteilen die Gruppen */
+function TeamsStage({ view, slide }: { view: DisplayView; slide: Extract<PublicSlide, { type: 'teams' }> }) {
+  const teams = view.teams ?? { groups: [], unassigned: [], unnamed: 0 };
+  const named = teams.unassigned.length + teams.groups.reduce((n, g) => n + g.members.length, 0);
+  const tagOf = (tag: number | null) => (tag === null ? null : (slide.config.tags[tag] ?? null));
+  return (
+    <>
+      <div className="row-between stage-head-row">
+        <Headline kicker="Gruppen bilden" text={slide.config.title} />
+        <span className="stage-pill">
+          <span className="tabular">{named}</span> {named === 1 ? 'Person' : 'Personen'}
+        </span>
+      </div>
+      <ScrollingResults key={slide.id} className="stage-results teams-stage">
+        {teams.groups.length > 0 ? (
+          <div className="teams-grid">
+            {teams.groups.map((g) => (
+              <section key={g.name} className="teams-group">
+                <h2>
+                  {g.name} <span className="faint tabular">{g.members.length}</span>
+                </h2>
+                <ul>
+                  {g.members.map((m, i) => (
+                    <li key={i}>
+                      {m.name}
+                      {tagOf(m.tag) && <span className="teams-tag">{tagOf(m.tag)}</span>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+          </div>
+        ) : named === 0 ? (
+          <div className="stage-waiting">
+            <span>Gebt auf dem Handy euren Namen ein – gleich werden die Gruppen gebildet.</span>
+          </div>
+        ) : (
+          <ul className="teams-names">
+            {teams.unassigned.map((m, i) => (
+              <li key={i}>{m.name}</li>
+            ))}
+          </ul>
+        )}
+      </ScrollingResults>
+    </>
+  );
+}
+
 function HiddenResults({ answers }: { answers: number }) {
   return (
     <div className="stage-waiting">
@@ -287,6 +336,9 @@ function SlideStage({
   switch (slide.type) {
     case 'board':
       return <BoardStage view={view} slide={slide} onBoard={onBoard} />;
+
+    case 'teams':
+      return <TeamsStage view={view} slide={slide} />;
 
     case 'content':
       return (
@@ -367,13 +419,13 @@ function SlideStage({
             <Headline kicker={label} text={question} />
             <AnswerCount answers={view.answers} />
           </div>
-          <div className="stage-results">
+          <ScrollingResults key={slide.id}>
             {view.results ? (
               <SlideResultsView slide={slide} results={view.results} maxComments={3} />
             ) : (
               <HiddenResults answers={view.answers} />
             )}
-          </div>
+          </ScrollingResults>
         </>
       );
     }
@@ -396,7 +448,7 @@ function QuizStage({ view, slide, offset }: { view: DisplayView; slide: Extract<
           <AnswerCount answers={view.answers} />
         )}
       </div>
-      <div className="stage-results">
+      <ScrollingResults key={slide.id}>
         {view.results ? (
           <SlideResultsView slide={slide} results={view.results} />
         ) : (
@@ -409,7 +461,7 @@ function QuizStage({ view, slide, offset }: { view: DisplayView; slide: Extract<
             ))}
           </ol>
         )}
-      </div>
+      </ScrollingResults>
       {quiz.phase === 'open' && (
         <div className="stage-footer-note">
           <strong className="tabular">{view.answers}</strong> {view.answers === 1 ? 'Antwort' : 'Antworten'}

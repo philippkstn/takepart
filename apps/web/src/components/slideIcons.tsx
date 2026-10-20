@@ -14,6 +14,7 @@ import {
   TextCursorInput,
   Trophy,
   Type,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -31,6 +32,7 @@ export const SLIDE_ICONS: Record<SlideType, LucideIcon> = {
   qa: MessageCircleQuestion,
   sentence: TextCursorInput,
   board: LayoutGrid,
+  teams: UsersRound,
   image: Image,
 };
 

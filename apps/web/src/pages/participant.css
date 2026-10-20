@@ -249,6 +249,11 @@
   height: 20px;
   stroke-width: 3;
 }
+/* Gruppen bilden: eigene Gruppe */
+.team-card-name {
+  font-size: 1.6rem;
+}
+
 .info-box {
   display: flex;
   align-items: center;
@@ -487,10 +492,41 @@
   font-size: 1rem;
 }
 .board-move {
-  position: sticky;
-  top: 8px;
-  z-index: 5;
+  margin-top: 8px;
   box-shadow: var(--shadow-2);
+}
+/* Überschrift einer Gruppe: Name (antippbar zum Umbenennen), Zahl und Stift in einer Zeile */
+.board-group-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.board-group-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+button.board-group-name {
+  border: 0;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: text;
+}
+button.board-group-name:hover {
+  text-decoration: underline dotted var(--ink-3);
+  text-underline-offset: 3px;
+}
+.board-group-head .icon-btn {
+  margin: -6px -6px -6px 0;
+}
+/* Ablage und Formulare zum Ergänzen bilden zusammen die Seitenspalte */
+.board-side {
+  display: grid;
+  gap: 12px;
+  align-content: start;
 }
 .board-targets {
   display: flex;
@@ -714,11 +750,21 @@
     grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
     align-items: start;
   }
-  .board-group.is-side {
+  /* Bleibt beim Scrollen stehen; nur die Ablage scrollt, die Formulare darunter bleiben sichtbar */
+  .board-side {
     position: sticky;
     top: 72px;
-    max-height: calc(100dvh - 96px);
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 190px);
+  }
+  .board-side > .board-group.is-side {
+    flex: 0 1 auto;
+    min-height: 0;
     overflow: auto;
+  }
+  .board-side > .board-forms {
+    flex: none;
   }
   .board-wall {
     grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -737,10 +783,6 @@
   }
   .board-lane-cells .select-compact {
     width: 100%;
-  }
-  .board-forms {
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
   }
   .board-collect.has-cards {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

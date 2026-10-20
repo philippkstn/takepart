@@ -15,6 +15,7 @@ const PresentationsPage = lazy(() => import('./pages/admin/PresentationsPage.tsx
 const EditorPage = lazy(() => import('./pages/admin/EditorPage.tsx'));
 const ControlPage = lazy(() => import('./pages/admin/ControlPage.tsx'));
 const ArchivePage = lazy(() => import('./pages/admin/ArchivePage.tsx'));
+const ProtocolPage = lazy(() => import('./pages/admin/ProtocolPage.tsx'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage.tsx'));
 const DisplayPage = lazy(() => import('./pages/DisplayPage.tsx'));
 const HandoutPage = lazy(() => import('./pages/HandoutPage.tsx'));
@@ -37,6 +38,7 @@ const router = createBrowserRouter([
       { index: true, element: <PresentationsPage /> },
       { path: 'p/:id', element: <EditorPage /> },
       { path: 'runs/:runId', element: <ArchivePage /> },
+      { path: 'runs/:runId/protokoll', element: <ProtocolPage /> },
       { path: 'einstellungen', element: <SettingsPage /> },
     ],
   },

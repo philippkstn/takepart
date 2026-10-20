@@ -27,6 +27,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
+import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
@@ -284,6 +285,11 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           }
           return;
         }
+        if (isTeamsCommand(cmd)) {
+          if (slides.find((s) => s.id === cmd.slideId)?.type !== 'teams') throw new CommandError('Keine Folie zum Gruppenbilden');
+          await saveRunState(db, id, await applyTeamsCommand(db, id, run.state, cmd));
+          return;
+        }
         if (cmd.action === 'board') {
           const slide = slides.find((s) => s.id === cmd.slideId);
           if (slide?.type !== 'board') throw new CommandError('Keine Kartenwand');
@@ -303,6 +309,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           const state = structuredClone(run.state);
           delete state.quiz[cmd.slideId];
           delete state.sentence[cmd.slideId];
+          if (state.teams) delete state.teams[cmd.slideId];
           await saveRunState(db, id, state);
           return;
         }
@@ -457,10 +464,12 @@ function handoutBoard(config: SlideConfigs['board'], board: BoardSummary, result
 }
 
 export async function runResults(db: Db, runId: number) {
-  const run = await one<{ id: number; presentation_id: number; title: string; state: string; started_at: Date; ended_at: Date | null }>(
+  const run = await one<
+    BrandRow & { id: number; presentation_id: number; title: string; state: string; started_at: Date; ended_at: Date | null }
+  >(
     db,
-    `SELECT r.id, r.presentation_id, p.title, r.state, r.started_at, r.ended_at
-       FROM runs r JOIN presentations p ON p.id = r.presentation_id WHERE r.id = ?`,
+    `SELECT r.id, r.presentation_id, p.title, r.state, r.started_at, r.ended_at, ${BRAND_COLUMNS}
+       FROM runs r JOIN presentations p ON p.id = r.presentation_id LEFT JOIN brands b ON b.id = p.brand_id WHERE r.id = ?`,
     [runId],
   );
   if (!run) return null;
@@ -485,6 +494,12 @@ export async function runResults(db: Db, runId: number) {
     [runId],
   );
   const participants = (await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ?', [runId]))?.n ?? 0;
+  // Namen nur für die Gruppeneinteilung im Archiv (Host) – nie in der Freigabe
+  const names = new Map(
+    (await query<{ id: number; name: string }>(db, 'SELECT id, name FROM participants WHERE run_id = ? AND name IS NOT NULL', [runId])).map(
+      (r) => [r.id, r.name],
+    ),
+  );
 
   return {
     id: run.id,
@@ -493,6 +508,7 @@ export async function runResults(db: Db, runId: number) {
     startedAt: run.started_at,
     endedAt: run.ended_at,
     participants: Number(participants),
+    brand: brandView(run),
     slides: await Promise.all(
       slides.map(async (slide) => {
         const own = responses.filter((r) => r.slide_id === slide.id);
@@ -515,6 +531,13 @@ export async function runResults(db: Db, runId: number) {
           sentence: slide.type === 'sentence' ? sentenceText(slide, state) : null,
           quiz: slide.type === 'quiz' ? effectiveQuiz(state, slide.id, Date.now()) : null,
           board: slide.type === 'board' ? await boardSummary(db, runId, slides, slide, boardRights(state, slide)) : null,
+          teams:
+            slide.type === 'teams'
+              ? (state.teams?.[slide.id] ?? []).map((ids, i) => ({
+                  name: teamName(i),
+                  members: ids.flatMap((id) => names.get(id) ?? []).sort((a, b) => a.localeCompare(b, 'de')),
+                }))
+              : null,
         };
       }),
     ),

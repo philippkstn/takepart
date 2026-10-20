@@ -19,6 +19,7 @@ export const SLIDE_TYPES = [
   'qa',
   'sentence',
   'board',
+  'teams',
   'image',
 ] as const;
 export type SlideType = (typeof SLIDE_TYPES)[number];
@@ -40,6 +41,7 @@ export const SLIDE_TYPE_LABELS: Record<SlideType, string> = {
   qa: 'Fragen (Q&A)',
   sentence: 'Satz vervollständigen',
   board: 'Kartenwand',
+  teams: 'Gruppen bilden',
   image: 'Folie',
 };
 
@@ -57,6 +59,7 @@ export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
   qa: 'Fragen mit Namen, Upvotes und Freigabe',
   sentence: 'Satzanfang vorgeben, das häufigste Wort wird angehängt',
   board: 'Karten sammeln, clustern, zuordnen, punkten und bewerten',
+  teams: 'Alle nennen ihren Namen, du teilst automatisch in Gruppen ein',
   image: 'Importierte Folie aus PDF/PowerPoint',
 };
 
@@ -208,6 +211,19 @@ export const boardConfig = z.object({
 export type BoardConfig = z.infer<typeof boardConfig>;
 
 /**
+ * Gruppen bilden: Teilnehmende geben ihren Namen ein (und optional eine
+ * Kennzeichnung, z. B. ihre Rolle); im Steuerpult entstehen daraus zufällige,
+ * auf Wunsch nach Kennzeichnung gemischte Gruppen. Die Einteilung liegt im
+ * Zustand der Durchführung (`RunState.teams`).
+ */
+export const teamsConfig = z.object({
+  title: text(200).default('Gruppen bilden'),
+  /** Frage zur Kennzeichnung, z. B. „Deine Rolle“ – nur mit Kennzeichnungen */
+  tagLabel: text(60).default('Deine Rolle'),
+  tags: z.array(shortLabel(40)).max(8).default([]),
+});
+
+/**
  * Aufbau-Animationen einer importierten Folie (aus der PPTX). Das Folienbild zeigt
  * den Endzustand; noch nicht aufgedeckte Elemente werden mit Flächen in der
  * gemessenen Umgebungsfarbe abgedeckt. Nur Eingangseffekte lassen sich so
@@ -265,6 +281,7 @@ export const slideConfigSchemas = {
   qa: qaConfig,
   sentence: sentenceConfig,
   board: boardConfig,
+  teams: teamsConfig,
   image: imageConfig,
 } satisfies Record<SlideType, z.ZodType>;
 

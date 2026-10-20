@@ -182,6 +182,61 @@ function Choice({ view, slide, token }: Props<'choice'>) {
   );
 }
 
+/** Gruppen bilden: Name (und ggf. Kennzeichnung) angeben, dann erscheint die eigene Gruppe. */
+function Teams({ view, slide, token }: Props<'teams'>) {
+  const own = view.response as ResponsePayloads['teams'] | null;
+  const { send, busy } = useSend(token);
+  const { tags, tagLabel, title } = slide.config;
+  const team = view.team?.slideId === slide.id ? view.team : null;
+  return (
+    <NameGate view={view} token={token} reason="Damit du einer Gruppe zugeteilt werden kannst.">
+      <div className="stack">
+        <Question kicker="Gruppen bilden" text={title} />
+        {team ? (
+          <TeamCard team={team} />
+        ) : (
+          <>
+            {tags.length > 0 && !view.locked && (
+              <div className="stack-s">
+                <span className="label">{tagLabel}</span>
+                <div className="options" role="radiogroup" aria-label={tagLabel}>
+                  {tags.map((tag, i) => (
+                    <button
+                      key={i}
+                      className="option"
+                      role="radio"
+                      aria-checked={own?.tag === i}
+                      disabled={busy}
+                      onClick={() => send('/api/p/respond', { slideId: slide.id, payload: { tag: own?.tag === i ? null : i } })}
+                    >
+                      <span className="option-key">{own?.tag === i ? <Check size={16} /> : LETTERS[i]}</span>
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Info icon={<Hourglass size={20} />}>
+              Hallo {view.name}! Gleich wirst du einer Gruppe zugeteilt
+              {tags.length > 0 && own?.tag == null ? ' – wähle vorher noch aus, was auf dich zutrifft.' : '.'}
+            </Info>
+          </>
+        )}
+      </div>
+    </NameGate>
+  );
+}
+
+export function TeamCard({ team }: { team: NonNullable<ParticipantView['team']> }) {
+  return (
+    <div className="card card-pad stack-s team-card anim-rise">
+      <span className="p-kicker">Deine Gruppe</span>
+      <strong className="team-card-name">{team.name}</strong>
+      <span className="muted">{team.members.length > 0 ? `mit ${team.members.join(', ')}` : 'Weitere Personen kommen gleich dazu.'}</span>
+    </div>
+  );
+}
+
 function Scale({ view, slide, token }: Props<'scale'>) {
   const own = view.response as ResponsePayloads['scale'] | null;
   const [value, setValue] = useState<number | null>(own?.value ?? null);
@@ -705,5 +760,7 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
       return <Qa view={view} slide={slide} token={token} />;
     case 'board':
       return <BoardActivity view={view} slide={slide} token={token} />;
+    case 'teams':
+      return <Teams view={view} slide={slide} token={token} />;
   }
 }

@@ -37,6 +37,7 @@ export function staticPreview(
     leaderboard: null,
     showJoin: false,
     preload: [],
+    teams: slide.type === 'teams' ? { groups: [], unassigned: [], unnamed: 0 } : null,
     // Ohne Angabe im Endzustand (alle Animationen aufgedeckt)
     buildStep: opts.buildStep ?? 50,
     blank: null,

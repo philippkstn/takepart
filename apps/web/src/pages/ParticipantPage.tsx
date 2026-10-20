@@ -119,6 +119,12 @@ export default function ParticipantPage({ code }: { code: string }) {
           <span className="p-title">{view.run.title}</span>
         </span>
         <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+          {/* Eigene Gruppe auch auf späteren Folien im Blick */}
+          {view.team && view.slide?.id !== view.team.slideId && (
+            <span className="pill" title={view.team.members.length > 0 ? `mit ${view.team.members.join(', ')}` : undefined}>
+              {view.team.name}
+            </span>
+          )}
           <ParkingButton parking={view.parking} token={token} />
           <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />
           {handoutUrl && (

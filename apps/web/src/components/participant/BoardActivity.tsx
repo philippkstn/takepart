@@ -12,7 +12,7 @@ import {
 import { Check, GripVertical, Hourglass, Lock, Minus, Pencil, Plus, Send, Trash2, X } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
-import { cardsByGroup, labelOf } from '../../lib/board.ts';
+import { cardsByGroup, labelOf, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { useToast } from '../ui.tsx';
 
@@ -350,6 +350,10 @@ function ClusterEditor({
   const [newCard, setNewCard] = useState('');
   const [editing, setEditing] = useState<{ kind: 'card' | 'group'; id: number; text: string } | null>(null);
   const card = view.posts.find((p) => p.id === selected) ?? null;
+  const ownGroups = new Set(board.ownGroups ?? []);
+  // Gemeinsam: alles; sonst eigene Karten und selbst angelegte Gruppen
+  const canEditCard = (p: PostView) => all || !!p.mine;
+  const canRename = (groupId: number) => all || ownGroups.has(groupId);
 
   const assignKey = (key: string, groupId: number | null) => {
     const parsed = parseBoardKey(key);
@@ -358,7 +362,7 @@ function ClusterEditor({
   const newGroupFrom = (key: string) => {
     const parsed = parseBoardKey(key);
     const text = parsed ? view.posts.find((p) => p.id === parsed.id)?.text : undefined;
-    if (parsed?.kind === 'card' && text) void op({ op: 'group-add', name: text.slice(0, 60), postIds: [parsed.id] });
+    if (parsed?.kind === 'card' && text) void op({ op: 'group-add', name: shortName(text), postIds: [parsed.id] });
   };
   const moveTo = async (groupId: number | null) => {
     if (selected === null) return;
@@ -382,6 +386,37 @@ function ClusterEditor({
         : await op({ op: 'group-rename', groupId: editing.id, name: editing.text.trim() });
     if (ok) setEditing(null);
   };
+
+  // Direkt unter der angetippten Karte – so bleibt es auch in langen Listen im Blick
+  const movePanel = card && (
+    <div className="card card-pad stack-s board-move anim-rise">
+      <span className="label">„{card.text.slice(0, 60)}“ verschieben nach</span>
+      <div className="board-targets">
+        {board.groups.map((g) => (
+          <button key={g.id} className="btn btn-small" disabled={busy || card.group === g.id} onClick={() => moveTo(g.id)}>
+            {g.name}
+          </button>
+        ))}
+        {card.group !== null && card.group !== undefined && (
+          <button className="btn btn-small btn-ghost" disabled={busy} onClick={() => moveTo(null)}>
+            Zurück in die Ablage
+          </button>
+        )}
+      </div>
+      <form className="row" onSubmit={createGroup}>
+        <input
+          className="input grow"
+          value={newGroup}
+          maxLength={120}
+          placeholder="… oder neue Gruppe"
+          onChange={(e) => setNewGroup(e.target.value)}
+        />
+        <button className="btn btn-small" disabled={busy || !newGroup.trim()}>
+          <Plus /> Anlegen
+        </button>
+      </form>
+    </div>
+  );
 
   const cardItem = (p: PostView) => (
     <li key={p.id}>
@@ -416,13 +451,14 @@ function ClusterEditor({
             </span>
             {p.mine && <span className="pill">Von dir</span>}
           </button>
-          {all && (
+          {canEditCard(p) && (
             <button className="icon-btn" aria-label="Karte ändern" onClick={() => setEditing({ kind: 'card', id: p.id, text: p.text })}>
               <Pencil />
             </button>
           )}
         </div>
       )}
+      {selected === p.id && movePanel}
     </li>
   );
 
@@ -434,44 +470,52 @@ function ClusterEditor({
           : 'Ordne deine Karten ein: Karte auf eine Gruppe ziehen – oder antippen und die Gruppe wählen.'}
       </p>
 
-      {card && (
-        <div className="card card-pad stack-s board-move anim-rise">
-          <span className="label">„{card.text.slice(0, 60)}“ verschieben nach</span>
-          <div className="board-targets">
-            {board.groups.map((g) => (
-              <button key={g.id} className="btn btn-small" disabled={busy || card.group === g.id} onClick={() => moveTo(g.id)}>
-                {g.name}
-              </button>
-            ))}
-            {card.group !== null && card.group !== undefined && (
-              <button className="btn btn-small btn-ghost" disabled={busy} onClick={() => moveTo(null)}>
-                Zurück in die Ablage
-              </button>
-            )}
-          </div>
-          <form className="row" onSubmit={createGroup}>
-            <input
-              className="input grow"
-              value={newGroup}
-              maxLength={120}
-              placeholder="… oder neue Gruppe"
-              onChange={(e) => setNewGroup(e.target.value)}
-            />
-            <button className="btn btn-small" disabled={busy || !newGroup.trim()}>
-              <Plus /> Anlegen
-            </button>
-          </form>
-        </div>
-      )}
-
       <div className="board-layout">
-        <DropSection title="Noch nicht eingeordnet" onDrop={(key) => assignKey(key, null)} muted side>
-          {(byGroup.get(null)?.length ?? 0) > 0 ? (
-            <ul className="board-chips">{byGroup.get(null)!.map(cardItem)}</ul>
-          ) : (
-            <p className="small faint">Alles eingeordnet.</p>
+        <div className="board-side">
+          <DropSection title="Noch nicht eingeordnet" onDrop={(key) => assignKey(key, null)} muted side>
+            {(byGroup.get(null)?.length ?? 0) > 0 ? (
+              <ul className="board-chips">{byGroup.get(null)!.map(cardItem)}</ul>
+            ) : (
+              <p className="small faint">Alles eingeordnet.</p>
+            )}
+          </DropSection>
+          {all && (
+            <div className="stack-s board-forms">
+              {!card && (
+                <form className="row" onSubmit={createGroup}>
+                  <input
+                    className="input grow"
+                    value={newGroup}
+                    maxLength={120}
+                    placeholder="Neue Gruppe"
+                    onChange={(e) => setNewGroup(e.target.value)}
+                  />
+                  <button className="btn btn-small" disabled={busy || !newGroup.trim()}>
+                    <Plus /> Gruppe
+                  </button>
+                </form>
+              )}
+              <form
+                className="row"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (newCard.trim() && (await op({ op: 'card-add', text: newCard.trim(), groupId: null }))) setNewCard('');
+                }}
+              >
+                <input
+                  className="input grow"
+                  value={newCard}
+                  maxLength={300}
+                  placeholder="Karte ergänzen"
+                  onChange={(e) => setNewCard(e.target.value)}
+                />
+                <button className="btn btn-small" disabled={busy || !newCard.trim()}>
+                  <Plus /> Karte
+                </button>
+              </form>
+            </div>
           )}
-        </DropSection>
+        </div>
         <div className="board-wall">
           {board.groups.map((g) => {
             const cards = byGroup.get(g.id) ?? [];
@@ -494,11 +538,20 @@ function ClusterEditor({
                     </button>
                   </form>
                 ) : (
-                  <h3 className="row-between">
-                    <span>
-                      {g.name} <span className="faint tabular">{g.cards}</span>
-                    </span>
-                    {all && (
+                  <h3 className="board-group-head">
+                    {canRename(g.id) ? (
+                      <button
+                        className="board-group-name"
+                        title="Überschrift ändern"
+                        onClick={() => setEditing({ kind: 'group', id: g.id, text: g.name })}
+                      >
+                        {g.name}
+                      </button>
+                    ) : (
+                      <span className="board-group-name">{g.name}</span>
+                    )}
+                    <span className="faint tabular">{g.cards}</span>
+                    {canRename(g.id) && (
                       <button
                         className="icon-btn"
                         aria-label="Überschrift ändern"
@@ -523,43 +576,6 @@ function ClusterEditor({
           </DropSection>
         </div>
       </div>
-
-      {all && (
-        <div className="stack-s board-forms">
-          {!card && (
-            <form className="row" onSubmit={createGroup}>
-              <input
-                className="input grow"
-                value={newGroup}
-                maxLength={120}
-                placeholder="Neue Gruppe"
-                onChange={(e) => setNewGroup(e.target.value)}
-              />
-              <button className="btn btn-small" disabled={busy || !newGroup.trim()}>
-                <Plus /> Gruppe
-              </button>
-            </form>
-          )}
-          <form
-            className="row"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              if (newCard.trim() && (await op({ op: 'card-add', text: newCard.trim(), groupId: null }))) setNewCard('');
-            }}
-          >
-            <input
-              className="input grow"
-              value={newCard}
-              maxLength={300}
-              placeholder="Karte ergänzen"
-              onChange={(e) => setNewCard(e.target.value)}
-            />
-            <button className="btn btn-small" disabled={busy || !newCard.trim()}>
-              <Plus /> Karte
-            </button>
-          </form>
-        </div>
-      )}
     </div>
   );
 }

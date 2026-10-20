@@ -336,6 +336,28 @@ function FeedbackForm({ value, onChange }: FormProps<'feedback'>) {
   );
 }
 
+function TeamsForm({ value, onChange }: FormProps<'teams'>) {
+  return (
+    <>
+      <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
+      <p className="small faint">
+        Alle geben auf dem Handy ihren Namen ein. Im Steuerpult wählst du Anzahl oder Größe der Gruppen; jede Person sieht dann ihre Gruppe.
+      </p>
+      <OptionList
+        label="Kennzeichnung zum Mischen (optional, z. B. Rollen oder Abteilungen)"
+        options={value.tags}
+        min={0}
+        max={8}
+        placeholder="Kennzeichnung"
+        onChange={(tags) => onChange({ ...value, tags })}
+      />
+      {value.tags.length > 0 && (
+        <Text label="Frage dazu" value={value.tagLabel} max={60} onChange={(tagLabel) => onChange({ ...value, tagLabel })} />
+      )}
+    </>
+  );
+}
+
 function QaForm({ value, onChange }: FormProps<'qa'>) {
   return (
     <>
@@ -790,5 +812,7 @@ export function SlideForm({
       return <ImageForm value={v} onChange={onChange} />;
     case 'board':
       return <BoardForm value={v} onChange={onChange} boards={boards} />;
+    case 'teams':
+      return <TeamsForm value={v} onChange={onChange} />;
   }
 }

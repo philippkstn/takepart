@@ -12,8 +12,9 @@ import {
 } from '@slides/shared';
 import { EyeOff, Plus } from 'lucide-react';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { axisPosition, cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import { axisPosition, cardsByGroup, itemsByCell, labelOf, ratingText, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
+import { ScrollingResults } from '../../lib/autoScroll.tsx';
 import { BarList } from '../Results.tsx';
 import './board.css';
 
@@ -189,7 +190,8 @@ function Waiting({ children }: { children: ReactNode }) {
 function Collect({ ctx }: { ctx: Ctx }) {
   const { view } = ctx;
   if (!view.resultsVisible) return <Waiting>Karten werden geschrieben – sie erscheinen später an der Wand</Waiting>;
-  const posts = view.posts.filter((p) => p.status === 'visible');
+  // Neueste zuerst: bei vollen Wänden bleiben die frischen Karten sichtbar
+  const posts = view.posts.filter((p) => p.status === 'visible').sort((a, b) => b.createdAt - a.createdAt || b.id - a.id);
   if (posts.length === 0) return <Waiting>Noch keine Karten</Waiting>;
   return (
     <ul className={`board-cards ${density(posts.length)}`}>
@@ -255,7 +257,7 @@ function ClusterWall({ ctx }: { ctx: Ctx }) {
             const parsed = parseBoardKey(key);
             if (parsed?.kind === 'card') {
               const text = ctx.view.posts.find((p) => p.id === parsed.id)?.text ?? 'Neue Gruppe';
-              onBoard({ op: 'group-add', name: text.slice(0, 60), postIds: [parsed.id] });
+              onBoard({ op: 'group-add', name: shortName(text), postIds: [parsed.id] });
             }
           }}
         >
@@ -329,7 +331,7 @@ function Mindmap({ ctx }: { ctx: Ctx }) {
                 const parsed = parseBoardKey(key);
                 if (parsed?.kind === 'card') {
                   const text = ctx.view.posts.find((p) => p.id === parsed.id)?.text ?? 'Neue Gruppe';
-                  onBoard({ op: 'group-add', name: text.slice(0, 60), postIds: [parsed.id] });
+                  onBoard({ op: 'group-add', name: shortName(text), postIds: [parsed.id] });
                 }
               }}
             >
@@ -419,17 +421,17 @@ function Dots({ ctx }: { ctx: Ctx }) {
   const items = [...ctx.board.targets].map((key, i) => ({ key, i, n: results.dots[key] ?? 0 })).sort((a, b) => b.n - a.n || a.i - b.i);
   const max = Math.max(1, ...items.map((e) => e.n));
   return (
-    <div className="stage-results board-results">
+    <ScrollingResults key={ctx.view.slide?.id} className="stage-results board-results">
       <BarList
         max={max}
-        items={items.slice(0, 12).map((e) => ({
+        items={items.map((e) => ({
           key: e.key,
           label: labelOf(e.key, ctx.view.posts, ctx.board),
           value: e.n,
           display: `${e.n} ${e.n === 1 ? 'Punkt' : 'Punkte'}`,
         }))}
       />
-    </div>
+    </ScrollingResults>
   );
 }
 
@@ -445,17 +447,17 @@ function Rate({ ctx }: { ctx: Ctx }) {
     .map((key, i) => ({ key, i, avg: results.ratings[key]?.average[0] ?? null, n: results.ratings[key]?.n[0] ?? 0 }))
     .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1) || a.i - b.i);
   return (
-    <div className="stage-results board-results">
+    <ScrollingResults key={ctx.view.slide?.id} className="stage-results board-results">
       <BarList
         max={scale.levels.length}
-        items={items.slice(0, 12).map((e) => ({
+        items={items.map((e) => ({
           key: e.key,
           label: labelOf(e.key, view.posts, board),
           value: e.avg === null ? 0 : e.avg + 1,
           display: e.avg === null ? '–' : `${levelLabel(scale.levels, e.avg)} · ${e.n}×`,
         }))}
       />
-    </div>
+    </ScrollingResults>
   );
 }
 

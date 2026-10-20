@@ -28,7 +28,7 @@ Das Publikum macht mit einem 6-stelligen Code oder per QR-Code mit – ohne Kont
 
 **Der ganze Vortrag läuft in TakePart:** Folien als PDF importieren (Export aus PowerPoint, Keynote oder Google Slides) und interaktive Folien dazwischen setzen. Sprechernotizen und Aufbau-Animationen (Elemente erscheinen Klick für Klick) kommen mit, wenn du die `.pptx` dazugibst. Eine Referentenansicht zeigt Notizen, nächste Folie, Timer und Uhrzeit; Laserpointer und Stift zeichnen auf den geteilten Bildschirm; nach dem Vortrag teilst du Folien und zusammengefasste Ergebnisse per Link.
 
-Dazu: optionales Branding pro Präsentation (Logo, Akzent- und Diagrammfarbe), mehrere Konten mit Anmeldung per Passkey und/oder Passwort (jedes Konto sieht nur seine eigenen Präsentationen), ein Archiv jeder Durchführung mit CSV-Export, Import/Export ganzer Präsentationen samt Durchführungen und ein Demo-Foliensatz mit allen Funktionen.
+Dazu: optionales Branding pro Präsentation (Logo, Akzent- und Diagrammfarbe), mehrere Konten mit Anmeldung per Passkey und/oder Passwort (jedes Konto sieht nur seine eigenen Präsentationen), automatische Gruppeneinteilung (zufällig, nach Größe oder Anzahl, gemischt nach Rollen), ein Archiv jeder Durchführung mit CSV-Export und druckfertigem Fotoprotokoll (PDF), Import/Export ganzer Präsentationen samt Durchführungen und ein Demo-Foliensatz mit allen Funktionen.
 
 ## Schnellstart (Docker)
 
