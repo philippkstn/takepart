@@ -149,9 +149,12 @@ export default function ParticipantPage({ code }: { code: string }) {
         <PhaseBanner countdown={view.countdown} offset={offset} />
       </div>
       <ConnectionBadge status={status} />
-      <CountdownAlert countdown={view.countdown} offset={offset} />
-      <PauseAlert pause={view.pause} offset={offset} />
-      <PickedAlert picked={view.picked} />
+      {/* Hinweise oben stapeln, statt sich zu überdecken */}
+      <div className="p-alerts">
+        <CountdownAlert countdown={view.countdown} offset={offset} />
+        <PauseAlert pause={view.pause} offset={offset} />
+        <PickedAlert picked={view.picked} />
+      </div>
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
       <main className={`p-main ${view.pause ? '' : mainWidth(view)}`}>
         <CallbackNotice callback={view.callback} offset={offset} />

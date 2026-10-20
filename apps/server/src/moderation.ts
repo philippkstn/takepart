@@ -95,7 +95,8 @@ export function displayPicked(snap: Snapshot): string | null {
 export function participantModeration(snap: Snapshot, participantId: number): Pick<ParticipantView, 'signals' | 'picked'> {
   return {
     signals: ownSignals(snap.run.state.signals, participantId, snap.now),
-    picked: snap.run.state.picker?.current === participantId,
+    // Erst wenn der Name auf dem Beamer steht – so kann die Moderation auch still ziehen
+    picked: !!snap.run.state.picker?.shown && snap.run.state.picker.current === participantId,
   };
 }
 

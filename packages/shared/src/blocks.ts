@@ -111,8 +111,8 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
       },
       {
         type: 'board',
-        config: { board, mode: 'dots', prompt: 'Wo wäre der Nutzen am größten, wenn das Hindernis weg wäre?', dots: 3 },
-        notes: 'Drei Klebepunkte pro Person, auch mehrere auf dasselbe Thema.',
+        config: { board, mode: 'dots', prompt: 'Wo wäre der Nutzen am größten, wenn das Hindernis weg wäre?', dots: 3, targets: 'cards' },
+        notes: 'Drei Klebepunkte pro Person auf einzelne Hindernisse, auch mehrere auf dasselbe. Im Editor auf „Gruppen“ umstellbar.',
       },
       {
         type: 'board',
@@ -121,13 +121,14 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
           mode: 'rate',
           prompt: 'Wie groß ist der Nutzen?',
           top: 5,
+          targets: 'cards',
           scales: [{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] }],
         },
-        notes: 'Nur die fünf Themen mit den meisten Punkten werden eingeschätzt.',
+        notes: 'Nur die fünf Hindernisse mit den meisten Punkten werden eingeschätzt.',
       },
       {
         type: 'board',
-        config: { board, mode: 'table', prompt: 'Unsere Top 3' },
+        config: { board, mode: 'table', prompt: 'Unsere Top 3', targets: 'cards' },
         notes: 'Im Steuerpult „Top 3 nach Punkten übernehmen“ und die Felder gemeinsam ausfüllen.',
       },
     ],
