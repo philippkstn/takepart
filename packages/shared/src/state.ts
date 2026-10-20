@@ -12,6 +12,15 @@ import {
   type SlideType,
 } from './slides.ts';
 import type { WordCount } from './words.ts';
+import {
+  SIGNAL_KINDS,
+  type PickerState,
+  type PickerView,
+  type PresenceView,
+  type SignalKind,
+  type SignalStore,
+  type SignalsView,
+} from './moderation.ts';
 
 /* ───────────────────────── Zustand einer Durchführung ───────────────────────── */
 
@@ -62,6 +71,10 @@ export interface RunState {
   boardRights?: Record<string, BoardRights>;
   /** Gruppeneinteilung je „Gruppen bilden“-Folie: Teilnehmer-IDs je Gruppe */
   teams?: Record<string, number[][]>;
+  /** Handzeichen der Teilnehmenden: Zeitpunkt je Art und Person (siehe moderation.ts) */
+  signals?: SignalStore;
+  /** Zufallsauswahl („Wer startet?“) */
+  picker?: PickerState | null;
 }
 
 /** Rechte der Teilnehmenden auf einer Wand-Folie: live gesetzt oder aus der Folie */
@@ -206,8 +219,18 @@ export const hostCommand = z.discriminatedUnion('action', [
     name: participantName,
     tag: z.number().int().min(0).nullable().default(null),
   }),
+  /** Handzeichen einer Art quittieren („gesehen“) */
+  z.object({ action: z.literal('signals-clear'), kind: z.enum(SIGNAL_KINDS) }),
+  /** Zufallsauswahl: Person ziehen (team = Index in der geltenden Gruppeneinteilung) */
+  z.object({ action: z.literal('pick-draw'), team: z.number().int().min(0).nullable().default(null) }),
+  z.object({ action: z.literal('pick-show') }),
+  z.object({ action: z.literal('pick-hide') }),
+  z.object({ action: z.literal('pick-reset') }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
+
+/** Handzeichen von Teilnehmenden (`POST /api/p/signal`) */
+export const signalInput = z.object({ kind: z.enum(SIGNAL_KINDS), active: z.boolean() });
 
 /* ───────────────────────── Ansichten (über WebSocket) ───────────────────────── */
 
@@ -343,6 +366,10 @@ export interface ParticipantView {
   countdown: Countdown | null;
   /** Eigene Gruppe aus der letzten Einteilung bis zur aktuellen Folie */
   team: ParticipantTeam | null;
+  /** Eigene aktive Handzeichen mit Ablaufzeitpunkt (Serverzeit) */
+  signals?: Partial<Record<SignalKind, number>>;
+  /** Bei der Zufallsauswahl gezogen: „Du bist dran!“ */
+  picked?: boolean;
 }
 
 /** Person in einer Gruppeneinteilung; die ID bekommt nur das Steuerpult (zum Verschieben) */
@@ -395,6 +422,8 @@ export interface DisplayView {
   board: BoardView | null;
   countdown: Countdown | null;
   teams: TeamsView | null;
+  /** Zufallsauswahl: gezogener Name groß auf dem Beamer */
+  picked?: string | null;
 }
 
 export interface HostSlideSummary {
@@ -424,6 +453,11 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   startedAt: number;
   targetMinutes: number | null;
   handoutUrl: string | null;
+  /** Handzeichen – nur für die Moderation */
+  signals: SignalsView;
+  picker: PickerView;
+  /** Wer gerade verbunden ist */
+  presence: PresenceView;
 }
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────

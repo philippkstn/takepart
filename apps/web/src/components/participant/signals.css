@@ -1,0 +1,58 @@
+/* Handzeichen und Zufallsauswahl auf dem Handy */
+.signal-pill {
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+.signal-list {
+  display: grid;
+  gap: 8px;
+}
+.signal-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 120ms var(--ease),
+    background 120ms var(--ease);
+}
+.signal-option:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+.signal-option > svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  color: var(--ink-2);
+}
+.signal-option .grow {
+  display: grid;
+  gap: 2px;
+}
+.signal-option.is-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.signal-option.is-on > svg {
+  color: var(--accent);
+}
+.signal-option:disabled {
+  cursor: progress;
+}
+.picked-alert {
+  border-color: var(--accent);
+}
+.picked-alert > svg {
+  color: var(--accent);
+  flex-shrink: 0;
+}

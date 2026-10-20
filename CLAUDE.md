@@ -54,6 +54,13 @@ npm run build
 - Fotoprotokoll `/admin/runs/:id/protokoll` (`ProtocolPage.tsx`): druckoptimiert (A4 quer), PDF über den Druckdialog – keine PDF-Software auf dem Server.
 - Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`).
 
+## Moderationswerkzeuge (Handzeichen, Zufall, Anwesenheit)
+
+- Reine Logik in `packages/shared/src/moderation.ts`, Server in `apps/server/src/moderation.ts` (Route `POST /api/p/signal`, Befehle `signals-clear`, `pick-*`, Ansichtsteile), Web: `participant/SignalBar.tsx`, `admin/ModerationTools.tsx`, `components/PickOverlay.tsx`.
+- **Handzeichen** (`SIGNAL_KINDS`, erweiterbar): `RunState.signals[kind][participantId] = Zeitpunkt`, eins pro Person und Art. Ablauf nach 3 Minuten ohne Timer: Server filtert beim Lesen und räumt beim Schreiben auf, Steuerpult und Handy bekommen Ablaufzeitpunkte und zählen selbst herunter. Nur Host-Ansicht (Zähler) und eigene Signale auf dem Handy – nie Beamer, nie Namen.
+- **Zufallsauswahl**: `RunState.picker` (`drawn`, `current`, `shown`); gezogen wird auf dem Server (`crypto.randomInt`) aus Personen mit Namen, ohne Wiederholung bis `pick-reset`; Gruppenfilter über `teamsAt` (letzte Einteilung bis zur aktuellen Folie). Folienwechsel blendet den Namen auf dem Beamer aus (`picked` in der DisplayView), das Handy der gezogenen Person zeigt „Du bist dran!“.
+- **Anwesenheit**: `HostView.presence` nur mit Namen + verbunden/getrennt (keine IDs); die verbundenen IDs kennt nur `live.ts` und reicht sie an `hostView` weiter (einmal je Broadcast gebaut).
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

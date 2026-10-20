@@ -1,0 +1,18 @@
+/* Zufallsauswahl auf der Bühne (Maße in em wie die übrige Bühne) */
+.pick-overlay {
+  z-index: 7;
+}
+.pick-card {
+  width: auto;
+  min-width: 18em;
+  max-width: 100%;
+  align-items: center;
+  text-align: center;
+  padding: 1.6em 2.6em 1.9em;
+}
+.pick-name {
+  font-size: 3.4em;
+  font-weight: 700;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}

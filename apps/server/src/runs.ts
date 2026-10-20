@@ -28,6 +28,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
 import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
+import { applyModerationCommand, isModerationCommand } from './moderation.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
@@ -85,6 +86,7 @@ export function applyCommand(
       s.slideId = slideId;
       s.spotlight = null;
       s.leaderboard = false;
+      if (s.picker?.shown) s.picker = { ...s.picker, shown: false };
     }
     setBuild(slideId, build);
   };
@@ -291,6 +293,10 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           if (cmd.action === 'teams-add' && cmd.tag !== null && cmd.tag >= teamsSlide.config.tags.length)
             throw new CommandError('Unbekannte Kennzeichnung');
           await saveRunState(db, id, await applyTeamsCommand(db, id, run.state, cmd));
+          return;
+        }
+        if (isModerationCommand(cmd)) {
+          await saveRunState(db, id, await applyModerationCommand(db, id, run.state, slides, cmd));
           return;
         }
         if (cmd.action === 'board') {

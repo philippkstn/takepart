@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
 import { ParkingButton } from '../components/participant/BoardActivity.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
+import { PickedAlert, SignalButton } from '../components/participant/SignalBar.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
@@ -126,6 +127,7 @@ export default function ParticipantPage({ code }: { code: string }) {
             </span>
           )}
           <ParkingButton parking={view.parking} token={token} />
+          <SignalButton signals={view.signals} offset={offset} token={token} />
           <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />
           {handoutUrl && (
             <Link className="pill" to={handoutUrl} target="_blank">
@@ -141,6 +143,7 @@ export default function ParticipantPage({ code }: { code: string }) {
       </header>
       <ConnectionBadge status={status} />
       <CountdownAlert countdown={view.countdown} offset={offset} />
+      <PickedAlert picked={view.picked} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
       <main className={`p-main ${mainWidth(view)}`}>
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
