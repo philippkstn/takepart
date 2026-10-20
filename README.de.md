@@ -11,22 +11,24 @@ Das Publikum macht mit einem 6-stelligen Code oder per QR-Code mit – ohne Kont
 
 **Live:** https://takepart.philipp-kasten.de
 
-| Aktivität | Kurz |
-|---|---|
-| Textfolie | Titel, Text und – auf der Titelfolie – Beitritts-Code und QR-Code |
-| Auswahl | eine oder mehrere Antworten, Balken mit Anzahl und Prozent |
-| Offene Antworten | Freitext, einzeln groß einblendbar |
-| Skala | 1–5 / 1–7 / 1–10 mit Durchschnitt und Verteilung |
-| Wortwolke | 1–3 Begriffe pro Person |
-| Ranking | Optionen in Reihenfolge antippen, Auswertung nach Borda |
-| Quizfrage | Zeitlimit, Punkte für Tempo, Rangliste |
-| Brainstorming | Ideen sammeln, Publikum votet |
-| Pinnwand | gemeinsame Notizen in Spalten |
-| Feedback | Sterne + Kommentar |
-| Fragen (Q&A) | mit Namen, Upvotes, Freigabe, einzeln groß einblenden |
+| Aktivität             | Kurz                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| Textfolie             | Titel, Text und – auf der Titelfolie – Beitritts-Code und QR-Code                      |
+| Auswahl               | eine oder mehrere Antworten, Balken mit Anzahl und Prozent                             |
+| Offene Antworten      | Freitext, einzeln groß einblendbar                                                     |
+| Skala                 | 1–5 / 1–7 / 1–10 mit Durchschnitt und Verteilung                                       |
+| Wortwolke             | 1–3 Begriffe pro Person                                                                |
+| Ranking               | Optionen in Reihenfolge antippen, Auswertung nach Borda                                |
+| Quizfrage             | Zeitlimit, Punkte für Tempo, Rangliste                                                 |
+| Brainstorming         | Ideen sammeln, Publikum votet                                                          |
+| Pinnwand              | gemeinsame Notizen in Spalten                                                          |
+| Feedback              | Sterne + Kommentar                                                                     |
+| Fragen (Q&A)          | mit Namen, Upvotes, Freigabe, einzeln groß einblenden                                  |
 | Satz vervollständigen | Satzanfang vorgeben, alle tippen ein Wort, du blendest ein und hängst das häufigste an |
 
 **Der ganze Vortrag läuft in TakePart:** Folien als PDF importieren (Export aus PowerPoint, Keynote oder Google Slides) und interaktive Folien dazwischen setzen. Sprechernotizen und Aufbau-Animationen (Elemente erscheinen Klick für Klick) kommen mit, wenn du die `.pptx` dazugibst. Eine Referentenansicht zeigt Notizen, nächste Folie, Timer und Uhrzeit; Laserpointer und Stift zeichnen auf den geteilten Bildschirm; nach dem Vortrag teilst du Folien und zusammengefasste Ergebnisse per Link.
+
+**Zeitplan und Phasen:** Jede Folie bekommt auf Wunsch eine geplante Dauer, und das Steuerpult zeigt, ob du vor oder hinter dem Plan liegst. Workshop-Folien können eine Phasenfolge haben (z. B. „15 Min. Gespräch – 15 Min. Rollenwechsel – 10 Min. allein Karten schreiben“), die als Countdown auf Beamer und allen Teilnehmer-Geräten läuft – mit aktueller Phase, „Phase 2 von 3“, Vorschau auf die nächste und einem Hinweis bei jedem Wechsel; auf Wunsch startet sie beim Öffnen der Folie von selbst.
 
 Dazu: optionales Branding pro Präsentation (Logo, Akzent- und Diagrammfarbe), mehrere Konten mit Anmeldung per Passkey und/oder Passwort (jedes Konto sieht nur seine eigenen Präsentationen), automatische Gruppeneinteilung (zufällig, nach Größe oder Anzahl, gemischt nach Rollen), ein Archiv jeder Durchführung mit CSV-Export und druckfertigem Fotoprotokoll (PDF), Import/Export ganzer Präsentationen samt Durchführungen und ein Demo-Foliensatz mit allen Funktionen.
 
@@ -64,15 +66,15 @@ Im Editor **„PDF importieren“** klicken und den PDF-Export deiner Präsentat
 
 Als Umgebungsvariablen setzen (in Compose z. B. über eine `.env`-Datei neben der `docker-compose.yml`).
 
-| Variable | Standard | Zweck |
-|---|---|---|
-| `APP_ORIGIN` | `http://localhost:8080` | Öffentliche Adresse im Browser. Passkeys sind daran gebunden. |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | siehe Compose-Datei | MariaDB/MySQL-Verbindung. **`DB_PASSWORD` ändern.** |
-| `TRUST_PROXY_HOPS` | `0` (Compose) | Anzahl Proxys vor TakePart: keiner `0`, Reverse-Proxy `1`, Reverse-Proxy + Cloudflare `2`. Zu hoch erlaubt gefälschte IPs. |
-| `SETUP_TOKEN` | wird erzeugt | Fester Token für das erste Konto statt des erzeugten. |
-| `IMPRINT_URL`, `PRIVACY_URL` | – | Impressum und Datenschutz in der Fußzeile (nur wenn gesetzt). |
-| `SOURCE_URL` | dieses Repo | Quellcode-Link in der Fußzeile. Wer eine veränderte Version betreibt, verlinkt den eigenen Code (AGPL). |
-| `TAKEPART_PORT` | `8080` | Port auf dem Host in der `docker-compose.yml`. |
+| Variable                                                  | Standard                | Zweck                                                                                                                      |
+| --------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ORIGIN`                                              | `http://localhost:8080` | Öffentliche Adresse im Browser. Passkeys sind daran gebunden.                                                              |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | siehe Compose-Datei     | MariaDB/MySQL-Verbindung. **`DB_PASSWORD` ändern.**                                                                        |
+| `TRUST_PROXY_HOPS`                                        | `0` (Compose)           | Anzahl Proxys vor TakePart: keiner `0`, Reverse-Proxy `1`, Reverse-Proxy + Cloudflare `2`. Zu hoch erlaubt gefälschte IPs. |
+| `SETUP_TOKEN`                                             | wird erzeugt            | Fester Token für das erste Konto statt des erzeugten.                                                                      |
+| `IMPRINT_URL`, `PRIVACY_URL`                              | –                       | Impressum und Datenschutz in der Fußzeile (nur wenn gesetzt).                                                              |
+| `SOURCE_URL`                                              | dieses Repo             | Quellcode-Link in der Fußzeile. Wer eine veränderte Version betreibt, verlinkt den eigenen Code (AGPL).                    |
+| `TAKEPART_PORT`                                           | `8080`                  | Port auf dem Host in der `docker-compose.yml`.                                                                             |
 
 Beispiel-`.env` für eine öffentliche Instanz:
 

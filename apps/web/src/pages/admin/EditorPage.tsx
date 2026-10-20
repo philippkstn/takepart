@@ -8,6 +8,10 @@ import {
   CREATABLE_SLIDE_TYPES,
   assetThumbUrl,
   slideHeadline,
+  EMPTY_SCHEDULE,
+  plannedTotal,
+  slidePlannedMinutes,
+  type SlideSchedule,
   type BrandView,
   type Slide,
   type SlideType,
@@ -35,6 +39,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
+import { ScheduleFields } from '../../components/admin/ScheduleFields.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { Stage } from '../../components/Stage.tsx';
 import { staticPreview } from '../../components/staticPreview.ts';
@@ -52,6 +57,8 @@ interface Presentation {
   slides: Slide[];
   /** Sprechernotizen je Folien-ID (nur für dich, nie für Beamer/Publikum) */
   notes: Record<string, string>;
+  /** Ablaufplan je Folien-ID (Soll-Dauer, Phasen, Auto-Start) */
+  schedule?: Record<string, SlideSchedule>;
   liveRun: { id: number; code: string } | null;
 }
 
@@ -80,6 +87,8 @@ export default function EditorPage() {
   const start = useStartRun();
 
   const slides = pres.data?.slides ?? [];
+  const plannedOf = (slideId: number) => slidePlannedMinutes(pres.data?.schedule?.[slideId]);
+  const plannedSum = plannedTotal(slides.map((s) => plannedOf(s.id)));
   const selected = slides.find((s) => s.id === selectedId) ?? slides[0] ?? null;
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
@@ -220,6 +229,12 @@ export default function EditorPage() {
           />
           Min.
         </label>
+        {plannedSum > 0 && (
+          <span className="small muted tabular" title="Summe der geplanten Minuten aller Folien">
+            geplant: {plannedSum} Min.
+            {pres.data.targetMinutes !== null && ` von ${pres.data.targetMinutes}`}
+          </span>
+        )}
       </div>
 
       <div className="editor-grid">
@@ -245,7 +260,10 @@ export default function EditorPage() {
                     </span>
                   )}
                   <span className="slide-item-text">
-                    <span className="slide-item-type">{SLIDE_TYPE_LABELS[s.type]}</span>
+                    <span className="slide-item-type">
+                      {SLIDE_TYPE_LABELS[s.type]}
+                      {plannedOf(s.id) !== null && <span className="tabular"> · {plannedOf(s.id)} Min.</span>}
+                    </span>
                     <span className="slide-item-title">{slideHeadline(s) || <em className="faint">ohne Titel</em>}</span>
                   </span>
                 </button>
@@ -600,6 +618,17 @@ function SlideEditor({ slide, presentation, index }: { slide: Slide; presentatio
         </form>
         {error && <div className="error-box">{error}</div>}
         <NotesField key={slide.id} slideId={slide.id} presentationId={presentation.id} initial={presentation.notes[slide.id] ?? ''} />
+        <ScheduleFields
+          key={`schedule-${slide.id}`}
+          slideId={slide.id}
+          initial={presentation.schedule?.[slide.id] ?? EMPTY_SCHEDULE}
+          onSaved={(schedule) =>
+            queryClient.setQueryData<Presentation>(
+              ['presentation', presentation.id],
+              (p) => p && { ...p, schedule: { ...p.schedule, [slide.id]: schedule } },
+            )
+          }
+        />
       </section>
       <section className="preview-col">
         <div className="row-between">

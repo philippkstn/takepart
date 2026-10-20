@@ -1,13 +1,14 @@
 import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
-import { parseConfig, SLIDE_TYPES, type RunState, type SlideType } from '@slides/shared';
+import { parseConfig, plannedMinutes, schedulePhases, SLIDE_TYPES, type RunState, type SlideType } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
 import { newPublicId } from './assets.ts';
 import { accountOf, requireHost } from './auth.ts';
 import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts';
+import { SCHEDULE_COLUMNS, scheduleFromRow, scheduleValues, type ScheduleRow } from './schedule.ts';
 
 /**
  * Präsentationen als Datei exportieren und wieder importieren – mit Folien,
@@ -61,7 +62,20 @@ const fileSchema = z.object({
       thumbMime: z.string().max(40).nullable(),
     }),
   ),
-  slides: z.array(z.object({ id, type: z.enum(SLIDE_TYPES), config: z.unknown(), notes: z.string().max(20000).nullable() })).max(1000),
+  slides: z
+    .array(
+      z.object({
+        id,
+        type: z.enum(SLIDE_TYPES),
+        config: z.unknown(),
+        notes: z.string().max(20000).nullable(),
+        // Ablaufplan – optional, damit ältere Dateien gültig bleiben
+        plannedMinutes: plannedMinutes.optional(),
+        phases: schedulePhases.optional(),
+        autoCountdown: z.boolean().optional(),
+      }),
+    )
+    .max(1000),
   runs: z.array(
     z.object({
       startedAt: date,
@@ -200,9 +214,9 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
   }>(db, 'SELECT public_id, mime, width, height, data, thumb, thumb_mime FROM assets WHERE presentation_id = ? ORDER BY id', [
     presentationId,
   ]);
-  const slides = await query<{ id: number; type: SlideType; config: string; notes: string | null }>(
+  const slides = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null }>(
     db,
-    'SELECT id, type, config, notes FROM slides WHERE presentation_id = ? ORDER BY position, id',
+    `SELECT id, type, config, notes, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id`,
     [presentationId],
   );
   const runs = await query<{ id: number; state: string; started_at: Date; ended_at: Date | null }>(
@@ -331,7 +345,18 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
       thumb: a.thumb?.toString('base64') ?? null,
       thumbMime: a.thumb_mime,
     })),
-    slides: slides.map((s) => ({ id: s.id, type: s.type, config: json(s.config), notes: s.notes })),
+    slides: slides.map((s) => {
+      const schedule = scheduleFromRow(s);
+      return {
+        id: s.id,
+        type: s.type,
+        config: json(s.config),
+        notes: s.notes,
+        ...(schedule.plannedMinutes !== null && { plannedMinutes: schedule.plannedMinutes }),
+        ...(schedule.phases.length > 0 && { phases: schedule.phases }),
+        ...(schedule.autoCountdown && { autoCountdown: true }),
+      };
+    }),
     runs: runData,
   };
 }
@@ -399,13 +424,12 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
       } catch {
         throw new ImportError(`Folie ${position + 1} ist ungültig`);
       }
-      const result = await exec(conn, 'INSERT INTO slides (presentation_id, position, type, config, notes) VALUES (?, ?, ?, ?, ?)', [
-        presentationId,
-        position,
-        s.type,
-        JSON.stringify(config),
-        s.notes || null,
-      ]);
+      const schedule = { plannedMinutes: s.plannedMinutes ?? null, phases: s.phases ?? [], autoCountdown: s.autoCountdown ?? false };
+      const result = await exec(
+        conn,
+        `INSERT INTO slides (presentation_id, position, type, config, notes, ${SCHEDULE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [presentationId, position, s.type, JSON.stringify(config), s.notes || null, ...scheduleValues(schedule)],
+      );
       slides.set(s.id, result.insertId);
     }
 

@@ -299,4 +299,14 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    // Ablaufplan: Soll-Dauer, Phasenfolge für den Countdown (JSON) und Auto-Start je Folie
+    name: '008_schedule',
+    statements: [
+      `ALTER TABLE slides
+         ADD COLUMN planned_minutes SMALLINT UNSIGNED NULL,
+         ADD COLUMN phases TEXT NULL,
+         ADD COLUMN auto_countdown TINYINT(1) NOT NULL DEFAULT 0`,
+    ],
+  },
 ];

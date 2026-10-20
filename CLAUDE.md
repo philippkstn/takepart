@@ -54,6 +54,13 @@ npm run build
 - Fotoprotokoll `/admin/runs/:id/protokoll` (`ProtocolPage.tsx`): druckoptimiert (A4 quer), PDF über den Druckdialog – keine PDF-Software auf dem Server.
 - Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`).
 
+## Ablaufplan und Phasen-Countdown
+
+- Je Folie (jeder Typ) optional: `planned_minutes`, `phases` (JSON `[{label, minutes}]`, max. 8, Label ≤ 60), `auto_countdown` – eigene Spalten an `slides` (Migration `008_schedule`), **nicht** im typabhängigen `config` und nie im `Slide`-Typ. Server: `apps/server/src/schedule.ts` (`loadSchedule`), Logik/Schemas rein in `packages/shared/src/schedule.ts`. GET `/api/presentations/:id` liefert `schedule` (wie `notes`), PATCH `/api/slides/:id` nimmt `plannedMinutes`/`phases`/`autoCountdown`. Duplizieren und `transfer.ts` (optionale Felder, Format-Version bleibt 1) übernehmen sie.
+- Phasen-Countdown: `RunState.countdown = {endsAt, seconds, phases?: {label, seconds}[]}`. Die aktuelle Phase wird **nie gespeichert**, sondern überall mit `currentPhase(countdown, serverNow)` aus Startzeit (`endsAt - seconds`) abgeleitet – kein Server-Timer. Hinweise (`useCountdownMoments`) entstehen aus dem Wechsel der abgeleiteten Phase bei jedem Takt und bei `visibilitychange` – ein verdeckter Tab zeigt beim Zurückkehren sofort den richtigen Stand.
+- Befehle: `countdown-slide` (Phasen, sonst Soll-Dauer der Folie), `countdown-extend` (+Sekunden für die aktuelle Phase). Auto-Start in `applyCommand` (optionaler 6. Parameter `schedule`) nur, wenn die Folie wirklich wechselt; Verlassen stoppt nichts.
+- Teilnehmende: `PhaseBanner` unter der Kopfzeile, auf jeder Folie (Phase, Restzeit, „Phase 2 von 3“, „Danach: …“); beim Wechsel `CountdownAlert` mit Vibration und – nach Freigabe durch eine Berührung – Gongschlag. Steuerpult: `SchedulePanel.tsx` (`PlanStatus` Soll/Ist als Text, „Phasen starten“). Geplante Minuten einer Folie = Soll-Dauer, sonst Summe der Phasen.
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

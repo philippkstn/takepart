@@ -1,9 +1,10 @@
-import type { Countdown } from '@slides/shared';
+import { currentPhase, type Countdown, type PhaseInfo } from '@slides/shared';
 import { useEffect, useRef, useState } from 'react';
 
 /**
- * Töne zum Countdown – nur auf dem Beamer: ein kurzer Hinweis eine Minute vor
- * Ende, ein Gong bei Ablauf. Per Web Audio erzeugt (keine Dateien, kein CDN).
+ * Töne zum Countdown auf dem Beamer: ein kurzer Hinweis eine Minute vor
+ * Ende, ein Gongschlag beim Phasenwechsel, ein Gong bei Ablauf. Bei Phasen auch
+ * auf den Geräten der Teilnehmenden, sobald sie Ton freigegeben haben. Per Web Audio erzeugt (keine Dateien, kein CDN).
  * Browser geben Ton erst nach einer Interaktion frei; bis dahin ist `locked` wahr.
  */
 
@@ -56,38 +57,90 @@ export function playEnd() {
   }
 }
 
-export type CountdownMoment = 'warning' | 'end';
+export type CountdownMoment =
+  | { kind: 'warning'; phase: PhaseInfo | null }
+  | { kind: 'end'; phase: PhaseInfo | null }
+  /** Neue Phase hat begonnen */
+  | { kind: 'phase'; phase: PhaseInfo };
+
+/** Ein Gongschlag beim Wechsel in die nächste Phase */
+export function playPhase() {
+  const ac = audio();
+  if (!ac || ac.state !== 'running') return;
+  const t = ac.currentTime + 0.05;
+  tone(ac, 659.25, t, 1.6, 0.28);
+  tone(ac, 987.77, t, 1.2, 0.14);
+}
+
+/** Ton freigeben (Browser erlauben Ton erst nach einer Interaktion) */
+export function unlockAudio(): Promise<boolean> {
+  const ac = audio();
+  if (!ac) return Promise.resolve(false);
+  return ac.resume().then(
+    () => ac.state === 'running',
+    () => false,
+  );
+}
+
+interface Observed {
+  key: string;
+  index: number;
+  warn: boolean;
+  done: boolean;
+}
 
 /**
- * Meldet die Momente des laufenden Countdowns: eine Minute vor Ende (nur bei
- * Countdowns über einer Minute) und den Ablauf. Schon vergangene Zeitpunkte
- * (z. B. nach einem Neuladen) werden nicht nachgeholt.
+ * Meldet die Momente des laufenden Countdowns: eine Minute vor Ende einer Phase
+ * bzw. des Countdowns (nur wenn sie länger als eine Minute dauert), den Beginn
+ * jeder weiteren Phase und den Ablauf. Abgeleitet aus Serverzeit bei jedem Takt:
+ * Nach einem verdeckten Tab erscheint beim Zurückkehren sofort der aktuelle
+ * Wechsel. Was beim ersten Anblick eines Countdowns (Neuladen, gerade
+ * gestartet) schon vorbei ist, wird nicht nachgeholt.
  */
 export function useCountdownMoments(countdown: Countdown | null, offset: number, onMoment: (moment: CountdownMoment) => void) {
   const latest = useRef(onMoment);
   latest.current = onMoment;
-  const played = useRef(new Set<string>());
-  const endsAt = countdown?.endsAt ?? null;
-  const seconds = countdown?.seconds ?? 0;
+  const offsetRef = useRef(offset);
+  offsetRef.current = offset;
+  const observed = useRef<Observed | null>(null);
+  const cdRef = useRef(countdown);
+  cdRef.current = countdown;
+  const key = countdown ? `${countdown.endsAt}:${countdown.seconds}:${countdown.phases?.length ?? 0}` : null;
+
   useEffect(() => {
-    if (endsAt === null) return;
-    const now = Date.now() + offset;
-    const timers: number[] = [];
-    const schedule = (moment: CountdownMoment, at: number) => {
-      const key = `${endsAt}:${moment}`;
-      if (at <= now || played.current.has(key)) return;
-      timers.push(
-        window.setTimeout(() => {
-          played.current.add(key);
-          latest.current(moment);
-        }, at - now),
-      );
+    observed.current = null;
+    if (key === null) return;
+    const check = () => {
+      const cd = cdRef.current;
+      if (!cd) return;
+      const now = Date.now() + offsetRef.current;
+      const phase = currentPhase(cd, now);
+      const phaseEnds = phase ? phase.endsAt : cd.endsAt;
+      const phaseSeconds = phase ? phase.seconds : cd.seconds;
+      const left = phaseEnds - now;
+      const next: Observed = {
+        key,
+        index: phase?.index ?? 0,
+        done: now >= cd.endsAt,
+        warn: now < cd.endsAt && phaseSeconds * 1000 > WARNING_MS && left <= WARNING_MS,
+      };
+      const prev = observed.current;
+      observed.current = next;
+      if (!prev || prev.key !== key) return;
+      if (!prev.done && next.done) latest.current({ kind: 'end', phase });
+      else if (phase && next.index > prev.index) latest.current({ kind: 'phase', phase });
+      else if (!prev.warn && next.warn && next.index === prev.index && left > WARNING_MS - 15_000)
+        latest.current({ kind: 'warning', phase });
     };
-    if (seconds * 1000 > WARNING_MS) schedule('warning', endsAt - WARNING_MS);
-    schedule('end', endsAt);
-    return () => timers.forEach((t) => window.clearTimeout(t));
-    // offset schwankt minimal mit jeder Ansicht – neu planen nur bei neuem Countdown
-  }, [endsAt, seconds]);
+    check();
+    const id = window.setInterval(check, 250);
+    // Beim Zurückkehren in den Tab sofort prüfen, nicht erst beim nächsten (gedrosselten) Takt
+    document.addEventListener('visibilitychange', check);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener('visibilitychange', check);
+    };
+  }, [key]);
 }
 
 /** Töne zum Countdown auf dem Beamer. Solange der Browser Ton sperrt, ist `locked` wahr. */
@@ -115,6 +168,8 @@ export function useCountdownSounds(countdown: Countdown | null, offset: number):
     };
   }, []);
 
-  useCountdownMoments(countdown, offset, (moment) => (moment === 'warning' ? playWarning() : playEnd()));
+  useCountdownMoments(countdown, offset, (moment) =>
+    moment.kind === 'warning' ? playWarning() : moment.kind === 'phase' ? playPhase() : playEnd(),
+  );
   return { locked, unlock };
 }

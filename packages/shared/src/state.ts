@@ -86,6 +86,16 @@ export interface Countdown {
   endsAt: number;
   /** Ursprüngliche Dauer in Sekunden – für den Fortschritt */
   seconds: number;
+  /**
+   * Phasenfolge (Summe = `seconds`). Die aktuelle Phase berechnen Clients aus
+   * Startzeit (`endsAt - seconds`) und Dauern – siehe `currentPhase` in schedule.ts.
+   */
+  phases?: CountdownPhase[];
+}
+
+export interface CountdownPhase {
+  label: string;
+  seconds: number;
 }
 
 export function initialRunState(firstSlideId: number | null): RunState {
@@ -179,6 +189,10 @@ export const hostCommand = z.discriminatedUnion('action', [
       .max(4 * 3600)
       .nullable(),
   }),
+  /** Countdown der Folie starten: ihre Phasen, sonst ihre Soll-Dauer */
+  z.object({ action: z.literal('countdown-slide'), slideId: z.number().int() }),
+  /** Laufenden Countdown verlängern (bei Phasen: die aktuelle Phase) */
+  z.object({ action: z.literal('countdown-extend'), seconds: z.number().int().min(1).max(3600) }),
   z.object({ action: z.literal('board'), slideId: z.number().int(), op: boardOp }),
   z.object({ action: z.literal('board-rights'), slideId: z.number().int(), rights: z.enum(BOARD_RIGHTS) }),
   /** Gruppen bilden: neu einteilen – n Gruppen oder Gruppen à n Personen, auf Wunsch nach Kennzeichnung gemischt */
@@ -404,6 +418,10 @@ export interface HostSlideSummary {
   responses: number;
   /** Miniatur für importierte Folien */
   thumb: string | null;
+  /** Ablaufplan: geplante Minuten (Soll-Dauer, sonst Summe der Phasen) */
+  plannedMinutes?: number | null;
+  /** Phasenfolge für den Countdown (leer: keine) */
+  phases?: { label: string; minutes: number }[];
 }
 
 export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderboard'> {

@@ -6,6 +6,7 @@ import { ParticipantActivity } from '../components/participant/Activities.tsx';
 import { ParkingButton } from '../components/participant/BoardActivity.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
+import { PhaseBanner } from '../components/participant/PhaseBanner.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
 import { brandStyle } from '../lib/brand.ts';
@@ -109,36 +110,40 @@ export default function ParticipantPage({ code }: { code: string }) {
 
   return (
     <div className="p-shell takepart-scope" style={brandStyle(view.run.brand)}>
-      <header className="p-header">
-        <span className="p-brand">
-          {view.run.brand?.logoUrl ? (
-            <img className="p-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />
-          ) : (
-            <BrandMark size={24} />
-          )}
-          <span className="p-title">{view.run.title}</span>
-        </span>
-        <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
-          {/* Eigene Gruppe auch auf späteren Folien im Blick */}
-          {view.team && view.slide?.id !== view.team.slideId && (
-            <span className="pill" title={view.team.members.length > 0 ? `mit ${view.team.members.join(', ')}` : undefined}>
-              {view.team.name}
-            </span>
-          )}
-          <ParkingButton parking={view.parking} token={token} />
-          <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />
-          {handoutUrl && (
-            <Link className="pill" to={handoutUrl} target="_blank">
-              Folien
-            </Link>
-          )}
-          {view.slideCount > 0 && view.slideIndex >= 0 && (
-            <span className="pill tabular">
-              {view.slideIndex + 1} / {view.slideCount}
-            </span>
-          )}
-        </span>
-      </header>
+      <div className="p-top">
+        <header className="p-header">
+          <span className="p-brand">
+            {view.run.brand?.logoUrl ? (
+              <img className="p-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />
+            ) : (
+              <BrandMark size={24} />
+            )}
+            <span className="p-title">{view.run.title}</span>
+          </span>
+          <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
+            {/* Eigene Gruppe auch auf späteren Folien im Blick */}
+            {view.team && view.slide?.id !== view.team.slideId && (
+              <span className="pill" title={view.team.members.length > 0 ? `mit ${view.team.members.join(', ')}` : undefined}>
+                {view.team.name}
+              </span>
+            )}
+            <ParkingButton parking={view.parking} token={token} />
+            {/* Phasen stehen groß darunter (PhaseBanner) */}
+            {!view.countdown?.phases?.length && <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />}
+            {handoutUrl && (
+              <Link className="pill" to={handoutUrl} target="_blank">
+                Folien
+              </Link>
+            )}
+            {view.slideCount > 0 && view.slideIndex >= 0 && (
+              <span className="pill tabular">
+                {view.slideIndex + 1} / {view.slideCount}
+              </span>
+            )}
+          </span>
+        </header>
+        <PhaseBanner countdown={view.countdown} offset={offset} />
+      </div>
       <ConnectionBadge status={status} />
       <CountdownAlert countdown={view.countdown} offset={offset} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
