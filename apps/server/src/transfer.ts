@@ -87,6 +87,8 @@ const fileSchema = z.object({
           text: z.string().max(500),
           columnIndex: z.number().int().min(0).max(255).nullable(),
           groupId: id.nullable(),
+          /** Breakout: Arbeitsgruppe (Index der mit exportierten Einteilung); fehlt in älteren Dateien */
+          team: z.number().int().min(0).max(1000).nullable().default(null),
           status: z.enum(['pending', 'visible', 'hidden', 'answered']),
           votes: z.number().int().nonnegative(),
           createdAt: date,
@@ -153,8 +155,10 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap, partici
           ]),
         )
       : undefined,
+    teamDone: state.teamDone ? remapKeys(state.teamDone, slideKey) : undefined,
     // Beendete Durchführung: keine laufenden Anzeigen übernehmen
     countdown: null,
+    callback: null,
     blank: null,
     pause: null,
     pauseVotes: undefined,
@@ -236,12 +240,13 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
       text: string;
       column_index: number | null;
       group_id: number | null;
+      team: number | null;
       status: 'pending' | 'visible' | 'hidden' | 'answered';
       votes: number;
       created_at: Date;
     }>(
       db,
-      `SELECT id, slide_id, participant_id, author_name, text, column_index, group_id, status, votes, created_at
+      `SELECT id, slide_id, participant_id, author_name, text, column_index, group_id, team, status, votes, created_at
          FROM posts WHERE run_id = ? ORDER BY id`,
       [run.id],
     );
@@ -287,6 +292,7 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
         text: p.text,
         columnIndex: p.column_index,
         groupId: p.group_id,
+        team: p.team,
         status: p.status,
         votes: Number(p.votes),
         createdAt: iso(p.created_at),
@@ -450,8 +456,8 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
         if (!slideId) continue;
         const r = await exec(
           conn,
-          `INSERT INTO posts (run_id, slide_id, participant_id, author_name, text, column_index, group_id, status, votes, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO posts (run_id, slide_id, participant_id, author_name, text, column_index, group_id, team, status, votes, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             runId,
             slideId,
@@ -460,6 +466,7 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
             p.text,
             p.columnIndex,
             p.groupId === null ? null : (groups.get(p.groupId) ?? null),
+            p.team,
             p.status,
             p.votes,
             sqlDate(p.createdAt),

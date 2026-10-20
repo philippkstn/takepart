@@ -7,6 +7,7 @@ import { ParkingButton } from '../components/participant/BoardActivity.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
 import { PauseActivity, PauseAlert } from '../components/participant/PauseActivity.tsx';
 import { PickedAlert, SignalButton } from '../components/participant/SignalBar.tsx';
+import { CallbackNotice } from '../components/participant/Breakout.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
@@ -148,11 +149,12 @@ export default function ParticipantPage({ code }: { code: string }) {
       <PickedAlert picked={view.picked} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
       <main className={`p-main ${view.pause ? '' : mainWidth(view)}`}>
-        {view.pause ? (
-          <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.length > 0} />
-        ) : (
+        <CallbackNotice callback={view.callback} offset={offset} />
+        {view.pause && <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.length > 0} />}
+        {/* Während der Pause nur versteckt, damit angefangene Eingaben (z. B. eine Karte) erhalten bleiben */}
+        <div className="p-activity" hidden={!!view.pause}>
           <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
-        )}
+        </div>
       </main>
       <footer className="p-footer">
         <LegalLinks imprint={false} />

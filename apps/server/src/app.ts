@@ -15,6 +15,7 @@ import { one, type Db } from './db.ts';
 import { LiveHub } from './live.ts';
 import { participantByToken, participantRoutes } from './participants.ts';
 import { moderationRoutes } from './moderation.ts';
+import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
@@ -118,6 +119,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   transferRoutes(app, db);
   participantRoutes(app, db, live);
   moderationRoutes(app, db, live);
+  breakoutRoutes(app, db, live);
 
   /**
    * Live-Verbindung. Drei Rollen:

@@ -288,6 +288,7 @@ function cardToPost(c: BoardData['cards'][number]): SnapshotPost {
     votes: c.votes,
     createdAt: c.createdAt,
     group: c.group,
+    team: c.team,
   };
 }
 

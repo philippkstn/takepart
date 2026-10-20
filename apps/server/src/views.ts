@@ -1,4 +1,5 @@
 import {
+  activeCallback,
   boardRights,
   cardKey,
   assetThumbUrl,
@@ -21,6 +22,7 @@ import {
   type ParkingView,
 } from '@slides/shared';
 import { buildBoardView } from './board.ts';
+import { breakoutPosts, breakoutView, myTeamView } from './breakout.ts';
 import { participantTeam, teamsView } from './teams.ts';
 import { displayPause, participantPause, pauseStats } from './pause.ts';
 import { displayPicked, hostSignals, participantModeration, pickerView, presenceView } from './moderation.ts';
@@ -85,7 +87,10 @@ function sentenceView(snap: Snapshot, withWords: boolean): SentenceView | null {
 function boardViewOf(snap: Snapshot): BoardView | null {
   const slide = snap.current;
   if (slide?.type !== 'board' || !snap.board) return null;
-  return buildBoardView(slide, snap.board, boardRights(snap.run.state, slide));
+  const view = buildBoardView(slide, snap.board, boardRights(snap.run.state, slide));
+  const breakout = breakoutView(snap);
+  if (breakout) view.breakout = breakout;
+  return view;
 }
 
 /** Karten, die eine Person auf ihrem Gerät braucht – nicht die ganze Wand. */
@@ -97,7 +102,8 @@ function participantBoardPosts(snap: Snapshot, board: BoardView, participantId: 
   let posts: typeof snap.posts;
   switch (slide.config.mode) {
     case 'collect':
-      posts = snap.posts.filter(own);
+      // Gruppenweise: eigene Karten und die der eigenen Arbeitsgruppe (nur lesend)
+      posts = breakoutPosts(snap, participantId) ?? snap.posts.filter(own);
       break;
     case 'cluster':
     case 'place':
@@ -176,7 +182,12 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     posts = participantBoardPosts(snap, board, participantId);
     board.ownGroups = snap.board!.groups.filter((g) => g.participantId === participantId).map((g) => g.id);
     if (slide?.type === 'board' && slide.config.mode === 'collect') {
-      board.remaining = Math.max(0, slide.config.maxCards - posts.length);
+      board.remaining = Math.max(0, slide.config.maxCards - posts.filter((p) => p.mine).length);
+    }
+    // Gruppenweises Sammeln: nur die eigene Gruppe, nicht den Stand aller Gruppen
+    if (board.breakout) {
+      board.myTeam = myTeamView(snap, participantId);
+      delete board.breakout;
     }
   }
 
@@ -216,6 +227,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     team: participantTeam(snap, participantId),
     pause: participantPause(state, participantId),
     ...participantModeration(snap, participantId),
+    callback: activeCallback(state.callback, snap.now),
   };
 }
 
@@ -267,6 +279,7 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     teams: teamsView(snap, false),
     pause: displayPause(snap),
     picked: displayPicked(snap),
+    callback: activeCallback(state.callback, snap.now),
   };
 }
 
@@ -309,6 +322,7 @@ export function hostView(snap: Snapshot, participants: number, online: ReadonlyS
     teams: teamsView(snap, true),
     pause: displayPause(snap),
     pauseStats: pauseStats(state, participants),
+    callback: activeCallback(state.callback, snap.now),
     state,
     displayToken: snap.run.displayToken,
     presentationId: snap.run.presentationId,

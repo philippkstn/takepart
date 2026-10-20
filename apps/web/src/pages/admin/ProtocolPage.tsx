@@ -7,6 +7,7 @@ import {
   type PublicSlide,
   type SlideResults,
   type SlideType,
+  teamLabel,
 } from '@slides/shared';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Printer } from 'lucide-react';
@@ -16,6 +17,7 @@ import { BarList, SlideResultsView } from '../../components/Results.tsx';
 import { BrandMark, FullScreenSpinner } from '../../components/ui.tsx';
 import { api } from '../../lib/api.ts';
 import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import { cardsByTeam } from '../../components/board/Breakout.tsx';
 import { brandStyle } from '../../lib/brand.ts';
 import './protocol.css';
 
@@ -248,8 +250,34 @@ function Board({ config, summary, results }: { config: BoardConfig; summary: Boa
   const note = (c: PostView) => ({ id: c.id, text: c.text, meta: tag(c) });
 
   switch (config.mode) {
-    case 'collect':
-      return <Notes items={cards.filter((c) => c.status === 'visible').map(note)} />;
+    case 'collect': {
+      const visible = cards.filter((c) => c.status === 'visible');
+      // Gruppenweise gesammelt: Karten nach Arbeitsgruppe
+      if (config.perTeam && visible.some((c) => c.team !== null && c.team !== undefined)) {
+        const byTeam = cardsByTeam(visible);
+        const teams = [...byTeam.keys()].filter((k): k is number => k !== null).sort((a, b) => a - b);
+        const loose = byTeam.get(null) ?? [];
+        return (
+          <div className="protocol-columns is-auto">
+            {teams.map((t) => (
+              <div key={t} className="protocol-column">
+                <h3>
+                  {teamLabel(t)} <span className="faint tabular">{byTeam.get(t)!.length}</span>
+                </h3>
+                <Notes items={byTeam.get(t)!.map(note)} />
+              </div>
+            ))}
+            {loose.length > 0 && (
+              <div className="protocol-column is-muted">
+                <h3>Ohne Gruppe</h3>
+                <Notes items={loose.map(note)} />
+              </div>
+            )}
+          </div>
+        );
+      }
+      return <Notes items={visible.map(note)} />;
+    }
     case 'cluster': {
       const byGroup = cardsByGroup(cards);
       const unsorted = byGroup.get(null) ?? [];

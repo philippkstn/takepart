@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { LeaderboardEntry, SlideResults } from './results.ts';
 import { BOARD_KEY } from './board.ts';
+import type { Callback } from './breakout.ts';
 import { participantName } from './responses.ts';
 import {
   BOARD_RIGHTS,
@@ -79,6 +80,10 @@ export interface RunState {
   signals?: SignalStore;
   /** Zufallsauswahl („Wer startet?“) */
   picker?: PickerState | null;
+  /** Breakout: als fertig gemeldete Gruppen (Index in der Einteilung) je Sammel-Folie */
+  teamDone?: Record<string, number[]>;
+  /** Sammelruf „Alle zurück ins Plenum“ */
+  callback?: Callback | null;
 }
 
 /** Laufende Pause – gleiche Form wie der Countdown (für Restzeit, Hinweise und Töne) */
@@ -230,6 +235,18 @@ export const hostCommand = z.discriminatedUnion('action', [
   z.object({ action: z.literal('pause-extend'), seconds: z.number().int().min(60).max(3600).default(300) }),
   z.object({ action: z.literal('pause-end') }),
   z.object({ action: z.literal('board'), slideId: z.number().int(), op: boardOp }),
+  /** Breakout: Gruppe als fertig markieren oder zurücknehmen (Moderation) */
+  z.object({ action: z.literal('team-done'), slideId: z.number().int(), team: z.number().int().min(0).max(1000), done: z.boolean() }),
+  /** Sammelruf an alle Handys und den Beamer (null beendet ihn); Minuten nur als Hinweis – den Timer startet `countdown` */
+  z.object({
+    action: z.literal('callback'),
+    callback: z
+      .object({
+        text: z.string().trim().max(200).default(''),
+        minutes: z.number().int().min(1).max(60).nullable().default(null),
+      })
+      .nullable(),
+  }),
   z.object({ action: z.literal('board-rights'), slideId: z.number().int(), rights: z.enum(BOARD_RIGHTS) }),
   /** Gruppen bilden: neu einteilen – n Gruppen oder Gruppen à n Personen, auf Wunsch nach Kennzeichnung gemischt */
   z.object({
@@ -286,6 +303,8 @@ export interface PostView {
   voted?: boolean;
   /** Kartenwand: Gruppe, in der die Karte liegt */
   group?: number | null;
+  /** Breakout: Arbeitsgruppe (Index der Einteilung), in der die Karte gesammelt wurde */
+  team?: number | null;
 }
 
 /* ───────────── Kartenwand ───────────── */
@@ -319,6 +338,34 @@ export interface BoardView {
   remaining?: number;
   /** Nur Teilnehmende: selbst angelegte Gruppen – die dürfen sie auch mit „eigene Karten“ umbenennen */
   ownGroups?: number[];
+  /** Beamer und Steuerpult beim gruppenweisen Sammeln: Stand je Arbeitsgruppe */
+  breakout?: BreakoutView | null;
+  /** Nur Teilnehmende beim gruppenweisen Sammeln: die eigene Arbeitsgruppe (null: keiner zugeteilt) */
+  myTeam?: MyTeamView | null;
+}
+
+/** Arbeitsgruppe beim gruppenweisen Sammeln */
+export interface BreakoutTeamView {
+  index: number;
+  name: string;
+  /** Sichtbare Karten der Gruppe */
+  cards: number;
+  members: number;
+  done: boolean;
+}
+
+export interface BreakoutView {
+  teams: BreakoutTeamView[];
+  /** Anzahl fertiger Gruppen */
+  done: number;
+}
+
+export interface MyTeamView {
+  index: number;
+  name: string;
+  done: boolean;
+  /** Die anderen in der Gruppe */
+  members: string[];
 }
 
 /** Wand einer Folie im Archiv: Ansicht wie live plus alle Karten */
@@ -409,6 +456,8 @@ export interface ParticipantView {
   signals?: Partial<Record<SignalKind, number>>;
   /** Bei der Zufallsauswahl gezogen: „Du bist dran!“ */
   picked?: boolean;
+  /** Sammelruf „zurück ins Plenum“, solange er gilt */
+  callback?: Callback | null;
 }
 
 export interface ParticipantPause extends Pause {
@@ -488,6 +537,8 @@ export interface DisplayView {
   pause?: DisplayPause | null;
   /** Zufallsauswahl: gezogener Name groß auf dem Beamer */
   picked?: string | null;
+  /** Sammelruf „zurück ins Plenum“, solange er gilt */
+  callback?: Callback | null;
 }
 
 export interface HostSlideSummary {

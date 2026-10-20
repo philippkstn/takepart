@@ -41,6 +41,7 @@ import { isNumber, usePref } from '../../lib/prefs.ts';
 import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
+import { CallbackControl, hasTeams } from '../../components/board/Breakout.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
@@ -303,6 +304,11 @@ export default function ControlPage() {
               <PauseControl view={view} offset={offset} command={command} />
             </ControlGroup>
             <PickerControl view={view} command={command} busy={busy || ended} />
+            {hasTeams(view) && (
+              <ControlGroup label="Gruppen">
+                <CallbackControl view={view} command={command} offset={offset} />
+              </ControlGroup>
+            )}
             <ControlGroup label="Teilen">
               <HandoutToggle runId={runId} url={view.handoutUrl} />
             </ControlGroup>

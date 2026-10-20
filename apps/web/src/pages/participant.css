@@ -45,6 +45,13 @@
   align-content: start;
   gap: 18px;
 }
+/* Hülle der Folien-Ansicht: ohne eigenes Layout, nur zum Verstecken während der Pause */
+.p-activity {
+  display: contents;
+}
+.p-activity[hidden] {
+  display: none;
+}
 .p-main.home {
   align-content: center;
   min-height: 80dvh;
