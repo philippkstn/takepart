@@ -38,7 +38,7 @@ npm run build
 - Einstiegsseiten (Teilnahme, Anmeldung) und Teilnehmer-Seiten ohne Branding: Hauptknöpfe in TakePart-Orange (`.takepart-scope`, #cc4521 statt Logo-#e0532f wegen Kontrast).
 - **Sprechernotizen** (`slides.notes`) erscheinen nur im Editor und in der Host-Ansicht – nie im `Slide`-Typ, nie bei Beamer oder Publikum.
 - Bühne ist immer **16:9** (Beamer letterboxt). Laserpointer/Zeichnen nutzen auf die Bühne normierte Koordinaten und laufen direkt über den Host-WebSocket (`live.ts`, `inkEvent`) – die einzige bewusste Ausnahme von „Live-Zustand liegt in der DB“: flüchtig, gelöscht bei Folienwechsel.
-- Freigabe (`/h/:token`, `handoutData` in `runs.ts`) enthält nur Folien und zusammengefasste Ergebnisse – keine Namen, Freitexte, Fragen, Kommentare, Ranglisten.
+- Freigabe (`/h/:token`, `handoutData` in `runs.ts`) enthält nur Folien und zusammengefasste Ergebnisse – keine Namen, Freitexte, Fragen, Kommentare, Ranglisten. Das geteilte Fotoprotokoll (`/p/:token`) ist davon getrennt und enthält mehr (siehe „Nach dem Workshop“).
 
 ## Kartenwand (Workshops)
 
@@ -73,6 +73,12 @@ npm run build
 - Phasen-Countdown: `RunState.countdown = {endsAt, seconds, phases?: {label, seconds}[]}`. Die aktuelle Phase wird **nie gespeichert**, sondern überall mit `currentPhase(countdown, serverNow)` aus Startzeit (`endsAt - seconds`) abgeleitet – kein Server-Timer. Hinweise (`useCountdownMoments`) entstehen aus dem Wechsel der abgeleiteten Phase bei jedem Takt und bei `visibilitychange` – ein verdeckter Tab zeigt beim Zurückkehren sofort den richtigen Stand.
 - Befehle: `countdown-slide` (Phasen, sonst Soll-Dauer der Folie), `countdown-extend` (+Sekunden für die aktuelle Phase). Auto-Start in `applyCommand` (optionaler 6. Parameter `schedule`) nur, wenn die Folie wirklich wechselt; Verlassen stoppt nichts.
 - Teilnehmende: `PhaseBanner` unter der Kopfzeile, auf jeder Folie (Phase, Restzeit, „Phase 2 von 3“, „Danach: …“); beim Wechsel `CountdownAlert` mit Vibration und – nach Freigabe durch eine Berührung – Gongschlag. Steuerpult: `SchedulePanel.tsx` (`PlanStatus` Soll/Ist als Text, „Phasen starten“). Geplante Minuten einer Folie = Soll-Dauer, sonst Summe der Phasen.
+## Nach dem Workshop
+
+- **Protokollnotizen** der Moderation: Tabelle `run_notes` (je Durchführung + Folie), `PUT /api/runs/:id/notes/:slideId` (`notes.ts`), live im Steuerpult (`LiveRunNote`) und nach dem Ende im Archiv/Fotoprotokoll (`RunNoteEditor`). Getrennt von den Sprechernotizen (`slides.notes`), nie in Beamer- oder Teilnehmer-Ansichten (deshalb kein `live.notify`). `runResults` liefert sie je Folie (`note`); Folien mit Notiz erscheinen im Protokoll. Export/Import (`transfer.ts`, optionales Feld `notes` je Durchführung) und CSV nehmen sie mit.
+- **Fotoprotokoll teilen** (`/p/:token`, `protocol.ts`, Spalten `runs.protocol_token`/`protocol_names`): anders als die Freigabe enthält es bewusst Kartentexte, Freitexte, Fragen, Gruppen, Notizen der Moderation und – außer bei „Namen weglassen“ – Namen (Gruppeneinteilung, Q&A). Nie: interne IDs (`publicProtocol` nummeriert Folien, Karten, Gruppen und Kartenschlüssel neu), Tokens, Codes, ausgeblendete/nicht freigegebene Beiträge. Zurückziehen setzt den Token auf `NULL` → 404. Die Darstellung teilen Admin- und Share-Seite (`components/protocol/ProtocolView.tsx`).
+- **Folgetermin** (`followup.ts`, `POST /api/runs/:id/followup`): neue Präsentation im eigenen Konto mit Branding; Inhalt aus der reinen Funktion `followupSlides` (Titel, Rückblick, je Top-Thema der Ergebnistabellen Textfolie + Skala, höchstens 10, am Ende Q&A).
+- **Vergleich** (`compare.ts`, `/admin/p/:id/vergleich`): nur beendete Durchführungen; ähnliche Gruppen/lose Karten gruppiert der Browser mit `groupSimilar` (`packages/shared/src/similar.ts`: Normalisierung, Stoppwörter, grobe Endungen, Token-Jaccard ≥ 0,5, Union-Find, mindestens zwei Durchführungen).
 
 ## Design
 
