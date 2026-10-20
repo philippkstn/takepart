@@ -9,6 +9,7 @@ import { ZodError, z } from 'zod';
 import { assetRoutes, deleteAllOrphanAssets } from './assets.ts';
 import { owns } from './access.ts';
 import { authRoutes, currentAccount } from './auth.ts';
+import { blockRoutes } from './blocks.ts';
 import { brandRoutes } from './brands.ts';
 import type { Config } from './config.ts';
 import { one, type Db } from './db.ts';
@@ -17,6 +18,7 @@ import { participantByToken, participantRoutes } from './participants.ts';
 import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
+import { rehearsalRoutes } from './rehearsal.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
 import { userRoutes } from './users.ts';
@@ -120,6 +122,8 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   participantRoutes(app, db, live);
   moderationRoutes(app, db, live);
   breakoutRoutes(app, db, live);
+  rehearsalRoutes(app, db, live);
+  blockRoutes(app, db);
 
   /**
    * Live-Verbindung. Drei Rollen:
@@ -144,7 +148,10 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     if (q.data.display) {
       const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE display_token = ?', [q.data.display]);
       if (!run) return reject(4001, 'Anzeige-Link ungültig');
-      if (!live.attach(run.id, { ws: socket, role: 'display', alive: true })) reject(1013, 'Zu viele Verbindungen');
+      const client = { ws: socket, role: 'display' as const, alive: true };
+      if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
+      // Der Beamer meldet nur, ob sein Fenster sichtbar ist (Anzeige im Steuerpult)
+      socket.on('message', (raw) => live.displayMessage(run.id, client, raw));
       return;
     }
     if (q.data.run) {

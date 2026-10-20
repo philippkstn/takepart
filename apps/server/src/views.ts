@@ -283,7 +283,12 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
   };
 }
 
-export function hostView(snap: Snapshot, participants: number, online: ReadonlySet<number> = new Set()): HostView {
+export function hostView(
+  snap: Snapshot,
+  participants: number,
+  online: ReadonlySet<number> = new Set(),
+  displays: HostView['displays'] = { connected: 0, hidden: 0 },
+): HostView {
   const { state } = snap.run;
   const slide = snap.current;
   const posts = snap.posts.map(stripPost);
@@ -335,6 +340,9 @@ export function hostView(snap: Snapshot, participants: number, online: ReadonlyS
     signals: hostSignals(snap),
     picker: pickerView(snap),
     presence: presenceView(snap, online),
+    rehearsal: snap.run.rehearsal,
+    fakeParticipants: snap.run.fakeParticipants,
+    displays,
     slides: snap.slides.map((s) => ({
       id: s.id,
       type: s.type,

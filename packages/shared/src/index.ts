@@ -13,3 +13,5 @@ export * from './board.ts';
 export * from './teams.ts';
 export * from './moderation.ts';
 export * from './breakout.ts';
+export * from './blocks.ts';
+export * from './rehearsal.ts';

@@ -62,6 +62,11 @@ npm run build
 - **Handzeichen** (`SIGNAL_KINDS`, erweiterbar): `RunState.signals[kind][participantId] = Zeitpunkt`, eins pro Person und Art. Ablauf nach 3 Minuten ohne Timer: Server filtert beim Lesen und räumt beim Schreiben auf, Steuerpult und Handy bekommen Ablaufzeitpunkte und zählen selbst herunter. Nur Host-Ansicht (Zähler) und eigene Signale auf dem Handy – nie Beamer, nie Namen.
 - **Zufallsauswahl**: `RunState.picker` (`drawn`, `current`, `shown`); gezogen wird auf dem Server (`crypto.randomInt`) aus Personen mit Namen, ohne Wiederholung bis `pick-reset`; Gruppenfilter über `teamsAt` (letzte Einteilung bis zur aktuellen Folie). Folienwechsel blendet den Namen auf dem Beamer aus (`picked` in der DisplayView), das Handy der gezogenen Person zeigt „Du bist dran!“.
 - **Anwesenheit**: `HostView.presence` nur mit Namen + verbunden/getrennt (keine IDs); die verbundenen IDs kennt nur `live.ts` und reicht sie an `hostView` weiter (einmal je Broadcast gebaut).
+## Bausteine, Probelauf, Online
+
+- **Übungsbausteine** sind Daten in `packages/shared/src/blocks.ts` (`BUILTIN_BLOCKS`, Wand-Name per `uniqueBoardName` eindeutig). Der Server kennt sie nicht: Editor (`components/admin/BlockPicker.tsx`, Reiter „Bausteine“) schickt eine Folienliste an `POST /api/presentations/:id/slides/batch` (max. 30, `parseConfig`, kein `image`, eine Transaktion hinter `afterId`). Eigene Bausteine: Tabelle `blocks` je Konto (`apps/server/src/blocks.ts`). Neue Bausteine müssen den Test in `prep.test.ts` bestehen.
+- **Probelauf** = `runs.rehearsal = 1`: läuft neben einer echten Durchführung (je Art höchstens eine offene), nie im Archiv-Zähler, `liveRun` oder Export (`transfer.ts`). Testteilnehmende sind `participants.fake = 1` und zählen in `participants` mit; `apps/server/src/rehearsal.ts` (`POST/DELETE /api/runs/:id/rehearsal/fake`) erzeugt Zufallsantworten über `fakeResponse` (shared/rehearsal.ts) und prüft sie mit `validateResponse`.
+- **Beamer-Sichtbarkeit**: Das Beamer-Fenster schickt `{type:'visibility', hidden}` über seinen WebSocket (`displayMessage`); `live.ts` merkt das flüchtig an der Verbindung, `HostView.displays` zeigt es im Steuerpult. „Einladung“ kopiert `Macht mit: <origin>/<code> – Code …`.
 
 ## Design
 

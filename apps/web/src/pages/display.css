@@ -34,3 +34,29 @@
   z-index: 20;
   background: var(--surface);
 }
+
+/* Hinweis nach dem Zurückkommen: Fenster war verdeckt (nur lokal, verschwindet von selbst) */
+.display-hidden-note {
+  position: fixed;
+  left: 50%;
+  top: 14px;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-2);
+  color: var(--ink);
+  font-size: 0.875rem;
+  line-height: 1.35;
+  animation: fade 200ms ease;
+}
+.display-hidden-note > svg {
+  flex-shrink: 0;
+  color: var(--warn);
+}

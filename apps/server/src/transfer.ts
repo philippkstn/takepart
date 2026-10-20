@@ -213,7 +213,7 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
   );
   const runs = await query<{ id: number; state: string; started_at: Date; ended_at: Date | null }>(
     db,
-    'SELECT id, state, started_at, ended_at FROM runs WHERE presentation_id = ? ORDER BY started_at',
+    'SELECT id, state, started_at, ended_at FROM runs WHERE presentation_id = ? AND rehearsal = 0 ORDER BY started_at',
     [presentationId],
   );
 

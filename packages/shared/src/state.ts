@@ -575,6 +575,12 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   picker: PickerView;
   /** Wer gerade verbunden ist */
   presence: PresenceView;
+  /** Probelauf: wird nicht archiviert, Testteilnehmende möglich */
+  rehearsal: boolean;
+  /** Davon simulierte Testteilnehmende (in `participants` mitgezählt) */
+  fakeParticipants: number;
+  /** Geöffnete Beamer-Fenster und wie viele davon gerade verdeckt bzw. minimiert sind */
+  displays: { connected: number; hidden: number };
 }
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────
@@ -602,6 +608,10 @@ export interface InkStroke {
   id: string;
   points: [number, number][];
 }
+
+/** Nachricht des Beamer-Fensters an den Server: ist das Fenster gerade sichtbar? */
+export const displayMessage = z.object({ type: z.literal('visibility'), hidden: z.boolean() });
+export type DisplayMessage = z.infer<typeof displayMessage>;
 
 export type ServerMessage =
   | { type: 'view'; view: ParticipantView | DisplayView | HostView }

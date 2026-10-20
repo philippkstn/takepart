@@ -47,6 +47,7 @@ import { PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
 import { PauseControl } from './PauseControl.tsx';
+import { DisplayStatus, EndRehearsalDialog, InviteButton, RehearsalBadge, RehearsalControls } from './RehearsalPanel.tsx';
 import './admin.css';
 
 export default function ControlPage() {
@@ -57,6 +58,7 @@ export default function ControlPage() {
   const toast = useToast();
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
+  const [endingRehearsal, setEndingRehearsal] = useState(false);
   const [panelWidth, setPanelWidth] = usePref('panel-width', 380, (v): v is number => isNumber(v) && v >= PANEL_MIN && v <= PANEL_MAX);
 
   const command = async (cmd: HostCommand) => {
@@ -85,7 +87,27 @@ export default function ControlPage() {
   const blank = view.display.blank;
   const ended = view.run.ended;
 
+  /** Probelauf: beenden und standardmäßig gleich löschen (Rückfrage im Dialog) */
+  const endRehearsal = async (remove: boolean) => {
+    setEndingRehearsal(false);
+    try {
+      if (remove) {
+        await api(`/api/runs/${runId}`, { method: 'DELETE' });
+        navigate(`/admin/p/${view.presentationId}`);
+      } else {
+        await api(`/api/runs/${runId}/end`, { body: {} });
+        navigate(`/admin/runs/${runId}`);
+      }
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
+  };
+
   const end = async () => {
+    if (view.rehearsal) {
+      setEndingRehearsal(true);
+      return;
+    }
     const handoutNote = view.handoutUrl
       ? ''
       : '\n\nHinweis: Folien und Ergebnisse sind nicht freigegeben. Gibst du sie erst nach dem Ende frei, erreicht der Link die Teilnehmenden nicht mehr automatisch.';
@@ -115,6 +137,7 @@ export default function ControlPage() {
   return (
     <div className="control">
       <ConnectionBadge status={status} />
+      {endingRehearsal && <EndRehearsalDialog onClose={() => setEndingRehearsal(false)} onEnd={endRehearsal} />}
       <header className="control-head">
         <Link to={`/admin/p/${view.presentationId}`} className="icon-btn" aria-label="Zur Präsentation">
           <ArrowLeft />
@@ -125,10 +148,13 @@ export default function ControlPage() {
             {joinHost()} · Code <strong className="tabular">{formatCode(view.run.code)}</strong>
           </span>
         </div>
+        {view.rehearsal && <RehearsalBadge />}
         <PresenterClock view={view} offset={offset} onReset={() => command({ action: 'timer-reset' })} />
         <SignalsBar view={view} offset={offset} command={command} />
         <PresenceButton view={view} />
+        <DisplayStatus displays={view.displays} />
         <div className="row control-head-actions">
+          {!ended && <InviteButton code={view.run.code} />}
           <a className="btn btn-small" href={displayUrl} target="slides-display" rel="noopener">
             <Maximize2 /> Beamer öffnen
           </a>
@@ -312,6 +338,11 @@ export default function ControlPage() {
             <ControlGroup label="Teilen">
               <HandoutToggle runId={runId} url={view.handoutUrl} />
             </ControlGroup>
+            {view.rehearsal && !ended && (
+              <ControlGroup label="Probelauf">
+                <RehearsalControls runId={runId} view={view} />
+              </ControlGroup>
+            )}
           </div>
         </section>
 

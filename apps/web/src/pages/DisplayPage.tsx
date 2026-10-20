@@ -1,7 +1,7 @@
-import type { DisplayView } from '@slides/shared';
+import type { DisplayMessage, DisplayView } from '@slides/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Maximize, Minimize, VolumeX } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { EyeOff, Maximize, Minimize, VolumeX, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router';
 import { CountdownPopup } from '../components/CountdownPopup.tsx';
 import { InkOverlay } from '../components/Ink.tsx';
@@ -22,7 +22,8 @@ import './display.css';
  */
 export default function DisplayPage() {
   const { token = '' } = useParams();
-  const { view, status, offset, ink } = useLive<DisplayView>(`display=${encodeURIComponent(token)}`);
+  const { view, status, offset, ink, send } = useLive<DisplayView>(`display=${encodeURIComponent(token)}`);
+  const wasHidden = useVisibilityReport(status === 'open', send);
   const auth = useQuery({ queryKey: ['auth'], queryFn: authStatus });
   const isHost = !!auth.data?.loggedIn;
   const [fullscreen, setFullscreen] = useState(false);
@@ -46,10 +47,17 @@ export default function DisplayPage() {
       window.clearTimeout(timer);
       timer = window.setTimeout(() => setIdle(true), 2500);
     };
+    // Bildschirmfreigabe: Wechselt die Moderation ins Steuerpult, sofort ausblenden
+    const onBlur = () => {
+      window.clearTimeout(timer);
+      setIdle(true);
+    };
     window.addEventListener('mousemove', onMove);
+    window.addEventListener('blur', onBlur);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('blur', onBlur);
     };
   }, []);
 
@@ -106,6 +114,17 @@ export default function DisplayPage() {
         />
       </div>
       <Preload urls={view.preload} />
+      {wasHidden.shown && (
+        <div className="display-hidden-note" role="status">
+          <EyeOff size={16} aria-hidden />
+          <span>
+            Dieses Fenster war verdeckt – Browser zeichnen verdeckte Fenster nicht neu. Für Beamer oder Bildschirmfreigabe sichtbar lassen.
+          </span>
+          <button className="icon-btn" onClick={wasHidden.dismiss} aria-label="Hinweis schließen">
+            <X size={16} />
+          </button>
+        </div>
+      )}
       <ConnectionBadge status={status} />
       {(view.countdown || view.pause) && sound.locked && (
         <button className="display-sound btn btn-small" onClick={sound.unlock} title="Ton für den Countdown freigeben">
@@ -122,6 +141,45 @@ export default function DisplayPage() {
       </button>
     </div>
   );
+}
+
+/**
+ * Meldet dem Server, ob dieses Fenster sichtbar ist (Page Visibility API) – das
+ * Steuerpult zeigt so an, wenn der Beamer verdeckt oder minimiert ist. War das
+ * Fenster länger verdeckt, erscheint beim Zurückkommen kurz ein Hinweis, nur hier.
+ */
+function useVisibilityReport(open: boolean, send: (msg: DisplayMessage) => void) {
+  const [shown, setShown] = useState(false);
+  // Nach jedem (Neu-)Verbinden den aktuellen Stand melden
+  useEffect(() => {
+    if (!open) return;
+    const report = () => send({ type: 'visibility', hidden: document.visibilityState === 'hidden' });
+    report();
+    document.addEventListener('visibilitychange', report);
+    return () => document.removeEventListener('visibilitychange', report);
+  }, [open, send]);
+  useEffect(() => {
+    let hiddenAt: number | null = null;
+    let timer: number | undefined;
+    const onChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (hiddenAt !== null && Date.now() - hiddenAt > 1500) {
+        setShown(true);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => setShown(false), 8000);
+      }
+      hiddenAt = null;
+    };
+    document.addEventListener('visibilitychange', onChange);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onChange);
+    };
+  }, []);
+  return { shown, dismiss: useCallback(() => setShown(false), []) };
 }
 
 function toggleFullscreen() {
