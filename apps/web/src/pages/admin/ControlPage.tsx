@@ -42,6 +42,7 @@ import { isNumber, usePref } from '../../lib/prefs.ts';
 import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
+import { CallbackControl, hasTeams } from '../../components/board/Breakout.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
@@ -299,6 +300,11 @@ export default function ControlPage() {
             <ControlGroup label="Timer">
               <CountdownControl view={view} offset={offset} command={command} />
             </ControlGroup>
+            {hasTeams(view) && (
+              <ControlGroup label="Gruppen">
+                <CallbackControl view={view} command={command} offset={offset} />
+              </ControlGroup>
+            )}
             <ControlGroup label="Teilen">
               <HandoutToggle runId={runId} url={view.handoutUrl} />
             </ControlGroup>

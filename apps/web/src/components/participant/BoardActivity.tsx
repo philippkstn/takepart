@@ -2,6 +2,7 @@ import {
   BOARD_MODE_LABELS,
   cardKey,
   parseBoardKey,
+  teamShort,
   type BoardOp,
   type ParkingView,
   type ParticipantView,
@@ -15,6 +16,7 @@ import { api, errorMessage } from '../../lib/api.ts';
 import { cardsByGroup, labelOf, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { useToast } from '../ui.tsx';
+import { TeamBar } from './Breakout.tsx';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
 type Config = BoardSlide['config'];
@@ -194,6 +196,9 @@ export function OwnCard({ post, tags, token, editable }: { post: PostView; tags:
 
 function Collect({ view, slide, token }: { view: ParticipantView; slide: BoardSlide; token: string }) {
   const { tags } = slide.config;
+  // Gruppenweises Sammeln: eigene Gruppe (null = keiner Gruppe zugeteilt, undefined = sammelt nicht gruppenweise)
+  const myTeam = view.board?.myTeam;
+  if (myTeam !== undefined) return <TeamCollect view={view} slide={slide} token={token} />;
   return (
     <div className={`board-collect ${view.posts.length > 0 ? 'has-cards' : ''}`}>
       {view.locked ? (
@@ -211,6 +216,56 @@ function Collect({ view, slide, token }: { view: ParticipantView; slide: BoardSl
           </ul>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Sammeln in der Arbeitsgruppe: eigene Karten bearbeiten, die der Gruppe lesen */
+function TeamCollect({ view, slide, token }: { view: ParticipantView; slide: BoardSlide; token: string }) {
+  const { tags } = slide.config;
+  const myTeam = view.board?.myTeam ?? null;
+  const mine = view.posts.filter((p) => p.mine);
+  const others = view.posts.filter((p) => !p.mine);
+  return (
+    <div className="stack">
+      {myTeam ? (
+        <TeamBar team={myTeam} slideId={slide.id} token={token} />
+      ) : (
+        <Note icon={<Hourglass size={20} />}>Du bist noch keiner Gruppe zugeteilt – deine Karten sammelst du erst einmal für dich.</Note>
+      )}
+      <div className={`board-collect ${view.posts.length > 0 ? 'has-cards' : ''}`}>
+        {view.locked ? (
+          <Note icon={<Lock size={20} />}>Die Sammelphase ist beendet.</Note>
+        ) : (
+          <CardComposer slideId={slide.id} tags={tags} remaining={view.board?.remaining ?? 0} token={token} />
+        )}
+        {view.posts.length > 0 && (
+          <div className="stack">
+            {mine.length > 0 && (
+              <div className="stack-s">
+                <span className="label">Deine Karten ({mine.length})</span>
+                <ul className="post-list">
+                  {mine.map((p) => (
+                    <OwnCard key={p.id} post={p} tags={tags} token={token} editable={!view.locked} />
+                  ))}
+                </ul>
+              </div>
+            )}
+            {others.length > 0 && (
+              <div className="stack-s">
+                <span className="label">
+                  Von {myTeam?.name ?? 'deiner Gruppe'} ({others.length})
+                </span>
+                <ul className="post-list">
+                  {others.map((p) => (
+                    <OwnCard key={p.id} post={p} tags={tags} token={token} editable={false} />
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -449,6 +504,11 @@ function ClusterEditor({
             <span className="clamp" title={p.text}>
               {p.text}
             </span>
+            {p.team !== null && p.team !== undefined && (
+              <span className="pill" title={`aus Gruppe ${p.team + 1}`}>
+                {teamShort(p.team)}
+              </span>
+            )}
             {p.mine && <span className="pill">Von dir</span>}
           </button>
           {canEditCard(p) && (

@@ -2,6 +2,7 @@ import {
   parseBoardKey,
   SLIDE_TYPE_LABELS,
   slideHeadline,
+  teamLabel,
   type QuizAnswer,
   type ResponsePayloads,
   type RunState,
@@ -46,6 +47,7 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
     status: string;
     votes: number;
     group_id: number | null;
+    team: number | null;
     created_at: Date;
   }>(db, 'SELECT * FROM posts WHERE run_id = ? ORDER BY slide_id, id', [runId]);
 
@@ -95,6 +97,7 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
       s.slide.type === 'board' && p.column_index !== null
         ? `Kennzeichnung: ${s.slide.config.tags[p.column_index] ?? p.column_index + 1}`
         : '',
+      p.team !== null ? `Arbeitsgruppe: ${teamLabel(p.team)}` : '',
       p.group_id !== null ? `Gruppe: ${groupNames.get(p.group_id) ?? p.group_id}` : '',
       p.votes > 0 ? `${p.votes} Stimmen` : '',
       p.status === 'visible' ? '' : `Status: ${p.status}`,

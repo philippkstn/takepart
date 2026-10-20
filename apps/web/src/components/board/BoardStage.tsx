@@ -3,6 +3,7 @@ import {
   cardKey,
   levelLabel,
   parseBoardKey,
+  teamShort,
   type BoardOp,
   type BoardResults,
   type BoardView,
@@ -16,6 +17,7 @@ import { axisPosition, cardsByGroup, itemsByCell, labelOf, ratingText, shortName
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { ScrollingResults } from '../../lib/autoScroll.tsx';
 import { BarList } from '../Results.tsx';
+import { BreakoutWall, doneSummary } from './Breakout.tsx';
 import './board.css';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
@@ -68,8 +70,15 @@ function Count({ ctx }: { ctx: Ctx }) {
   else if (config.mode === 'table') text = `${ctx.board.rows.length} ${ctx.board.rows.length === 1 ? 'Thema' : 'Themen'}`;
   else text = `${n} ${n === 1 ? 'Karte' : 'Karten'}`;
   return (
-    <span className="stage-pill">
-      <span className="tabular">{text}</span>
+    <span className="row" style={{ gap: '0.5em', flexWrap: 'nowrap' }}>
+      {ctx.board.breakout && (
+        <span className="stage-pill">
+          <span className="tabular">{doneSummary(ctx.board.breakout)}</span>
+        </span>
+      )}
+      <span className="stage-pill">
+        <span className="tabular">{text}</span>
+      </span>
     </span>
   );
 }
@@ -152,10 +161,21 @@ function FitList({ children }: { children: ReactNode }) {
 
 function Card({ post, ctx, tag = true }: { post: PostView; ctx: Ctx; tag?: boolean }) {
   const label = tag && post.column !== null ? ctx.config.tags[post.column] : undefined;
+  // Herkunft aus der Gruppenarbeit (gruppenweises Sammeln), z. B. „G2“ – nicht beim Sammeln selbst (dort sind es Spalten)
+  const team = ctx.config.mode !== 'collect' && post.team !== null && post.team !== undefined ? teamShort(post.team) : undefined;
   return (
     <li className={`board-card ${ctx.focus === post.id ? 'is-focus' : ''}`} {...dragProps(cardKey(post.id), post.text, !!ctx.onBoard)}>
       <span className="board-card-text">{post.text}</span>
-      {label && <span className="board-tag">{label}</span>}
+      {(label || team) && (
+        <span className="row" style={{ gap: '0.3em' }}>
+          {label && <span className="board-tag">{label}</span>}
+          {team && (
+            <span className="board-tag" title={`aus Gruppe ${post.team! + 1}`}>
+              {team}
+            </span>
+          )}
+        </span>
+      )}
     </li>
   );
 }
@@ -189,9 +209,32 @@ function Waiting({ children }: { children: ReactNode }) {
 
 function Collect({ ctx }: { ctx: Ctx }) {
   const { view } = ctx;
-  if (!view.resultsVisible) return <Waiting>Karten werden geschrieben – sie erscheinen später an der Wand</Waiting>;
+  const breakout = ctx.board.breakout;
+  if (!view.resultsVisible)
+    return (
+      <Waiting>
+        {breakout
+          ? 'Die Gruppen sammeln – die Karten erscheinen später an der Wand'
+          : 'Karten werden geschrieben – sie erscheinen später an der Wand'}
+      </Waiting>
+    );
   // Neueste zuerst: bei vollen Wänden bleiben die frischen Karten sichtbar
   const posts = view.posts.filter((p) => p.status === 'visible').sort((a, b) => b.createdAt - a.createdAt || b.id - a.id);
+  // Gruppenweise gesammelt: Spalten je Arbeitsgruppe
+  if (breakout)
+    return (
+      <BreakoutWall
+        breakout={breakout}
+        posts={posts}
+        renderCards={(list) => (
+          <FitList>
+            {list.map((p) => (
+              <Card key={p.id} post={p} ctx={ctx} />
+            ))}
+          </FitList>
+        )}
+      />
+    );
   if (posts.length === 0) return <Waiting>Noch keine Karten</Waiting>;
   return (
     <ul className={`board-cards ${density(posts.length)}`}>

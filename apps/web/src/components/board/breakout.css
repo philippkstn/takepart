@@ -1,0 +1,144 @@
+/*
+ * Breakout: Spalten je Arbeitsgruppe, Stand im Steuerpult, Sammelruf.
+ * „fertig“ steht immer als Text da – Farbe ist nur Zusatz.
+ */
+.breakout-name {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.4em;
+}
+.breakout-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+  font-size: 0.8em;
+  font-weight: 650;
+  color: var(--good);
+}
+.breakout-done svg {
+  width: 1em;
+  height: 1em;
+}
+.cluster-group.is-done {
+  border-color: color-mix(in srgb, var(--good) 45%, var(--border));
+}
+
+/* Steuerpult */
+.breakout-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.breakout-item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  padding: 8px 10px;
+}
+.breakout-item summary {
+  cursor: pointer;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.breakout-item details[open] summary {
+  margin-bottom: 8px;
+}
+.breakout-cards {
+  margin: 0 0 8px;
+  padding-left: 1.1em;
+  display: grid;
+  gap: 4px;
+  font-size: 0.9rem;
+  overflow-wrap: anywhere;
+}
+.callback-control {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.callback-control .input {
+  width: auto;
+  min-width: 10em;
+  flex: 1 1 10em;
+  padding: 0.3em 0.6em;
+  font-size: 0.85rem;
+  min-height: 0;
+}
+
+/* Sammelruf auf der Bühne (oben, der Countdown-Hinweis sitzt unten) */
+.stage-callback {
+  position: absolute;
+  left: 50%;
+  top: 1.2em;
+  margin-left: -16em;
+  width: 32em;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  padding: 0.8em 1.2em;
+  border-radius: 0.5em;
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  box-shadow: var(--shadow-2);
+  color: var(--ink);
+}
+.stage-callback > svg {
+  width: 1.6em;
+  height: 1.6em;
+  flex-shrink: 0;
+}
+.stage-callback-text {
+  display: grid;
+  gap: 0.15em;
+  min-width: 0;
+}
+.stage-callback-text strong {
+  font-size: 1.4em;
+  line-height: 1.15;
+}
+.stage-callback-text span {
+  font-size: 1em;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+/* Sammelruf auf dem Handy: im Inhalt, nicht über der Kopfzeile */
+.callback-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 14px 14px 16px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 2px solid var(--ink);
+  color: var(--ink);
+}
+.callback-notice > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.callback-notice strong {
+  display: block;
+  font-size: 1.05rem;
+}
+
+/* Gruppenarbeit auf dem Handy */
+.team-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.team-bar-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}

@@ -570,6 +570,12 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
             checked={value.anytime}
             onChange={(anytime) => set({ anytime })}
           />
+          <Toggle
+            label="Jede Gruppe sammelt für sich"
+            hint="Braucht eine „Gruppen bilden“-Folie davor. Alle sehen die Karten ihrer Gruppe und melden sich fertig; Beamer und Steuerpult zeigen die Karten nach Gruppen."
+            checked={value.perTeam}
+            onChange={(perTeam) => set({ perTeam })}
+          />
         </>
       )}
 

@@ -299,4 +299,10 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    // Breakout: Arbeitsgruppe (Index der Einteilung aus „Gruppen bilden“), in der eine Karte
+    // gesammelt wurde. Fest beim Anlegen gespeichert – spätere Umbesetzungen ändern die Herkunft nicht.
+    name: '008_breakout',
+    statements: ['ALTER TABLE posts ADD COLUMN team SMALLINT UNSIGNED NULL AFTER group_id'],
+  },
 ];

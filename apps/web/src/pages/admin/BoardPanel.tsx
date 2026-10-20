@@ -5,6 +5,7 @@ import {
   cardKey,
   groupKey,
   targetKind,
+  teamShort,
   type BoardOp,
   type BoardResults,
   type HostCommand,
@@ -14,6 +15,7 @@ import {
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, ListPlus, Maximize2, MessageSquareOff, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import { BreakoutPanel } from '../../components/board/Breakout.tsx';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type BoardHostSlide = Extract<NonNullable<HostView['slide']>, { type: 'board' }>;
@@ -57,6 +59,7 @@ export function BoardPanel({ view, command, busy, onClear }: { view: HostView; c
         </div>
       )}
 
+      {config.mode === 'collect' && board.breakout && <BreakoutPanel view={view} breakout={board.breakout} command={command} />}
       {config.mode === 'cluster' && <ClusterControls view={view} op={op} command={command} />}
       {config.mode === 'place' && <PlaceControls view={view} op={op} />}
       {(config.mode === 'dots' || config.mode === 'rate') && <VoteSummary view={view} />}
@@ -139,6 +142,11 @@ function CardRow({
         )}
         <span className="post-meta">
           {post.column !== null && tags[post.column] && <span className="pill">{tags[post.column]}</span>}
+          {post.team !== null && post.team !== undefined && view.slide?.type === 'board' && view.slide.config.mode !== 'collect' && (
+            <span className="pill" title={`aus Gruppe ${post.team + 1}`}>
+              {teamShort(post.team)}
+            </span>
+          )}
           {post.status === 'hidden' && <span className="pill">ausgeblendet</span>}
         </span>
         {children}

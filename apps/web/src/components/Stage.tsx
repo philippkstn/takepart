@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
 import { BoardStage } from './board/BoardStage.tsx';
+import { StageCallback } from './board/Breakout.tsx';
 import { ScrollingResults } from '../lib/autoScroll.tsx';
 import { BuildLayer } from './BuildLayer.tsx';
 import { CountdownBadge } from './Countdown.tsx';
@@ -131,6 +132,7 @@ export function Stage({
               <CountdownBadge countdown={view.countdown} offset={offset} className="stage-countdown" />
             </div>
           )}
+          <StageCallback callback={view.callback} offset={offset} />
           {overlay}
           <BlankScreen mode={view.blank} />
         </div>

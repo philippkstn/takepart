@@ -28,6 +28,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
 import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
+import { applyBreakoutCommand } from './breakout.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
@@ -201,6 +202,13 @@ export function applyCommand(
     case 'countdown':
       s.countdown = cmd.seconds === null ? null : { endsAt: now + cmd.seconds * 1000, seconds: cmd.seconds };
       break;
+    case 'team-done':
+      assertSlide(cmd.slideId);
+      applyBreakoutCommand(s, cmd, now);
+      break;
+    case 'callback':
+      applyBreakoutCommand(s, cmd, now);
+      break;
     case 'board-rights':
       assertSlide(cmd.slideId);
       s.boardRights = { ...s.boardRights, [cmd.slideId]: cmd.rights };
@@ -313,6 +321,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           delete state.quiz[cmd.slideId];
           delete state.sentence[cmd.slideId];
           if (state.teams) delete state.teams[cmd.slideId];
+          if (state.teamDone) delete state.teamDone[cmd.slideId];
           await saveRunState(db, id, state);
           return;
         }

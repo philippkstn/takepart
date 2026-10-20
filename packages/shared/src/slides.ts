@@ -170,6 +170,8 @@ export const boardConfig = z.object({
   tags: z.array(shortLabel(40)).max(5).default([]),
   /** Karten jederzeit annehmen, auch wenn die Folie nicht gezeigt wird (Parkplatz) */
   anytime: z.boolean().default(false),
+  /** Jede Gruppe (aus „Gruppen bilden“) sammelt für sich und sieht die Karten der eigenen Gruppe */
+  perTeam: z.boolean().default(false),
   /* Clustern */
   layout: z.enum(['wall', 'mindmap']).default('wall'),
   /* Zuordnen: Bahnen mit eigenen Feldern; zwei Bahnen à zwei Felder ergeben eine Matrix */

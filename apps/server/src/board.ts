@@ -31,6 +31,8 @@ export interface BoardCard {
   text: string;
   column: number | null;
   group: number | null;
+  /** Breakout: Arbeitsgruppe, in der die Karte gesammelt wurde */
+  team: number | null;
   status: PostStatus;
   votes: number;
   createdAt: number;
@@ -79,12 +81,13 @@ export async function loadCards(db: Conn, runId: number, slideIds: number[]): Pr
     text: string;
     column_index: number | null;
     group_id: number | null;
+    team: number | null;
     status: PostStatus;
     votes: number;
     created_at: Date;
   }>(
     db,
-    `SELECT id, slide_id, participant_id, text, column_index, group_id, status, votes, created_at
+    `SELECT id, slide_id, participant_id, text, column_index, group_id, team, status, votes, created_at
        FROM posts WHERE run_id = ? AND slide_id IN (?) ORDER BY created_at, id`,
     [runId, slideIds],
   );
@@ -95,6 +98,7 @@ export async function loadCards(db: Conn, runId: number, slideIds: number[]): Pr
     text: r.text,
     column: r.column_index,
     group: r.group_id,
+    team: r.team,
     status: r.status,
     votes: r.votes,
     createdAt: r.created_at.getTime(),
@@ -426,6 +430,7 @@ export async function boardSummary(
       votes: c.votes,
       createdAt: c.createdAt,
       group: c.group,
+      team: c.team,
     })),
   };
 }

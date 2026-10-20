@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
 import { ParkingButton } from '../components/participant/BoardActivity.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
+import { CallbackNotice } from '../components/participant/Breakout.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
@@ -143,6 +144,7 @@ export default function ParticipantPage({ code }: { code: string }) {
       <CountdownAlert countdown={view.countdown} offset={offset} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
       <main className={`p-main ${mainWidth(view)}`}>
+        <CallbackNotice callback={view.callback} offset={offset} />
         <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
       </main>
       <footer className="p-footer">
