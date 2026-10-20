@@ -54,15 +54,23 @@ export function clearSignals(state: RunState, kind: SignalKind, now: number): Ru
 }
 
 /** Für das Steuerpult: Ablaufzeitpunkte je Art (aufsteigend). Gezählt wird im Browser, damit Signale auch ohne neue Ansicht erlöschen. */
-export type SignalsView = Record<SignalKind, number[]>;
+/** Ein Handzeichen im Steuerpult: wer (null = ohne Namen), seit wann und bis wann */
+export interface SignalEntry {
+  name: string | null;
+  at: number;
+  until: number;
+}
 
-export function signalsView(store: SignalStore | undefined, now: number): SignalsView {
+/** Nur für die Moderation – nie Beamer oder Publikum */
+export type SignalsView = Record<SignalKind, SignalEntry[]>;
+
+export function signalsView(store: SignalStore | undefined, now: number, names: ReadonlyMap<number, string> = new Map()): SignalsView {
   const live = pruneSignals(store, now);
   const view = {} as SignalsView;
   for (const kind of SIGNAL_KINDS) {
-    view[kind] = Object.values(live[kind] ?? {})
-      .map((at) => at + SIGNAL_TTL_MS)
-      .sort((a, b) => a - b);
+    view[kind] = Object.entries(live[kind] ?? {})
+      .map(([id, at]) => ({ name: names.get(Number(id)) ?? null, at, until: at + SIGNAL_TTL_MS }))
+      .sort((a, b) => a.at - b.at);
   }
   return view;
 }
@@ -78,7 +86,8 @@ export function ownSignals(store: SignalStore | undefined, participantId: number
 }
 
 /** Noch nicht abgelaufene Signale zählen (Serverzeit `now`) */
-export const countActive = (expiries: number[], now: number) => expiries.filter((t) => t > now).length;
+export const activeSignals = (entries: SignalEntry[], now: number) => entries.filter((e) => e.until > now);
+export const countActive = (entries: SignalEntry[], now: number) => activeSignals(entries, now).length;
 
 /* ───────────────────────── Zufallsauswahl ───────────────────────── */
 

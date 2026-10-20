@@ -59,7 +59,7 @@ npm run build
 ## Moderationswerkzeuge (Handzeichen, Zufall, Anwesenheit)
 
 - Reine Logik in `packages/shared/src/moderation.ts`, Server in `apps/server/src/moderation.ts` (Route `POST /api/p/signal`, Befehle `signals-clear`, `pick-*`, Ansichtsteile), Web: `participant/SignalBar.tsx`, `admin/ModerationTools.tsx`, `components/PickOverlay.tsx`.
-- **Handzeichen** (`SIGNAL_KINDS`, erweiterbar): `RunState.signals[kind][participantId] = Zeitpunkt`, eins pro Person und Art. Ablauf nach 3 Minuten ohne Timer: Server filtert beim Lesen und räumt beim Schreiben auf, Steuerpult und Handy bekommen Ablaufzeitpunkte und zählen selbst herunter. Nur Host-Ansicht (Zähler) und eigene Signale auf dem Handy – nie Beamer, nie Namen.
+- **Handzeichen** (`SIGNAL_KINDS`, erweiterbar): `RunState.signals[kind][participantId] = Zeitpunkt`, eins pro Person und Art. Ablauf nach 3 Minuten ohne Timer: Server filtert beim Lesen und räumt beim Schreiben auf, Steuerpult und Handy bekommen Ablaufzeitpunkte und zählen selbst herunter. Host-Ansicht mit Namen (Klick auf den Zähler zeigt, wer und seit wann) und eigene Signale auf dem Handy – nie Beamer, nie andere Teilnehmende.
 - **Zufallsauswahl**: `RunState.picker` (`drawn`, `current`, `shown`); gezogen wird auf dem Server (`crypto.randomInt`) aus Personen mit Namen, ohne Wiederholung bis `pick-reset`; Gruppenfilter über `teamsAt` (letzte Einteilung bis zur aktuellen Folie). Folienwechsel blendet den Namen auf dem Beamer aus (`picked` in der DisplayView), das Handy der gezogenen Person zeigt „Du bist dran!“.
 - **Anwesenheit**: `HostView.presence` nur mit Namen + verbunden/getrennt (keine IDs); die verbundenen IDs kennt nur `live.ts` und reicht sie an `hostView` weiter (einmal je Broadcast gebaut).
 ## Bausteine, Probelauf, Online

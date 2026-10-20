@@ -409,9 +409,14 @@
 }
 .control-center {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   position: sticky;
   top: 76px;
+}
+/* Vorschau nur so hoch, dass Navigation und Steuerung darunter ohne Scrollen sichtbar bleiben */
+.control-center > .preview-frame {
+  width: min(100%, max(440px, calc((100dvh - 420px) * 16 / 9)));
+  justify-self: center;
 }
 .control-nav {
   display: flex;
@@ -886,16 +891,16 @@
 .control-groups {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
 }
 .control-groups > .control-group {
   flex: 1 1 auto;
 }
 .control-group {
   display: grid;
-  gap: 8px;
+  gap: 6px;
   align-content: start;
-  padding: 10px 12px 12px;
+  padding: 8px 10px 10px;
   border-radius: var(--radius);
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1012,4 +1017,21 @@
 .plan-status svg {
   width: 15px;
   height: 15px;
+}
+
+/* Kompakte Formulare in den Steuergruppen: alles in einer Zeile, soweit Platz ist */
+.control-group .pause-control,
+.control-group .pause-control > label {
+  flex-wrap: nowrap;
+}
+.control-group .callback-control {
+  flex-wrap: nowrap;
+}
+.control-group .callback-control .input {
+  flex: 1 1 10em;
+  min-width: 8em;
+  width: auto;
+}
+.control-group .callback-control .select {
+  width: auto;
 }

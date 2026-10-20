@@ -35,7 +35,9 @@ describe('Handzeichen', () => {
     s = setSignal(s, 'break', 2, true, T0 + 60_000);
     const later = T0 + SIGNAL_TTL_MS;
     expect(signalsView(s.signals, later - 1).break).toHaveLength(2);
-    expect(signalsView(s.signals, later).break).toEqual([T0 + 60_000 + SIGNAL_TTL_MS]);
+    expect(signalsView(s.signals, later, new Map([[2, 'Ben']])).break).toEqual([
+      { name: 'Ben', at: T0 + 60_000, until: T0 + 60_000 + SIGNAL_TTL_MS },
+    ]);
     expect(ownSignals(s.signals, 1, later)).toEqual({});
     // Zählen im Browser anhand der Ablaufzeitpunkte
     const view = signalsView(s.signals, T0 + 61_000);

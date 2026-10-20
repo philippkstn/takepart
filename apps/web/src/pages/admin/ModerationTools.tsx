@@ -1,4 +1,12 @@
-import { countActive, SIGNAL_KINDS, SIGNAL_LABELS, type HostCommand, type HostView } from '@slides/shared';
+import {
+  activeSignals,
+  SIGNAL_KINDS,
+  SIGNAL_LABELS,
+  type HostCommand,
+  type HostView,
+  type SignalEntry,
+  type SignalKind,
+} from '@slides/shared';
 import { Check, Dices, Eye, EyeOff, RotateCcw, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { useServerNow } from '../../lib/serverNow.ts';
@@ -17,28 +25,90 @@ export function SignalsBar({ view, offset, command }: { view: HostView; offset: 
   const now = useServerNow(offset, any, 1000);
   return (
     <span className="signals-bar" role="group" aria-label="Handzeichen aus dem Publikum">
-      {SIGNAL_KINDS.map((kind) => {
-        const n = countActive(view.signals[kind], now);
-        const label = SIGNAL_LABELS[kind];
-        return n > 0 ? (
+      {SIGNAL_KINDS.map((kind) => (
+        <SignalChip key={kind} kind={kind} entries={activeSignals(view.signals[kind], now)} now={now} command={command} />
+      ))}
+    </span>
+  );
+}
+
+/** Ein Handzeichen-Zähler; Klick zeigt, wer es gegeben hat, und quittiert auf Wunsch */
+function SignalChip({ kind, entries, now, command }: { kind: SignalKind; entries: SignalEntry[]; now: number; command: Cmd }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLSpanElement>(null);
+  const label = SIGNAL_LABELS[kind];
+  const n = entries.length;
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', key, true);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', key, true);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (n === 0) setOpen(false);
+  }, [n]);
+
+  if (n === 0) {
+    return (
+      <span className="signal-count" title={`${label}: keine Handzeichen`}>
+        <span>{label}</span>
+        <span className="tabular">0</span>
+      </span>
+    );
+  }
+  const ago = (at: number) => {
+    const min = Math.floor((now - at) / 60000);
+    return min < 1 ? 'gerade eben' : `vor ${min} Min.`;
+  };
+  return (
+    <span className="presence" ref={ref}>
+      <button
+        className="signal-count is-active"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        title={`${label}: ${n} – Klick zeigt, von wem`}
+        onClick={() => setOpen(!open)}
+      >
+        <span>{label}</span>
+        <strong className="tabular">{n}</strong>
+      </button>
+      {open && (
+        <div className="presence-panel card" role="dialog" aria-label={label}>
+          <div className="presence-summary small muted">
+            <strong>{label}</strong>
+            <span className="tabular">{n}</span>
+          </div>
+          <ul className="presence-list">
+            {entries.map((e, i) => (
+              <li key={i}>
+                <span className="grow">{e.name ?? <em className="faint">ohne Namen</em>}</span>
+                <span className="small faint">{ago(e.at)}</span>
+              </li>
+            ))}
+          </ul>
           <button
-            key={kind}
-            className="signal-count is-active"
-            onClick={() => command({ action: 'signals-clear', kind })}
-            title={`${label}: ${n} – Klick quittiert („gesehen“) und setzt zurück`}
-            aria-label={`${label}: ${n}. Quittieren`}
+            className="btn btn-small"
+            onClick={() => {
+              void command({ action: 'signals-clear', kind });
+              setOpen(false);
+            }}
           >
-            <span>{label}</span>
-            <strong className="tabular">{n}</strong>
-            <Check aria-hidden />
+            <Check /> Gesehen – zurücksetzen
           </button>
-        ) : (
-          <span key={kind} className="signal-count" title={`${label}: keine Handzeichen`}>
-            <span>{label}</span>
-            <span className="tabular">0</span>
-          </span>
-        );
-      })}
+        </div>
+      )}
     </span>
   );
 }

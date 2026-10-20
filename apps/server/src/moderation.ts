@@ -101,7 +101,7 @@ export function participantModeration(snap: Snapshot, participantId: number): Pi
 }
 
 export function hostSignals(snap: Snapshot): SignalsView {
-  return signalsView(snap.run.state.signals, snap.now);
+  return signalsView(snap.run.state.signals, snap.now, snap.names);
 }
 
 export function pickerView(snap: Snapshot): PickerView {
