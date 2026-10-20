@@ -15,7 +15,10 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
   const { tags } = slide.config;
   const [mode, setMode] = useState<'count' | 'size'>('size');
   const [n, setN] = useState(2);
-  const [mix, setMix] = useState(tags.length > 0);
+  // Zusammensetzung: zufällig, gemischt, je Kategorie getrennt oder eigene Töpfe
+  const [strategy, setStrategy] = useState<'random' | 'mix' | 'same' | 'custom'>(tags.length > 0 ? 'mix' : 'random');
+  const [custom, setCustom] = useState<Record<string, number>>({});
+  const poolKeys = [...tags.map((_, i) => String(i)), 'none'];
   const [guest, setGuest] = useState('');
   const [guestTag, setGuestTag] = useState<number | null>(null);
   const named = teams.unassigned.length + teams.groups.reduce((sum, g) => sum + g.members.length, 0);
@@ -24,7 +27,13 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
 
   const make = () => {
     if (made && !window.confirm('Gruppen neu mischen? Die bisherige Einteilung geht verloren.')) return;
-    void command({ action: 'teams-make', slideId: slide.id, mode, n, mix });
+    const pools =
+      strategy === 'same'
+        ? Object.fromEntries(poolKeys.map((k, i) => [k, i]))
+        : strategy === 'custom'
+          ? Object.fromEntries(poolKeys.map((k) => [k, custom[k] ?? 0]))
+          : undefined;
+    void command({ action: 'teams-make', slideId: slide.id, mode, n, mix: strategy === 'mix' || strategy === 'custom', pools });
   };
   const addGuest = async (e: FormEvent) => {
     e.preventDefault();
@@ -90,10 +99,40 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
           </select>
         </div>
         {tags.length > 0 && (
-          <label className="switch small">
-            <input type="checkbox" checked={mix} onChange={(e) => setMix(e.target.checked)} />
-            Nach Kennzeichnung mischen ({tags.join(', ')})
-          </label>
+          <div className="stack-s">
+            <select
+              className="select select-small"
+              value={strategy}
+              aria-label="Zusammensetzung"
+              onChange={(e) => setStrategy(e.target.value as typeof strategy)}
+            >
+              <option value="mix">Gemischt – Kategorien verteilen ({tags.join(', ')})</option>
+              <option value="same">Nach Kategorie getrennt – jede für sich</option>
+              <option value="custom">Eigene Töpfe – Kategorien gezielt zusammenlegen</option>
+              <option value="random">Zufällig – Kategorien egal</option>
+            </select>
+            {strategy === 'custom' && (
+              <div className="team-pools">
+                {poolKeys.map((k) => (
+                  <label key={k} className="row small" style={{ gap: 6 }}>
+                    <span className="grow">{k === 'none' ? 'ohne Angabe' : tags[Number(k)]}</span>
+                    <select
+                      className="select select-small"
+                      value={custom[k] ?? 0}
+                      onChange={(e) => setCustom({ ...custom, [k]: Number(e.target.value) })}
+                    >
+                      {['A', 'B', 'C', 'D'].map((name, i) => (
+                        <option key={name} value={i}>
+                          Topf {name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                ))}
+                <p className="small faint">Gruppen entstehen nur innerhalb eines Topfes, darin werden die Kategorien gemischt.</p>
+              </div>
+            )}
+          </div>
         )}
         <div className="row">
           <button className="btn btn-primary btn-small" disabled={busy || named === 0} onClick={make}>

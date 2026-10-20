@@ -4,6 +4,13 @@
   font: inherit;
   font-size: 0.8rem;
   font-weight: 650;
+  /* Nur ein Symbol: so hoch wie die Chips mit Text daneben */
+  align-self: stretch;
+  min-height: calc(0.8rem * 1.5 + 8px);
+}
+.signal-pill svg {
+  width: 14px;
+  height: 14px;
 }
 .signal-list {
   display: grid;

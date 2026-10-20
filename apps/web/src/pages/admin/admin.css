@@ -1035,3 +1035,10 @@
 .control-group .callback-control .select {
   width: auto;
 }
+
+/* Gruppen bilden: Töpfe je Kategorie */
+.team-pools {
+  display: grid;
+  gap: 6px;
+  max-width: 320px;
+}

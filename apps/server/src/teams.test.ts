@@ -49,3 +49,42 @@ describe('Gruppen bilden', () => {
     ]);
   });
 });
+
+describe('Gruppen nach Töpfen', () => {
+  // Rollen: 0 = Marketing, 1 = PNC, 2 = IT – je 4 Personen
+  const list = people(12, [0, 1, 2]);
+  const tagOf = new Map(list.map((p) => [p.id, p.tag]));
+  const tagsIn = (t: number[]) => new Set(t.map((id) => tagOf.get(id)));
+
+  it('getrennt: jede Kategorie bildet nur unter sich Gruppen', () => {
+    const teams = makeTeams(list, { mode: 'size', n: 2, mix: false, pools: { '0': 0, '1': 1, '2': 2 } }, seeded(5));
+    expect(teams).toHaveLength(6);
+    for (const t of teams) expect(tagsIn(t).size).toBe(1);
+  });
+
+  it('eigene Töpfe: Marketing mit IT gemischt, PNC für sich', () => {
+    const teams = makeTeams(list, { mode: 'size', n: 2, mix: true, pools: { '0': 0, '2': 0, '1': 1 } }, seeded(6));
+    const mixed = teams.filter((t) => !tagsIn(t).has(1));
+    const pnc = teams.filter((t) => tagsIn(t).has(1));
+    for (const t of pnc) expect([...tagsIn(t)]).toEqual([1]);
+    // Gemischt: jede Marketing/IT-Gruppe hat beide Rollen
+    for (const t of mixed) expect(tagsIn(t)).toEqual(new Set([0, 2]));
+  });
+
+  it('Anzahl Gruppen wird anteilig auf die Töpfe verteilt', () => {
+    const teams = makeTeams(list, { mode: 'count', n: 3, mix: false, pools: { '0': 0, '1': 1, '2': 2 } }, seeded(7));
+    expect(teams).toHaveLength(3);
+    expect(teams.flat()).toHaveLength(12);
+  });
+
+  it('Nachzügler kommen in eine Gruppe ihres Topfes', () => {
+    const pools = { '0': 0, '1': 1 };
+    const tags = new Map<number, number | null>([
+      [1, 0],
+      [2, 0],
+      [3, 1],
+    ]);
+    const filled = fillTeams([[1, 2], [3]], [{ id: 9, tag: 0 }], (id) => tags.get(id) ?? null, seeded(8), pools);
+    expect(filled).toEqual([[1, 2, 9], [3]]);
+  });
+});

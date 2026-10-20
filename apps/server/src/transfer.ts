@@ -163,6 +163,7 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap, partici
     sentence: remapKeys(state.sentence, slideKey),
     build: state.build ? remapKeys(state.build, slideKey) : undefined,
     boardRights: state.boardRights ? remapKeys(state.boardRights, slideKey) : undefined,
+    teamPools: state.teamPools ? remapKeys(state.teamPools, slideKey) : undefined,
     teams: state.teams
       ? Object.fromEntries(
           Object.entries(remapKeys(state.teams, slideKey)).map(([k, teams]) => [

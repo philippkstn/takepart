@@ -26,15 +26,35 @@ export const isTeamsCommand = (cmd: HostCommand): cmd is TeamsCommand => cmd.act
 
 export const teamName = (index: number) => `Gruppe ${index + 1}`;
 
-async function loadPeople(db: Conn, runId: number, slideId: number): Promise<TeamPerson[]> {
-  const rows = await query<{ id: number; payload: string | null }>(
+/**
+ * Kennzeichnung je Person für eine „Gruppen bilden“-Folie: die Antwort auf dieser
+ * Folie, sonst die letzte auf einer anderen Gruppen-Folie mit denselben
+ * Kennzeichnungen – so muss niemand seine Rolle zweimal angeben.
+ */
+export async function loadTeamTags(db: Conn, runId: number, slideId: number): Promise<Map<number, number | null>> {
+  const rows = await query<{ participant_id: number; slide_id: number; payload: string; config: string }>(
     db,
-    `SELECT p.id, r.payload FROM participants p
-       LEFT JOIN responses r ON r.participant_id = p.id AND r.slide_id = ? AND r.round = 1
-      WHERE p.run_id = ? AND p.name IS NOT NULL ORDER BY p.id`,
-    [slideId, runId],
+    `SELECT r.participant_id, r.slide_id, r.payload, s.config FROM responses r JOIN slides s ON s.id = r.slide_id
+      WHERE r.run_id = ? AND s.type = 'teams' ORDER BY r.slide_id = ?, r.updated_at, r.id`,
+    [runId, slideId],
   );
-  return rows.map((r) => ({ id: r.id, tag: r.payload ? json<ResponsePayloads['teams']>(r.payload).tag : null }));
+  const own = rows.find((r) => r.slide_id === slideId);
+  const current = own ? json<{ tags: string[] }>(own.config).tags : null;
+  const tagsOf = await query<{ config: string }>(db, 'SELECT config FROM slides WHERE id = ?', [slideId]);
+  const wanted = JSON.stringify(current ?? (tagsOf[0] ? json<{ tags: string[] }>(tagsOf[0].config).tags : []));
+  const tags = new Map<number, number | null>();
+  // Spätere Zeilen überschreiben frühere; die eigene Folie kommt zuletzt
+  for (const r of rows) {
+    if (r.slide_id !== slideId && JSON.stringify(json<{ tags: string[] }>(r.config).tags) !== wanted) continue;
+    tags.set(r.participant_id, json<ResponsePayloads['teams']>(r.payload).tag);
+  }
+  return tags;
+}
+
+async function loadPeople(db: Conn, runId: number, slideId: number): Promise<TeamPerson[]> {
+  const rows = await query<{ id: number }>(db, 'SELECT id FROM participants WHERE run_id = ? AND name IS NOT NULL ORDER BY id', [runId]);
+  const tags = await loadTeamTags(db, runId, slideId);
+  return rows.map((r) => ({ id: r.id, tag: tags.get(r.id) ?? null }));
 }
 
 /** Neuer Zustand nach einem Gruppen-Befehl (braucht Personen und Kennzeichnungen aus der Datenbank). */
@@ -47,7 +67,10 @@ export async function applyTeamsCommand(db: Conn, runId: number, state: RunState
     case 'teams-make': {
       const people = await loadPeople(db, runId, cmd.slideId);
       if (people.length === 0) throw new CommandError('Noch niemand hat einen Namen eingegeben');
-      teams[key] = makeTeams(people, { mode: cmd.mode, n: cmd.n, mix: cmd.mix });
+      teams[key] = makeTeams(people, { mode: cmd.mode, n: cmd.n, mix: cmd.mix, pools: cmd.pools });
+      next.teamPools = { ...next.teamPools };
+      if (cmd.pools) next.teamPools[key] = cmd.pools;
+      else delete next.teamPools[key];
       break;
     }
     case 'teams-fill': {
@@ -59,6 +82,8 @@ export async function applyTeamsCommand(db: Conn, runId: number, state: RunState
         current,
         people.filter((p) => !assigned.has(p.id)),
         (id) => tags.get(id) ?? null,
+        Math.random,
+        next.teamPools?.[key],
       );
       break;
     }
@@ -71,6 +96,10 @@ export async function applyTeamsCommand(db: Conn, runId: number, state: RunState
     }
     case 'teams-clear':
       delete teams[key];
+      if (next.teamPools) {
+        next.teamPools = { ...next.teamPools };
+        delete next.teamPools[key];
+      }
       break;
     case 'teams-add': {
       // Ohne Gerät: eigener Eintrag mit zufälligem Token, das nie jemand erhält
@@ -91,7 +120,7 @@ export async function applyTeamsCommand(db: Conn, runId: number, state: RunState
       if (current.length > 0) {
         const people = await loadPeople(db, runId, cmd.slideId);
         const tags = new Map(people.map((p) => [p.id, p.tag]));
-        teams[key] = fillTeams(current, [{ id, tag: cmd.tag }], (pid) => tags.get(pid) ?? null);
+        teams[key] = fillTeams(current, [{ id, tag: cmd.tag }], (pid) => tags.get(pid) ?? null, Math.random, next.teamPools?.[key]);
       }
       break;
     }
@@ -104,7 +133,7 @@ export async function applyTeamsCommand(db: Conn, runId: number, state: RunState
 export function teamsView(snap: Snapshot, withIds: boolean): TeamsView | null {
   const slide = snap.current;
   if (slide?.type !== 'teams') return null;
-  const tags = new Map(snap.responses.map((r) => [r.participantId, (r.payload as ResponsePayloads['teams']).tag]));
+  const tags = snap.teamTags;
   const member = (id: number): TeamMember => ({ ...(withIds && { id }), name: snap.names.get(id)!, tag: tags.get(id) ?? null });
   const assigned = snap.run.state.teams?.[slide.id] ?? [];
   const inTeam = new Set(assigned.flat());

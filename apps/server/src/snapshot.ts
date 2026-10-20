@@ -29,6 +29,7 @@ import {
 import { loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { json, one, query, type Conn } from './db.ts';
+import { loadTeamTags } from './teams.ts';
 import { loadSchedule } from './schedule.ts';
 
 /**
@@ -73,6 +74,8 @@ export interface Snapshot {
   names: Map<number, string>;
   /** Alle Teilnehmenden der Durchführung, auch ohne Namen */
   participantTotal: number;
+  /** Gruppen bilden: Kennzeichnung je Person (auch von früheren Gruppen-Folien übernommen) */
+  teamTags: Map<number, number | null>;
   leaderboard: LeaderboardEntry[];
   counts: Map<number, number>;
   now: number;
@@ -286,6 +289,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     votes,
     names,
     participantTotal: Number(total?.n ?? 0),
+    teamTags: current?.type === 'teams' ? await loadTeamTags(db, runId, current.id) : new Map(),
     leaderboard: ranking,
     counts,
     now,

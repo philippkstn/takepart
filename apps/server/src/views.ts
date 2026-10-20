@@ -202,6 +202,8 @@ export function participantView(snap: Snapshot, participantId: number): Particip
   }
 
   let response: unknown = own?.payload ?? null;
+  // Gruppen bilden: Rolle von einer früheren Gruppen-Folie vorausgewählt
+  if (slide?.type === 'teams' && !own && snap.teamTags.has(participantId)) response = { tag: snap.teamTags.get(participantId) };
   if (slide?.type === 'quiz' && own) response = { choice: (own.payload as QuizAnswer).choice };
 
   return {

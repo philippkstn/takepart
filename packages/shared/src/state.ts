@@ -72,6 +72,8 @@ export interface RunState {
   boardRights?: Record<string, BoardRights>;
   /** Gruppeneinteilung je „Gruppen bilden“-Folie: Teilnehmer-IDs je Gruppe */
   teams?: Record<string, number[][]>;
+  /** Töpfe der letzten Einteilung je Folie – damit Nachzügler im richtigen Topf landen */
+  teamPools?: Record<string, Record<string, number>>;
   /** Pausenmodus: Pausenansicht auf Beamer und Handys; jedes Blättern beendet ihn */
   pause?: Pause | null;
   /** Rückmeldungen der aktuellen Pause je Teilnehmer-ID (beim Start geleert) */
@@ -269,6 +271,8 @@ export const hostCommand = z.discriminatedUnion('action', [
     mode: z.enum(['count', 'size']),
     n: z.number().int().min(1).max(100),
     mix: z.boolean().default(false),
+    /** Kennzeichnung (Index als Text, `none`) → Topf; Gruppen nur innerhalb eines Topfes */
+    pools: z.record(z.string(), z.number().int().min(0).max(9)).optional(),
   }),
   /** Wer noch keiner Gruppe angehört, kommt in die kleinsten Gruppen */
   z.object({ action: z.literal('teams-fill'), slideId: z.number().int() }),
