@@ -961,3 +961,25 @@
 .context-menu button.is-danger svg {
   color: var(--danger);
 }
+
+/* Übungsbausteine im Einfügen-Dialog und in der Seitenleiste */
+.insert-tabs {
+  align-self: start;
+  justify-self: start;
+}
+.block-board-form {
+  padding: 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.block-custom {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Probeläufe unter den Durchführungen (zuklappbar) */
+.rehearsal-list {
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+}

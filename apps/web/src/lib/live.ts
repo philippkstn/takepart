@@ -1,4 +1,4 @@
-import type { InkEvent, InkStroke, ServerMessage } from '@slides/shared';
+import type { DisplayMessage, InkEvent, InkStroke, ServerMessage } from '@slides/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
@@ -50,6 +50,8 @@ export function useLive<V>(query: string | null): {
   ink: InkState;
   /** Nur für Hosts: Laserpointer/Zeichnen senden */
   sendInk: (event: InkEvent) => void;
+  /** Nur für den Beamer: Sichtbarkeit seines Fensters melden */
+  send: (message: DisplayMessage) => void;
   handoutUrl: string | null;
 } {
   const [view, setView] = useState<V | null>(null);
@@ -59,6 +61,10 @@ export function useLive<V>(query: string | null): {
   const sendInk = useCallback((event: InkEvent) => {
     const ws = socketRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(event));
+  }, []);
+  const send = useCallback((message: DisplayMessage) => {
+    const ws = socketRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(message));
   }, []);
   const [status, setStatus] = useState<LiveStatus>('connecting');
   const [offset, setOffset] = useState(0);
@@ -136,7 +142,7 @@ export function useLive<V>(query: string | null): {
     };
   }, [query]);
 
-  return { view, status, offset, ink, sendInk, handoutUrl };
+  return { view, status, offset, ink, sendInk, send, handoutUrl };
 }
 
 /** Restzeit bis zu einem Server-Zeitpunkt, sekündlich aktualisiert. */

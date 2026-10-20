@@ -1,4 +1,12 @@
-import { buildsConfig, CREATABLE_SLIDE_TYPES, defaultConfig, parseConfig, SENTENCE_STARTERS, type SlideType } from '@slides/shared';
+import {
+  batchSlides,
+  buildsConfig,
+  CREATABLE_SLIDE_TYPES,
+  defaultConfig,
+  parseConfig,
+  SENTENCE_STARTERS,
+  type SlideType,
+} from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z, ZodError } from 'zod';
 import { copyAssets, deleteOrphanAssets } from './assets.ts';
@@ -67,13 +75,15 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       runs: number;
       live_run: number | null;
       live_code: string | null;
+      rehearsal_run: number | null;
     }>(
       db,
       `SELECT p.id, p.title, p.updated_at, (SELECT b.name FROM brands b WHERE b.id = p.brand_id) AS brand_name,
               (SELECT COUNT(*) FROM slides s WHERE s.presentation_id = p.id) AS slides,
-              (SELECT COUNT(*) FROM runs r WHERE r.presentation_id = p.id) AS runs,
-              (SELECT r.id FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL LIMIT 1) AS live_run,
-              (SELECT r.code FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL LIMIT 1) AS live_code
+              (SELECT COUNT(*) FROM runs r WHERE r.presentation_id = p.id AND r.rehearsal = 0) AS runs,
+              (SELECT r.id FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL AND r.rehearsal = 0 LIMIT 1) AS live_run,
+              (SELECT r.code FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL AND r.rehearsal = 0 LIMIT 1) AS live_code,
+              (SELECT r.id FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL AND r.rehearsal = 1 LIMIT 1) AS rehearsal_run
          FROM presentations p WHERE p.user_id = ? ORDER BY p.updated_at DESC`,
       [accountOf(request).id],
     );
@@ -85,6 +95,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       slides: Number(r.slides),
       runs: Number(r.runs),
       liveRun: r.live_run ? { id: r.live_run, code: r.live_code } : null,
+      rehearsalRun: r.rehearsal_run ? { id: r.rehearsal_run } : null,
     }));
   });
 
@@ -137,7 +148,12 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
     const liveRun = await one<{ id: number; code: string }>(
       db,
-      'SELECT id, code FROM runs WHERE presentation_id = ? AND ended_at IS NULL LIMIT 1',
+      'SELECT id, code FROM runs WHERE presentation_id = ? AND ended_at IS NULL AND rehearsal = 0 LIMIT 1',
+      [id],
+    );
+    const rehearsalRun = await one<{ id: number; code: string }>(
+      db,
+      'SELECT id, code FROM runs WHERE presentation_id = ? AND ended_at IS NULL AND rehearsal = 1 LIMIT 1',
       [id],
     );
     return {
@@ -158,6 +174,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
         ).map((r) => [r.id, r.notes]),
       ),
       liveRun: liveRun ?? null,
+      rehearsalRun: rehearsalRun ?? null,
     };
   });
 
@@ -245,6 +262,39 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     });
     await touch(id);
     return { id: slideId };
+  });
+
+  /**
+   * Mehrere Folien auf einmal hinter `afterId` einfügen (Übungsbausteine, eigene
+   * Bausteine) – alle oder keine. Importierte Bild-Folien sind hier nicht erlaubt.
+   */
+  app.post('/api/presentations/:id/slides/batch', { ...ownPresentation, bodyLimit: 2 * 1024 * 1024 }, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const body = z.object({ afterId: z.number().int().nullable().default(null), slides: batchSlides }).safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Ungültige Eingabe' });
+    let parsed: { type: SlideType; config: unknown; notes: string }[];
+    try {
+      parsed = body.data.slides.map((s) => ({ type: s.type, config: parseConfig(s.type, s.config ?? {}), notes: s.notes }));
+    } catch (err) {
+      const message = err instanceof ZodError ? err.issues[0]?.message : err instanceof Error ? err.message : null;
+      return reply.code(400).send({ error: message || 'Ungültige Folie' });
+    }
+    const created = await transaction(db, async (conn) => {
+      const ids = (
+        await query<{ id: number }>(conn, 'SELECT id FROM slides WHERE presentation_id = ? ORDER BY position, id FOR UPDATE', [id])
+      ).map((s) => s.id);
+      let at = body.data.afterId === null ? ids.length : ids.indexOf(body.data.afterId) + 1 || ids.length;
+      const newIds: number[] = [];
+      for (const s of parsed) {
+        const result = await insertSlide(conn, id, 0, s.type, s.config, s.notes);
+        ids.splice(at++, 0, result.insertId);
+        newIds.push(result.insertId);
+      }
+      await renumber(conn, ids);
+      return newIds;
+    });
+    await touch(id);
+    return { ids: created };
   });
 
   app.patch('/api/slides/:id', ownSlide, async (request, reply) => {

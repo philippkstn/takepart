@@ -8,6 +8,7 @@ import {
   CREATABLE_SLIDE_TYPES,
   assetThumbUrl,
   slideHeadline,
+  type BatchSlide,
   type BrandView,
   type Slide,
   type SlideType,
@@ -18,6 +19,7 @@ import {
   ArrowLeft,
   ArrowUp,
   Archive,
+  Blocks,
   ChevronLeft,
   ChevronRight,
   Copy,
@@ -33,6 +35,8 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
+import { InsertPicker, SaveBlockDialog } from '../../components/admin/BlockPicker.tsx';
+import { RehearsalList } from '../../components/admin/RehearsalList.tsx';
 import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
@@ -40,7 +44,7 @@ import { Stage } from '../../components/Stage.tsx';
 import { staticPreview } from '../../components/staticPreview.ts';
 import { formatCode, FullScreenSpinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
-import { useStartRun } from './PresentationsPage.tsx';
+import { RehearsalButton, useStartRun } from './PresentationsPage.tsx';
 
 interface Presentation {
   id: number;
@@ -53,6 +57,7 @@ interface Presentation {
   /** Sprechernotizen je Folien-ID (nur für dich, nie für Beamer/Publikum) */
   notes: Record<string, string>;
   liveRun: { id: number; code: string } | null;
+  rehearsalRun: { id: number; code: string } | null;
 }
 
 interface RunItem {
@@ -61,6 +66,7 @@ interface RunItem {
   startedAt: string;
   endedAt: string | null;
   participants: number;
+  rehearsal: boolean;
 }
 
 export default function EditorPage() {
@@ -77,6 +83,9 @@ export default function EditorPage() {
   const [insertAfter, setInsertAfter] = useState<number | null>(null);
   const [inserting, setInserting] = useState(false);
   const [menu, setMenu] = useState<{ slideId: number; x: number; y: number } | null>(null);
+  /** Ab welcher Folie „Als Baustein speichern“ vorschlägt */
+  const [savingBlock, setSavingBlock] = useState<number | null>(null);
+  const [showRehearsals, setShowRehearsals] = useState(false);
   const start = useStartRun();
 
   const slides = pres.data?.slides ?? [];
@@ -93,6 +102,27 @@ export default function EditorPage() {
       setInserting(false);
       await refresh();
       setSelectedId(newId);
+    },
+    onError,
+  });
+  /** Mehrere Folien auf einmal (Übungsbausteine) */
+  const addBatch = useMutation({
+    mutationFn: ({ slides: batch, afterId }: { slides: BatchSlide[]; afterId: number | null }) =>
+      api<{ ids: number[] }>(`/api/presentations/${id}/slides/batch`, { body: { afterId, slides: batch } }),
+    onSuccess: async ({ ids }) => {
+      setAdding(false);
+      setInserting(false);
+      await refresh();
+      if (ids[0] !== undefined) setSelectedId(ids[0]);
+      toast(`${ids.length} ${ids.length === 1 ? 'Folie' : 'Folien'} eingefügt`);
+    },
+    onError,
+  });
+  const removeRehearsals = useMutation({
+    mutationFn: () => api(`/api/presentations/${id}/rehearsals`, { method: 'DELETE' }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['runs', id] });
+      await refresh();
     },
     onError,
   });
@@ -176,6 +206,13 @@ export default function EditorPage() {
             <Play /> Live starten
           </button>
         )}
+        <RehearsalButton
+          presentationId={id}
+          running={pres.data.rehearsalRun}
+          disabled={slides.length === 0 || start.isPending}
+          onStart={start.mutate}
+          label
+        />
       </div>
 
       <div className="editor-settings">
@@ -301,10 +338,17 @@ export default function EditorPage() {
             </button>
           </div>
           {adding && (
-            <TypePicker
-              disabled={addSlide.isPending}
-              board={lastBoard(slides, selected)}
-              onPick={(type, config) => addSlide.mutate({ type, config, afterId: selected?.id ?? null })}
+            <InsertPicker
+              slides={slides}
+              disabled={addSlide.isPending || addBatch.isPending}
+              onInsert={(batch) => addBatch.mutate({ slides: batch, afterId: selected?.id ?? null })}
+              typePicker={
+                <TypePicker
+                  disabled={addSlide.isPending}
+                  board={lastBoard(slides, selected)}
+                  onPick={(type, config) => addSlide.mutate({ type, config, afterId: selected?.id ?? null })}
+                />
+              }
             />
           )}
         </aside>
@@ -327,24 +371,34 @@ export default function EditorPage() {
             <Archive size={20} /> Durchführungen
           </h2>
           <ul className="run-list">
-            {runs.data.map((r) => (
-              <li key={r.id}>
-                <span className="grow">
-                  <strong>{new Date(r.startedAt).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}</strong>
-                  <span className="small faint"> · {r.participants} Teilnehmende</span>
-                </span>
-                {r.endedAt ? (
-                  <Link className="btn btn-small" to={`/admin/runs/${r.id}`}>
-                    Ergebnisse
-                  </Link>
-                ) : (
-                  <Link className="btn btn-small btn-primary" to={`/admin/live/${r.id}`}>
-                    <Radio /> Live
-                  </Link>
-                )}
-              </li>
-            ))}
+            {runs.data
+              .filter((r) => !r.rehearsal)
+              .map((r) => (
+                <li key={r.id}>
+                  <span className="grow">
+                    <strong>{new Date(r.startedAt).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })}</strong>
+                    <span className="small faint"> · {r.participants} Teilnehmende</span>
+                  </span>
+                  {r.endedAt ? (
+                    <Link className="btn btn-small" to={`/admin/runs/${r.id}`}>
+                      Ergebnisse
+                    </Link>
+                  ) : (
+                    <Link className="btn btn-small btn-primary" to={`/admin/live/${r.id}`}>
+                      <Radio /> Live
+                    </Link>
+                  )}
+                </li>
+              ))}
           </ul>
+          <RehearsalList
+            runs={runs.data.filter((r) => r.rehearsal)}
+            open={showRehearsals}
+            onToggle={() => setShowRehearsals((v) => !v)}
+            onRemoveAll={() => {
+              if (window.confirm('Alle Probeläufe dieser Präsentation löschen – auch einen laufenden?')) removeRehearsals.mutate();
+            }}
+          />
         </section>
       )}
       {menu && (
@@ -370,6 +424,7 @@ export default function EditorPage() {
               },
             },
             { label: 'Duplizieren', icon: <Copy />, run: () => duplicateSlide.mutate(menu.slideId) },
+            { label: 'Als Baustein speichern …', icon: <Blocks />, run: () => setSavingBlock(menu.slideId) },
             {
               label: 'Löschen',
               icon: <Trash2 />,
@@ -391,13 +446,23 @@ export default function EditorPage() {
                 <X />
               </button>
             </div>
-            <TypePicker
-              disabled={addSlide.isPending}
-              board={lastBoard(slides, slides.find((s) => s.id === insertAfter) ?? null)}
-              onPick={(type, config) => addSlide.mutate({ type, config, afterId: insertAfter })}
+            <InsertPicker
+              slides={slides}
+              disabled={addSlide.isPending || addBatch.isPending}
+              onInsert={(batch) => addBatch.mutate({ slides: batch, afterId: insertAfter })}
+              typePicker={
+                <TypePicker
+                  disabled={addSlide.isPending}
+                  board={lastBoard(slides, slides.find((s) => s.id === insertAfter) ?? null)}
+                  onPick={(type, config) => addSlide.mutate({ type, config, afterId: insertAfter })}
+                />
+              }
             />
           </div>
         </div>
+      )}
+      {savingBlock !== null && (
+        <SaveBlockDialog slides={slides} notes={pres.data.notes} startId={savingBlock} onClose={() => setSavingBlock(null)} />
       )}
       {importing && (
         <ImportDialog

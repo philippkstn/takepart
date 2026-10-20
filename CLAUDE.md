@@ -54,6 +54,12 @@ npm run build
 - Fotoprotokoll `/admin/runs/:id/protokoll` (`ProtocolPage.tsx`): druckoptimiert (A4 quer), PDF über den Druckdialog – keine PDF-Software auf dem Server.
 - Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`).
 
+## Bausteine, Probelauf, Online
+
+- **Übungsbausteine** sind Daten in `packages/shared/src/blocks.ts` (`BUILTIN_BLOCKS`, Wand-Name per `uniqueBoardName` eindeutig). Der Server kennt sie nicht: Editor (`components/admin/BlockPicker.tsx`, Reiter „Bausteine“) schickt eine Folienliste an `POST /api/presentations/:id/slides/batch` (max. 30, `parseConfig`, kein `image`, eine Transaktion hinter `afterId`). Eigene Bausteine: Tabelle `blocks` je Konto (`apps/server/src/blocks.ts`). Neue Bausteine müssen den Test in `prep.test.ts` bestehen.
+- **Probelauf** = `runs.rehearsal = 1`: läuft neben einer echten Durchführung (je Art höchstens eine offene), nie im Archiv-Zähler, `liveRun` oder Export (`transfer.ts`). Testteilnehmende sind `participants.fake = 1` und zählen in `participants` mit; `apps/server/src/rehearsal.ts` (`POST/DELETE /api/runs/:id/rehearsal/fake`) erzeugt Zufallsantworten über `fakeResponse` (shared/rehearsal.ts) und prüft sie mit `validateResponse`.
+- **Beamer-Sichtbarkeit**: Das Beamer-Fenster schickt `{type:'visibility', hidden}` über seinen WebSocket (`displayMessage`); `live.ts` merkt das flüchtig an der Verbindung, `HostView.displays` zeigt es im Steuerpult. „Einladung“ kopiert `Macht mit: <origin>/<code> – Code …`.
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

@@ -1,4 +1,4 @@
-import { inkEvent, type InkEvent, type InkStroke, type ServerMessage } from '@slides/shared';
+import { displayMessage, inkEvent, type InkEvent, type InkStroke, type ServerMessage } from '@slides/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { Db } from './db.ts';
@@ -27,7 +27,15 @@ const INK_MAX_POINTS_PER_STROKE = 3000;
 
 type Client =
   | { ws: WebSocket; role: 'participant'; participantId: number; alive: boolean }
-  | { ws: WebSocket; role: 'display' | 'host'; alive: boolean; inkWindow?: number; inkCount?: number };
+  | {
+      ws: WebSocket;
+      role: 'display' | 'host';
+      alive: boolean;
+      inkWindow?: number;
+      inkCount?: number;
+      /** Beamer-Fenster meldet, dass es verdeckt/minimiert ist (Page Visibility) – nur flüchtig */
+      hidden?: boolean;
+    };
 
 interface Room {
   clients: Set<Client>;
@@ -161,6 +169,22 @@ export class LiveHub {
     this.relayInk(room, { type: 'ink', event: parsed });
   }
 
+  /** Nachricht eines Beamer-Fensters: Sichtbarkeit für die Anzeige im Steuerpult merken. */
+  displayMessage(runId: number, sender: Client, raw: unknown) {
+    if (sender.role !== 'display') return;
+    let hidden: boolean;
+    try {
+      const result = displayMessage.safeParse(JSON.parse(String(raw)));
+      if (!result.success) return;
+      hidden = result.data.hidden;
+    } catch {
+      return;
+    }
+    if (sender.hidden === hidden) return;
+    sender.hidden = hidden;
+    this.notify(runId);
+  }
+
   private relayInk(room: Room, message: ServerMessage) {
     const msg = JSON.stringify(message);
     for (const c of room.clients) if (c.role !== 'participant' && c.ws.readyState === c.ws.OPEN) c.ws.send(msg);
@@ -215,7 +239,14 @@ export class LiveHub {
       }
       const participantIds = new Set<number>();
       for (const c of room.clients) if (c.role === 'participant') participantIds.add(c.participantId);
-      const participants = participantIds.size;
+      // Probelauf: simulierte Testteilnehmende zählen mit (sie haben keine Verbindung)
+      const participants = participantIds.size + snap.run.fakeParticipants;
+      const displays = { connected: 0, hidden: 0 };
+      for (const c of room.clients) {
+        if (c.role !== 'display' || c.ws.readyState !== c.ws.OPEN) continue;
+        displays.connected++;
+        if (c.hidden) displays.hidden++;
+      }
 
       let display: string | null = null;
       let host: string | null = null;
@@ -227,7 +258,7 @@ export class LiveHub {
         } else if (c.role === 'display') {
           msg = display ??= JSON.stringify({ type: 'view', view: displayView(snap, participants) } satisfies ServerMessage);
         } else {
-          msg = host ??= JSON.stringify({ type: 'view', view: hostView(snap, participants) } satisfies ServerMessage);
+          msg = host ??= JSON.stringify({ type: 'view', view: hostView(snap, participants, displays) } satisfies ServerMessage);
         }
         c.ws.send(msg);
       }

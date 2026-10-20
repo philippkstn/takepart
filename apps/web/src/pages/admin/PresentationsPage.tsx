@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Download, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload } from 'lucide-react';
+import { Copy, Download, FlaskConical, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload } from 'lucide-react';
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
@@ -12,13 +12,18 @@ interface PresentationItem {
   slides: number;
   runs: number;
   liveRun: { id: number; code: string } | null;
+  rehearsalRun: { id: number } | null;
 }
 
 export function useStartRun() {
   const navigate = useNavigate();
   const toast = useToast();
   return useMutation({
-    mutationFn: (presentationId: number) => api<{ id: number }>(`/api/presentations/${presentationId}/runs`, { body: {} }),
+    /** Zahl: echte Durchführung; mit `rehearsal`: Probelauf (nicht im Archiv, blockiert keinen echten Start) */
+    mutationFn: (arg: number | { presentationId: number; rehearsal: boolean }) => {
+      const { presentationId, rehearsal } = typeof arg === 'number' ? { presentationId: arg, rehearsal: false } : arg;
+      return api<{ id: number }>(`/api/presentations/${presentationId}/runs`, { body: { rehearsal } });
+    },
     onSuccess: ({ id }) => navigate(`/admin/live/${id}`),
     onError: (err) => toast(errorMessage(err), 'error'),
   });
@@ -149,6 +154,12 @@ export default function PresentationsPage() {
                     <Play /> Live starten
                   </button>
                 )}
+                <RehearsalButton
+                  presentationId={p.id}
+                  running={p.rehearsalRun}
+                  disabled={start.isPending || p.slides === 0}
+                  onStart={start.mutate}
+                />
                 <Link className="icon-btn" to={`/admin/p/${p.id}`} aria-label="Bearbeiten" title="Bearbeiten">
                   <Pencil />
                 </Link>
@@ -189,4 +200,42 @@ export default function PresentationsPage() {
 
 function confirmDelete(title: string) {
   return window.confirm(`„${title}“ mit allen Durchführungen und Ergebnissen löschen?`);
+}
+
+/** Probelauf starten bzw. zum laufenden Probelauf – als Symbol-Knopf neben „Live starten“ */
+export function RehearsalButton({
+  presentationId,
+  running,
+  disabled,
+  onStart,
+  label = false,
+}: {
+  presentationId: number;
+  running: { id: number } | null;
+  disabled: boolean;
+  onStart: (arg: { presentationId: number; rehearsal: boolean }) => void;
+  label?: boolean;
+}) {
+  if (running)
+    return (
+      <Link
+        className={label ? 'btn' : 'icon-btn'}
+        to={`/admin/live/${running.id}`}
+        aria-label="Zum laufenden Probelauf"
+        title="Zum laufenden Probelauf"
+      >
+        <FlaskConical /> {label && 'Probelauf läuft'}
+      </Link>
+    );
+  return (
+    <button
+      className={label ? 'btn' : 'icon-btn'}
+      onClick={() => onStart({ presentationId, rehearsal: true })}
+      disabled={disabled}
+      aria-label="Probelauf starten"
+      title="Probelauf starten – mit Testteilnehmenden, wird nicht archiviert"
+    >
+      <FlaskConical /> {label && 'Probelauf'}
+    </button>
+  );
 }

@@ -47,6 +47,10 @@ export interface Snapshot {
     handoutToken: string | null;
     shareSlides: boolean;
     targetMinutes: number | null;
+    /** Probelauf (nicht im Archiv) */
+    rehearsal: boolean;
+    /** Simulierte Testteilnehmende eines Probelaufs */
+    fakeParticipants: number;
   };
   slides: Slide[];
   /** Sprechernotizen der aktuellen Folie – nur für die Host-Ansicht */
@@ -85,6 +89,7 @@ interface RunRow extends BrandRow {
   ended_at: Date | null;
   share_slides: number;
   target_minutes: number | null;
+  rehearsal: number;
 }
 
 interface SlideRow {
@@ -115,7 +120,7 @@ export function effectiveQuiz(state: RunState, slideId: number, now: number): Qu
 export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | null> {
   const run = await one<RunRow>(
     db,
-    `SELECT r.id, r.presentation_id, p.title, r.code, r.display_token, r.handout_token, r.state, r.started_at, r.ended_at,
+    `SELECT r.id, r.presentation_id, p.title, r.code, r.display_token, r.handout_token, r.state, r.started_at, r.ended_at, r.rehearsal,
             p.share_slides, p.target_minutes, ${BRAND_COLUMNS}
        FROM runs r JOIN presentations p ON p.id = r.presentation_id LEFT JOIN brands b ON b.id = p.brand_id
       WHERE r.id = ?`,
@@ -200,6 +205,9 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   );
   const names = new Map(nameRows.map((r) => [r.id, r.name]));
   const total = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ?', [runId]);
+  const fakes = run.rehearsal
+    ? Number((await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ? AND fake = 1', [runId]))?.n ?? 0)
+    : 0;
 
   let ranking: LeaderboardEntry[] = [];
   if (slides.some((s) => s.type === 'quiz')) {
@@ -258,6 +266,8 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
       startedAt: run.started_at.getTime(),
       handoutToken: run.handout_token,
       shareSlides: !!run.share_slides,
+      rehearsal: !!run.rehearsal,
+      fakeParticipants: fakes,
       targetMinutes: run.target_minutes,
     },
     slides,

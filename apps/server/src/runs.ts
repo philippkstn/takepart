@@ -226,17 +226,23 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     const { id } = idParam.parse(request.params);
     const pres = await one<{ id: number }>(db, 'SELECT id FROM presentations WHERE id = ?', [id]);
     if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
-    const live_ = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE presentation_id = ? AND ended_at IS NULL', [id]);
+    // Probelauf und echte Durchführung laufen unabhängig nebeneinander – je eine pro Art.
+    const { rehearsal } = z.object({ rehearsal: z.boolean().default(false) }).parse(request.body ?? {});
+    const live_ = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE presentation_id = ? AND ended_at IS NULL AND rehearsal = ?', [
+      id,
+      rehearsal ? 1 : 0,
+    ]);
     if (live_) return { id: live_.id };
     const slides = await loadSlides(db, id);
     const state = initialRunState(slides[0]?.id ?? null);
     for (let attempt = 0; attempt < 20; attempt++) {
       try {
-        const result = await exec(db, 'INSERT INTO runs (presentation_id, code, display_token, state) VALUES (?, ?, ?, ?)', [
+        const result = await exec(db, 'INSERT INTO runs (presentation_id, code, display_token, state, rehearsal) VALUES (?, ?, ?, ?, ?)', [
           id,
           newCode(),
           randomBytes(24).toString('base64url'),
           JSON.stringify(state),
+          rehearsal ? 1 : 0,
         ]);
         return { id: result.insertId };
       } catch (err) {
@@ -248,9 +254,16 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
 
   app.get('/api/presentations/:id/runs', ownPresentation, async (request) => {
     const { id } = idParam.parse(request.params);
-    const rows = await query<{ id: number; code: string | null; started_at: Date; ended_at: Date | null; participants: number }>(
+    const rows = await query<{
+      id: number;
+      code: string | null;
+      started_at: Date;
+      ended_at: Date | null;
+      participants: number;
+      rehearsal: number;
+    }>(
       db,
-      `SELECT r.id, r.code, r.started_at, r.ended_at,
+      `SELECT r.id, r.code, r.started_at, r.ended_at, r.rehearsal,
               (SELECT COUNT(*) FROM participants p WHERE p.run_id = r.id) AS participants
          FROM runs r WHERE r.presentation_id = ? ORDER BY r.started_at DESC`,
       [id],
@@ -261,7 +274,17 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       startedAt: r.started_at,
       endedAt: r.ended_at,
       participants: Number(r.participants),
+      rehearsal: !!r.rehearsal,
     }));
+  });
+
+  /** Alle Probeläufe einer Präsentation löschen (auch einen laufenden). */
+  app.delete('/api/presentations/:id/rehearsals', ownPresentation, async (request) => {
+    const { id } = idParam.parse(request.params);
+    const runs = await query<{ id: number }>(db, 'SELECT id FROM runs WHERE presentation_id = ? AND rehearsal = 1', [id]);
+    for (const r of runs) live.end(r.id);
+    await exec(db, 'DELETE FROM runs WHERE presentation_id = ? AND rehearsal = 1', [id]);
+    return { deleted: runs.length };
   });
 
   app.post('/api/runs/:id/command', ownRun, async (request, reply) => {

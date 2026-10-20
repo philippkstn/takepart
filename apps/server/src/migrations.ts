@@ -299,4 +299,21 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    // Probeläufe (nicht im Archiv), simulierte Teilnehmende und eigene Übungsbausteine je Konto
+    name: '008_prep',
+    statements: [
+      'ALTER TABLE runs ADD COLUMN rehearsal TINYINT(1) NOT NULL DEFAULT 0',
+      'ALTER TABLE participants ADD COLUMN fake TINYINT(1) NOT NULL DEFAULT 0',
+      `CREATE TABLE blocks (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id INT UNSIGNED NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        slides MEDIUMTEXT NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        INDEX idx_blocks_user (user_id),
+        CONSTRAINT fk_blocks_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
 ];
