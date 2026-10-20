@@ -1,6 +1,6 @@
 import { hostCommand, initialRunState, pauseVoteInput, type RunState } from '@slides/shared';
 import { describe, expect, it } from 'vitest';
-import { applyPauseVote, participantPause, pauseStats } from './pause.ts';
+import { applyPauseVote, participantPause, pauseStats, startSlidePause } from './pause.ts';
 import { applyCommand, CommandError } from './runs.ts';
 
 const slides = [10, 20, 30];
@@ -98,5 +98,19 @@ describe('Rückmeldungen in der Pause', () => {
     s = applyPauseVote(s, 4, { ready: false });
     expect(pauseStats(s, 12)).toEqual({ ready: 2, connected: 12, energy: [0, 1, 0, 0, 1], energyAverage: 3.5 });
     expect(pauseStats(initialRunState(10), 12)).toBeNull();
+  });
+});
+
+describe('Pausen-Folie', () => {
+  it('startet die Pause mit der voreingestellten Dauer und Energie-Frage', () => {
+    const s = initialRunState(1);
+    startSlidePause(s, { id: 2, type: 'pause', position: 1, config: { title: 'Pause', minutes: 15, question: false } }, 1_000);
+    expect(s.pause).toEqual({ endsAt: 1_000 + 15 * 60_000, seconds: 900, question: false });
+  });
+
+  it('lässt andere Folien unverändert', () => {
+    const s = initialRunState(1);
+    startSlidePause(s, { id: 2, type: 'content', position: 1, config: { title: '', body: '', showJoin: false } }, 1_000);
+    expect(s.pause).toBeUndefined();
   });
 });

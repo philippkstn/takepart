@@ -762,5 +762,8 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
       return <BoardActivity view={view} slide={slide} token={token} />;
     case 'teams':
       return <Teams view={view} slide={slide} token={token} />;
+    case 'pause':
+      // Während der Pause zeigt die Seite die Pausenansicht; hier nur der Stand davor/danach
+      return <Info icon={<Hourglass size={20} />}>{slide.config.title || 'Pause'} – gleich geht es weiter.</Info>;
   }
 }

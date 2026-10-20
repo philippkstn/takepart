@@ -1,6 +1,7 @@
 import type { SlideType } from '@slides/shared';
 import {
   Cloud,
+  Coffee,
   Image,
   LayoutGrid,
   Lightbulb,
@@ -33,6 +34,7 @@ export const SLIDE_ICONS: Record<SlideType, LucideIcon> = {
   sentence: TextCursorInput,
   board: LayoutGrid,
   teams: UsersRound,
+  pause: Coffee,
   image: Image,
 };
 

@@ -31,7 +31,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
 import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
-import { applyPauseCommand, endPause } from './pause.ts';
+import { applyPauseCommand, endPause, startSlidePause } from './pause.ts';
 import { applyModerationCommand, isModerationCommand } from './moderation.ts';
 import { applyBreakoutCommand } from './breakout.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
@@ -407,18 +407,23 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           ]);
           if (!post) throw new CommandError('Nur freigegebene, offene Beiträge können eingeblendet werden');
         }
-        await saveRunState(
-          db,
-          id,
-          applyCommand(
-            run.state,
-            cmd,
-            slides.map((s) => s.id),
-            Date.now(),
-            new Map(slides.map((s) => [s.id, buildSteps(s)])),
-            await loadSchedule(db, run.presentationId),
-          ),
+        const now = Date.now();
+        const next = applyCommand(
+          run.state,
+          cmd,
+          slides.map((s) => s.id),
+          now,
+          new Map(slides.map((s) => [s.id, buildSteps(s)])),
+          await loadSchedule(db, run.presentationId),
         );
+        // Pausen-Folie erreicht: die Pause startet mit ihrer voreingestellten Dauer
+        if (next.slideId !== run.state.slideId)
+          startSlidePause(
+            next,
+            slides.find((s) => s.id === next.slideId),
+            now,
+          );
+        await saveRunState(db, id, next);
       });
     } catch (err) {
       if (err instanceof CommandError) return reply.code(409).send({ error: err.message });

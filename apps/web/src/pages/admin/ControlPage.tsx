@@ -538,6 +538,26 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
     case 'teams':
       return <TeamsPanel view={view} command={command} busy={busy} />;
 
+    case 'pause':
+      return (
+        <div className="stack">
+          <h3>Pause</h3>
+          <p className="small muted">
+            {view.state.pause
+              ? 'Läuft – verlängern oder beenden unten bei „Pause“. Weiterblättern beendet sie ebenfalls.'
+              : `Beendet. Neu starten mit ${slide.config.minutes} Minuten:`}
+          </p>
+          {!view.state.pause && (
+            <button
+              className="btn btn-small"
+              onClick={() => command({ action: 'pause-start', seconds: slide.config.minutes * 60, question: slide.config.question })}
+            >
+              Pause erneut starten
+            </button>
+          )}
+        </div>
+      );
+
     default:
       return (
         <div className="stack">

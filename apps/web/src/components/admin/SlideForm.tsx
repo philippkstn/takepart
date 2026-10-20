@@ -336,6 +336,36 @@ function FeedbackForm({ value, onChange }: FormProps<'feedback'>) {
   );
 }
 
+function PauseForm({ value, onChange }: FormProps<'pause'>) {
+  return (
+    <>
+      <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
+      <label className="field">
+        <span>Dauer</span>
+        <select className="select" value={value.minutes} onChange={(e) => onChange({ ...value, minutes: Number(e.target.value) })}>
+          {[...new Set([5, 10, 15, 20, 30, 45, 60, value.minutes])]
+            .sort((a, b) => a - b)
+            .map((m) => (
+              <option key={m} value={m}>
+                {m} Minuten
+              </option>
+            ))}
+        </select>
+      </label>
+      <Toggle
+        label="Energie-Frage auf den Handys"
+        hint="„Wie ist deine Energie?“ (1–5) – das Ergebnis siehst du im Steuerpult."
+        checked={value.question}
+        onChange={(question) => onChange({ ...value, question })}
+      />
+      <p className="small faint">
+        Beim Erreichen der Folie startet die Pause automatisch: Countdown, „Weiter um … Uhr“ und „Ich bin wieder da“ auf den Handys.
+        Weiterblättern beendet sie; im Steuerpult lässt sie sich verlängern.
+      </p>
+    </>
+  );
+}
+
 function TeamsForm({ value, onChange }: FormProps<'teams'>) {
   return (
     <>
@@ -820,5 +850,7 @@ export function SlideForm({
       return <BoardForm value={v} onChange={onChange} boards={boards} />;
     case 'teams':
       return <TeamsForm value={v} onChange={onChange} />;
+    case 'pause':
+      return <PauseForm value={v} onChange={onChange} />;
   }
 }

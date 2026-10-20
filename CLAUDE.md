@@ -56,6 +56,10 @@ npm run build
 - Fotoprotokoll `/admin/runs/:id/protokoll` (`ProtocolPage.tsx`): druckoptimiert (A4 quer), PDF über den Druckdialog – keine PDF-Software auf dem Server.
 - Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`).
 
+## Pausen-Folie
+
+- Folientyp `pause` (`title`, `minutes`, `question`): Erreicht eine Durchführung die Folie (goto/step/jump), startet `startSlidePause` (`pause.ts`) in der `/command`-Route den Pausenmodus mit der voreingestellten Dauer; Weiterblättern beendet ihn wie sonst auch.
+
 ## Moderationswerkzeuge (Handzeichen, Zufall, Anwesenheit)
 
 - Reine Logik in `packages/shared/src/moderation.ts`, Server in `apps/server/src/moderation.ts` (Route `POST /api/p/signal`, Befehle `signals-clear`, `pick-*`, Ansichtsteile), Web: `participant/SignalBar.tsx`, `admin/ModerationTools.tsx`, `components/PickOverlay.tsx`.

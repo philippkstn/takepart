@@ -6,6 +6,7 @@ import {
   type PauseStats,
   type PauseVote,
   type RunState,
+  type Slide,
 } from '@slides/shared';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { json, one, exec, type Db } from './db.ts';
@@ -51,6 +52,12 @@ export function applyPauseCommand(s: RunState, cmd: PauseCommand, now: number) {
       endPause(s);
       break;
   }
+}
+
+/** Pausen-Folie erreicht: Pause mit ihrer voreingestellten Dauer starten */
+export function startSlidePause(s: RunState, slide: Slide | undefined, now: number) {
+  if (slide?.type !== 'pause') return;
+  applyPauseCommand(s, { action: 'pause-start', seconds: slide.config.minutes * 60, question: slide.config.question }, now);
 }
 
 /** Rückmeldung einer Person übernehmen (zusammengeführt mit der bisherigen). */

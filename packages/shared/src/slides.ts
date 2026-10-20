@@ -20,6 +20,7 @@ export const SLIDE_TYPES = [
   'sentence',
   'board',
   'teams',
+  'pause',
   'image',
 ] as const;
 export type SlideType = (typeof SLIDE_TYPES)[number];
@@ -42,6 +43,7 @@ export const SLIDE_TYPE_LABELS: Record<SlideType, string> = {
   sentence: 'Satz vervollständigen',
   board: 'Kartenwand',
   teams: 'Gruppen bilden',
+  pause: 'Pause',
   image: 'Folie',
 };
 
@@ -60,6 +62,7 @@ export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
   sentence: 'Satzanfang vorgeben, das häufigste Wort wird angehängt',
   board: 'Karten sammeln, clustern, zuordnen, punkten und bewerten',
   teams: 'Alle nennen ihren Namen, du teilst automatisch in Gruppen ein',
+  pause: 'Pause mit voreingestellter Dauer – startet beim Erreichen der Folie',
   image: 'Importierte Folie aus PDF/PowerPoint',
 };
 
@@ -218,6 +221,17 @@ export type BoardConfig = z.infer<typeof boardConfig>;
  * auf Wunsch nach Kennzeichnung gemischte Gruppen. Die Einteilung liegt im
  * Zustand der Durchführung (`RunState.teams`).
  */
+/**
+ * Pause als Folie: Beim Erreichen startet der Pausenmodus mit der voreingestellten
+ * Dauer (Countdown, „Weiter um …“, Energie-Frage); Weiterblättern beendet ihn.
+ */
+export const pauseConfig = z.object({
+  title: text(200).default('Pause'),
+  minutes: z.number().int().min(1).max(240).default(10),
+  /** Auf den Handys fragen: Wie ist deine Energie? */
+  question: z.boolean().default(true),
+});
+
 export const teamsConfig = z.object({
   title: text(200).default('Gruppen bilden'),
   /** Frage zur Kennzeichnung, z. B. „Deine Rolle“ – nur mit Kennzeichnungen */
@@ -284,6 +298,7 @@ export const slideConfigSchemas = {
   sentence: sentenceConfig,
   board: boardConfig,
   teams: teamsConfig,
+  pause: pauseConfig,
   image: imageConfig,
 } satisfies Record<SlideType, z.ZodType>;
 

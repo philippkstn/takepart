@@ -347,6 +347,17 @@ function SlideStage({
     case 'teams':
       return <TeamsStage view={view} slide={slide} />;
 
+    // Läuft die Pause, liegt die Pausenansicht darüber; sonst (vorher/nachher) die Folie selbst
+    case 'pause':
+      return (
+        <div className="stage-content">
+          <div className="stack-l">
+            <h1 className="stage-title stage-title-xl">{slide.config.title || 'Pause'}</h1>
+            <p className="stage-body">{view.pause ? '' : `${slide.config.minutes} Minuten – gleich geht es weiter.`}</p>
+          </div>
+        </div>
+      );
+
     case 'content':
       return (
         <div className={`stage-content ${slide.config.showJoin && view.run.code ? 'with-join' : ''}`}>
