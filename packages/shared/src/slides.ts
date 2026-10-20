@@ -331,9 +331,10 @@ export function slideHeadline(slide: Pick<Slide, 'type' | 'config'>): string {
     const b = slide.config as BoardConfig;
     return b.prompt.trim() || `${BOARD_MODE_LABELS[b.mode]}: ${b.board}`;
   }
+  // Nur Texte zählen: bei der Pausen-Folie ist `question` ein Schalter (Energie-Frage)
   const c = slide.config as Record<string, unknown>;
-  const value = (c.question ?? c.title ?? c.start ?? '') as string;
-  return value.trim();
+  const value = [c.question, c.title, c.start].find((v): v is string => typeof v === 'string' && v.trim() !== '');
+  return value?.trim() ?? '';
 }
 
 /** Folientypen, auf die das Publikum antwortet (alles außer der Textfolie). */

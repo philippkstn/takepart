@@ -16,6 +16,9 @@ import {
   topWords,
   validateResponse,
   validateSingleWord,
+  defaultConfig,
+  slideHeadline,
+  SLIDE_TYPES,
 } from './index.ts';
 
 describe('Wörter zählen', () => {
@@ -150,5 +153,18 @@ describe('Kartenwand', () => {
     expect(dotTotals([{ dots: { g1: 2 } }, { dots: { g1: 1, g2: 3 } }, {}])).toEqual({ g1: 3, g2: 3 });
     expect(parseBoardKey('g12')).toEqual({ kind: 'group', id: 12 });
     expect(parseBoardKey('g0')).toBeNull();
+  });
+});
+
+describe('Folienüberschrift', () => {
+  it('liefert für jeden Folientyp mit Standardwerten einen Text (kein Absturz)', () => {
+    for (const type of SLIDE_TYPES) {
+      if (type === 'image') continue; // braucht eine Bildkennung
+      expect(typeof slideHeadline({ type, config: defaultConfig(type) } as never)).toBe('string');
+    }
+  });
+
+  it('nimmt bei der Pausen-Folie den Titel, nicht den Schalter für die Energie-Frage', () => {
+    expect(slideHeadline({ type: 'pause', config: { title: 'Kaffeepause', minutes: 10, question: true } })).toBe('Kaffeepause');
   });
 });
