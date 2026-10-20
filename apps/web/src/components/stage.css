@@ -727,6 +727,36 @@
 .stage-countdown-popup.is-end svg {
   color: var(--danger);
 }
+/* Phasenwechsel: neutrale Tinte statt Warnfarbe, zweizeilig */
+.stage-countdown-popup.is-phase {
+  border-color: var(--ink);
+  width: 24em;
+  margin-left: -12em;
+}
+.stage-countdown-popup.is-phase svg {
+  color: var(--ink);
+}
+.stage-countdown-popup-text {
+  display: grid;
+  text-align: center;
+}
+.stage-countdown-popup-sub {
+  font-size: 0.7em;
+  font-weight: 500;
+  color: var(--ink-2);
+}
+/* Bezeichnung der Phase im Countdown */
+.countdown-phase {
+  font-weight: 600;
+  max-width: 14em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.countdown-phase-count {
+  font-weight: 500;
+  opacity: 0.7;
+}
 
 /* Gruppen bilden */
 .stage-results.teams-stage {

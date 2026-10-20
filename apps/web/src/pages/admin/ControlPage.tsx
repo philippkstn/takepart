@@ -48,6 +48,7 @@ import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './Presente
 import { CountdownBadge } from '../../components/Countdown.tsx';
 import { PauseControl } from './PauseControl.tsx';
 import { DisplayStatus, EndRehearsalDialog, InviteButton, RehearsalBadge, RehearsalControls } from './RehearsalPanel.tsx';
+import { PlanStatus, SlideCountdownButton } from './SchedulePanel.tsx';
 import './admin.css';
 
 export default function ControlPage() {
@@ -150,6 +151,7 @@ export default function ControlPage() {
         </div>
         {view.rehearsal && <RehearsalBadge />}
         <PresenterClock view={view} offset={offset} onReset={() => command({ action: 'timer-reset' })} />
+        <PlanStatus view={view} offset={offset} />
         <SignalsBar view={view} offset={offset} command={command} />
         <PresenceButton view={view} />
         <DisplayStatus displays={view.displays} />
@@ -789,11 +791,14 @@ function CountdownControl({ view, offset, command }: { view: HostView; offset: n
   const running = view.countdown;
   const start = (seconds: number) => void command({ action: 'countdown', seconds });
   if (running) {
-    const remaining = Math.max(0, running.endsAt - (Date.now() + offset));
     return (
       <span className="row countdown-control">
         <CountdownBadge countdown={running} offset={offset} className="pill" />
-        <button className="btn btn-small" onClick={() => start(Math.ceil(remaining / 1000) + 60)} title="Eine Minute mehr">
+        <button
+          className="btn btn-small"
+          onClick={() => void command({ action: 'countdown-extend', seconds: 60 })}
+          title={running.phases?.length ? 'Eine Minute mehr für die aktuelle Phase' : 'Eine Minute mehr'}
+        >
           +1 Min.
         </button>
         <button className="btn btn-small" onClick={() => void command({ action: 'countdown', seconds: null })}>
@@ -803,29 +808,32 @@ function CountdownControl({ view, offset, command }: { view: HostView; offset: n
     );
   }
   return (
-    <label className="row countdown-control" title="Countdown auf Beamer und Handys">
-      <select
-        className="select select-small"
-        value=""
-        aria-label="Countdown starten"
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v === 'custom') {
-            const input = window.prompt('Wie viele Minuten?', '15');
-            const minutes = input ? Number(input.replace(',', '.')) : NaN;
-            if (minutes > 0 && minutes <= 240) start(Math.round(minutes * 60));
-          } else if (v) start(Number(v) * 60);
-        }}
-      >
-        <option value="">Countdown starten …</option>
-        {[1, 2, 3, 5, 10, 15, 20, 30, 45].map((m) => (
-          <option key={m} value={m}>
-            {m} Minuten
-          </option>
-        ))}
-        <option value="custom">Eigene Dauer …</option>
-      </select>
-    </label>
+    <span className="row countdown-control">
+      <SlideCountdownButton view={view} command={command} />
+      <label className="row countdown-control" title="Countdown auf Beamer und Handys">
+        <select
+          className="select select-small"
+          value=""
+          aria-label="Countdown starten"
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v === 'custom') {
+              const input = window.prompt('Wie viele Minuten?', '15');
+              const minutes = input ? Number(input.replace(',', '.')) : NaN;
+              if (minutes > 0 && minutes <= 240) start(Math.round(minutes * 60));
+            } else if (v) start(Number(v) * 60);
+          }}
+        >
+          <option value="">Countdown starten …</option>
+          {[1, 2, 3, 5, 10, 15, 20, 30, 45].map((m) => (
+            <option key={m} value={m}>
+              {m} Minuten
+            </option>
+          ))}
+          <option value="custom">Eigene Dauer …</option>
+        </select>
+      </label>
+    </span>
   );
 }
 

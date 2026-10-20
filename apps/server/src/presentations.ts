@@ -4,7 +4,9 @@ import {
   CREATABLE_SLIDE_TYPES,
   defaultConfig,
   parseConfig,
+  scheduleInput,
   SENTENCE_STARTERS,
+  type SlideSchedule,
   type SlideType,
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
@@ -17,6 +19,7 @@ import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts
 import { DEMO_TITLE, insertDemoSlides } from './demo.ts';
 import type { LiveHub } from './live.ts';
 import { loadSlides } from './snapshot.ts';
+import { loadSchedule, SCHEDULE_COLUMNS, scheduleFromRow, scheduleValues, type ScheduleRow } from './schedule.ts';
 
 const idParam = z.object({ id: z.coerce.number().int() });
 
@@ -35,15 +38,14 @@ async function insertSlide(
   type: SlideType,
   config: unknown,
   notes: string | null = null,
+  schedule?: SlideSchedule,
 ) {
   const parsed = parseConfig(type, config);
-  return exec(conn, 'INSERT INTO slides (presentation_id, position, type, config, notes) VALUES (?, ?, ?, ?, ?)', [
-    presentationId,
-    position,
-    type,
-    JSON.stringify(parsed),
-    notes || null,
-  ]);
+  return exec(
+    conn,
+    `INSERT INTO slides (presentation_id, position, type, config, notes, ${SCHEDULE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [presentationId, position, type, JSON.stringify(parsed), notes || null, ...scheduleValues(schedule)],
+  );
 }
 
 /** Folien neu durchnummerieren (Reihenfolge = übergebene IDs). */
@@ -173,6 +175,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
           ])
         ).map((r) => [r.id, r.notes]),
       ),
+      // Ablaufplan (Soll-Dauer, Phasen, Auto-Start) – ebenfalls nur für den Host
+      schedule: Object.fromEntries(await loadSchedule(db, id)),
       liveRun: liveRun ?? null,
       rehearsalRun: rehearsalRun ?? null,
     };
@@ -224,6 +228,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
         r.notes,
       ]),
     );
+    const schedule = await loadSchedule(db, id);
     const newId = await transaction(db, async (conn) => {
       const result = await exec(
         conn,
@@ -234,7 +239,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       const assetMap = await copyAssets(conn, id, result.insertId);
       for (const [i, s] of slides.entries()) {
         const config = s.type === 'image' ? { ...s.config, asset: assetMap.get(s.config.asset) ?? s.config.asset } : s.config;
-        await insertSlide(conn, result.insertId, i, s.type, config, notes.get(s.id) ?? null);
+        await insertSlide(conn, result.insertId, i, s.type, config, notes.get(s.id) ?? null, schedule.get(s.id));
       }
       return result.insertId;
     });
@@ -299,7 +304,12 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
 
   app.patch('/api/slides/:id', ownSlide, async (request, reply) => {
     const { id } = idParam.parse(request.params);
-    const body = z.object({ config: z.unknown().optional(), notes: notesInput.optional() }).parse(request.body);
+    const parsedBody = z
+      .object({ config: z.unknown().optional(), notes: notesInput.optional() })
+      .and(scheduleInput)
+      .safeParse(request.body);
+    if (!parsedBody.success) return reply.code(400).send({ error: parsedBody.error.issues[0]?.message || 'Ungültige Eingabe' });
+    const body = parsedBody.data;
     const slide = await one<{ presentation_id: number; type: SlideType; config: string }>(
       db,
       'SELECT presentation_id, type, config FROM slides WHERE id = ?',
@@ -322,8 +332,13 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       await exec(db, 'UPDATE slides SET config = ? WHERE id = ?', [JSON.stringify(config), id]);
     }
     if (body.notes !== undefined) await exec(db, 'UPDATE slides SET notes = ? WHERE id = ?', [body.notes || null, id]);
+    if (body.plannedMinutes !== undefined) await exec(db, 'UPDATE slides SET planned_minutes = ? WHERE id = ?', [body.plannedMinutes, id]);
+    if (body.phases !== undefined)
+      await exec(db, 'UPDATE slides SET phases = ? WHERE id = ?', [body.phases.length > 0 ? JSON.stringify(body.phases) : null, id]);
+    if (body.autoCountdown !== undefined)
+      await exec(db, 'UPDATE slides SET auto_countdown = ? WHERE id = ?', [body.autoCountdown ? 1 : 0, id]);
     await touch(slide.presentation_id);
-    return { config, notes: body.notes };
+    return { config, notes: body.notes, plannedMinutes: body.plannedMinutes, phases: body.phases, autoCountdown: body.autoCountdown };
   });
 
   app.delete('/api/slides/:id', ownSlide, async (request) => {
@@ -338,9 +353,9 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
 
   app.post('/api/slides/:id/duplicate', ownSlide, async (request, reply) => {
     const { id } = idParam.parse(request.params);
-    const slide = await one<{ presentation_id: number; type: SlideType; config: string; notes: string | null }>(
+    const slide = await one<ScheduleRow & { presentation_id: number; type: SlideType; config: string; notes: string | null }>(
       db,
-      'SELECT presentation_id, type, config, notes FROM slides WHERE id = ?',
+      `SELECT presentation_id, type, config, notes, ${SCHEDULE_COLUMNS} FROM slides WHERE id = ?`,
       [id],
     );
     if (!slide) return reply.code(404).send({ error: 'Folie nicht gefunden' });
@@ -350,7 +365,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
           slide.presentation_id,
         ])
       ).map((s) => s.id);
-      const result = await insertSlide(conn, slide.presentation_id, 0, slide.type, json(slide.config), slide.notes);
+      const result = await insertSlide(conn, slide.presentation_id, 0, slide.type, json(slide.config), slide.notes, scheduleFromRow(slide));
       ids.splice(ids.indexOf(id) + 1, 0, result.insertId);
       for (const [i, sid] of ids.entries()) await exec(conn, 'UPDATE slides SET position = ? WHERE id = ?', [i, sid]);
       return result.insertId;

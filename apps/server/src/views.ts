@@ -8,6 +8,7 @@ import {
   sentenceStart,
   sentenceState,
   slideHeadline,
+  slidePlannedMinutes,
   type DisplayView,
   type HostView,
   type ParticipantView,
@@ -349,6 +350,8 @@ export function hostView(
       headline: slideHeadline(s),
       responses: snap.counts.get(s.id) ?? 0,
       thumb: s.type === 'image' ? assetThumbUrl(s.config.asset) : null,
+      plannedMinutes: slidePlannedMinutes(snap.schedule.get(s.id)),
+      phases: snap.schedule.get(s.id)?.phases ?? [],
     })),
   };
 }

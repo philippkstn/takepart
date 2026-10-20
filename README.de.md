@@ -28,6 +28,8 @@ Das Publikum macht mit einem 6-stelligen Code oder per QR-Code mit – ohne Kont
 
 **Der ganze Vortrag läuft in TakePart:** Folien als PDF importieren (Export aus PowerPoint, Keynote oder Google Slides) und interaktive Folien dazwischen setzen. Sprechernotizen und Aufbau-Animationen (Elemente erscheinen Klick für Klick) kommen mit, wenn du die `.pptx` dazugibst. Eine Referentenansicht zeigt Notizen, nächste Folie, Timer und Uhrzeit; Laserpointer und Stift zeichnen auf den geteilten Bildschirm; nach dem Vortrag teilst du Folien und zusammengefasste Ergebnisse per Link.
 
+**Zeitplan und Phasen:** Jede Folie bekommt auf Wunsch eine geplante Dauer, und das Steuerpult zeigt, ob du vor oder hinter dem Plan liegst. Workshop-Folien können eine Phasenfolge haben (z. B. „15 Min. Gespräch – 15 Min. Rollenwechsel – 10 Min. allein Karten schreiben“), die als Countdown auf Beamer und allen Teilnehmer-Geräten läuft – mit aktueller Phase, „Phase 2 von 3“, Vorschau auf die nächste und einem Hinweis bei jedem Wechsel; auf Wunsch startet sie beim Öffnen der Folie von selbst.
+
 Dazu: optionales Branding pro Präsentation (Logo, Akzent- und Diagrammfarbe), mehrere Konten mit Anmeldung per Passkey und/oder Passwort (jedes Konto sieht nur seine eigenen Präsentationen), automatische Gruppeneinteilung (zufällig, nach Größe oder Anzahl, gemischt nach Rollen) mit Breakout-Unterstützung (jede Gruppe sammelt eigene Karten und meldet sich fertig, ein Sammelruf holt alle zurück ins Plenum), ein Archiv jeder Durchführung mit CSV-Export und druckfertigem Fotoprotokoll (PDF), Import/Export ganzer Präsentationen samt Durchführungen und ein Demo-Foliensatz mit allen Funktionen.
 
 ## Schnellstart (Docker)

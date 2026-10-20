@@ -726,6 +726,98 @@ button.board-group-name:hover {
 .countdown-alert.is-end > svg {
   color: var(--danger);
 }
+.countdown-alert.is-phase {
+  border-color: var(--ink);
+}
+.countdown-alert.is-phase > svg {
+  color: var(--ink);
+}
+
+/* Kopfzeile und Phasen-Countdown bleiben beim Scrollen oben */
+.p-top {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.p-top .p-header {
+  position: static;
+}
+
+/* Phasen-Countdown (Gruppenarbeit): auf jeder Folie unter der Kopfzeile */
+.phase-banner {
+  display: grid;
+  gap: 8px;
+  padding: 10px 18px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.phase-banner-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+.phase-banner-text {
+  display: grid;
+  min-width: 0;
+}
+.phase-banner-count {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.phase-banner-label {
+  font-size: 1.15rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.phase-banner-time {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.phase-banner-progress {
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.phase-banner-progress > div {
+  height: 100%;
+  background: var(--ink);
+  transform-origin: left;
+  transition: transform 250ms linear;
+}
+.phase-banner-foot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  color: var(--ink-2);
+}
+.phase-banner-sound {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  color: var(--ink-2);
+  padding: 2px 8px;
+  font: inherit;
+  cursor: pointer;
+}
+.phase-banner.is-done .phase-banner-label {
+  color: var(--danger);
+}
 
 /* ───────────── Kartenwand: Handy untereinander, Desktop nebeneinander ───────────── */
 

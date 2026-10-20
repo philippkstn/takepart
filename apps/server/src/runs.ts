@@ -23,6 +23,9 @@ import {
   type SlideConfigs,
   type SlideResults,
   type RunState,
+  extendCountdown,
+  scheduleCountdown,
+  type SlideSchedule,
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -38,6 +41,7 @@ import { CommandError } from './errors.ts';
 import { exportCsv } from './export.ts';
 import type { LiveHub } from './live.ts';
 import { computeResults, effectiveQuiz, loadSlides, sentenceText } from './snapshot.ts';
+import { loadSchedule } from './schedule.ts';
 
 /** Befehle pro Durchführung nacheinander ausführen (ein Prozess, kein DB-Lock nötig). */
 const locks = new Map<number, Promise<unknown>>();
@@ -70,7 +74,8 @@ async function saveRunState(db: Db, runId: number, state: RunState) {
 /** Wendet einen Steuerbefehl auf den Zustand an. Reine Zustandsänderungen; Löschungen laufen separat. */
 /**
  * Wendet einen Steuerbefehl auf den Zustand an. `buildSteps` kennt je Folie die
- * Anzahl der Aufbau-Klicks (importierte Animationen).
+ * Anzahl der Aufbau-Klicks (importierte Animationen), `schedule` den Ablaufplan
+ * je Folie (Auto-Start des Countdowns beim Betreten, Countdown der Folie).
  */
 export function applyCommand(
   state: RunState,
@@ -78,6 +83,7 @@ export function applyCommand(
   slideIds: number[],
   now = Date.now(),
   buildSteps: Map<number, number> = new Map(),
+  schedule: Map<number, SlideSchedule> = new Map(),
 ): RunState {
   const s: RunState = structuredClone(state);
   const setBuild = (slideId: number, value: number) => {
@@ -89,6 +95,12 @@ export function applyCommand(
       s.spotlight = null;
       s.leaderboard = false;
       if (s.picker?.shown) s.picker = { ...s.picker, shown: false };
+      // Countdown beim Betreten neu starten; beim Verlassen läuft er weiter
+      const plan = schedule.get(slideId);
+      if (plan?.autoCountdown) {
+        const countdown = scheduleCountdown(plan, now);
+        if (countdown) s.countdown = countdown;
+      }
     }
     setBuild(slideId, build);
   };
@@ -214,6 +226,17 @@ export function applyCommand(
       break;
     case 'callback':
       applyBreakoutCommand(s, cmd, now);
+      break;
+    case 'countdown-slide': {
+      assertSlide(cmd.slideId);
+      const countdown = scheduleCountdown(schedule.get(cmd.slideId), now);
+      if (!countdown) throw new CommandError('Diese Folie hat weder Phasen noch eine geplante Dauer');
+      s.countdown = countdown;
+      break;
+    }
+    case 'countdown-extend':
+      if (!s.countdown) throw new CommandError('Es läuft kein Countdown');
+      s.countdown = extendCountdown(s.countdown, cmd.seconds, now);
       break;
     case 'board-rights':
       assertSlide(cmd.slideId);
@@ -392,6 +415,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
             slides.map((s) => s.id),
             Date.now(),
             new Map(slides.map((s) => [s.id, buildSteps(s)])),
+            await loadSchedule(db, run.presentationId),
           ),
         );
       });

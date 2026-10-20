@@ -31,7 +31,7 @@ export default function DisplayPage() {
   const runId = view?.run.id;
   const sound = useCountdownSounds(view?.countdown ?? null, offset);
   // Pause: dieselben Töne eine Minute vor Ende und bei Ablauf
-  useCountdownMoments(view?.pause ?? null, offset, (moment) => (moment === 'warning' ? playWarning() : playEnd()));
+  useCountdownMoments(view?.pause ?? null, offset, (moment) => (moment.kind === 'warning' ? playWarning() : playEnd()));
 
   useEffect(() => {
     const onChange = () => setFullscreen(!!document.fullscreenElement);

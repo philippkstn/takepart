@@ -1,4 +1,4 @@
-import { boardRights, initialRunState, sentenceState, type RunState } from '@slides/shared';
+import { boardRights, initialRunState, sentenceState, type RunState, type SlideSchedule } from '@slides/shared';
 import { describe, expect, it } from 'vitest';
 import { applyCommand, CommandError } from './runs.ts';
 import { effectiveQuiz } from './snapshot.ts';
@@ -110,5 +110,67 @@ describe('Workshop-Befehle', () => {
     expect(boardRights(s, { id: 20, config: { rights: 'host' } })).toBe('all');
     expect(boardRights(s, { id: 30, config: { rights: 'own' } })).toBe('own');
     expect(() => applyCommand(s, { action: 'board-rights', slideId: 99, rights: 'all' }, slides)).toThrow(CommandError);
+  });
+});
+
+describe('Ablaufplan', () => {
+  const schedule = new Map<number, SlideSchedule>([
+    [
+      20,
+      {
+        plannedMinutes: null,
+        autoCountdown: true,
+        phases: [
+          { label: 'Gespräch', minutes: 15 },
+          { label: 'Rollenwechsel', minutes: 15 },
+        ],
+      },
+    ],
+    [30, { plannedMinutes: 5, phases: [], autoCountdown: false }],
+  ]);
+  const noBuilds = new Map<number, number>();
+
+  it('startet den Countdown mit Phasen beim Betreten (goto, step, jump)', () => {
+    for (const cmd of [
+      { action: 'goto', slideId: 20 },
+      { action: 'step', delta: 1 },
+      { action: 'jump', index: 1 },
+    ] as const) {
+      const s = applyCommand(initialRunState(10), cmd, slides, 1000, noBuilds, schedule);
+      expect(s.slideId).toBe(20);
+      expect(s.countdown).toEqual({
+        endsAt: 1000 + 30 * 60_000,
+        seconds: 1800,
+        phases: [
+          { label: 'Gespräch', seconds: 900 },
+          { label: 'Rollenwechsel', seconds: 900 },
+        ],
+      });
+    }
+  });
+
+  it('startet nicht neu, wenn die Folie schon aktiv ist, und stoppt beim Verlassen nicht', () => {
+    let s = applyCommand(initialRunState(10), { action: 'goto', slideId: 20 }, slides, 1000, noBuilds, schedule);
+    const running = s.countdown;
+    s = applyCommand(s, { action: 'goto', slideId: 20 }, slides, 5000, noBuilds, schedule);
+    expect(s.countdown).toEqual(running);
+    // Folie 30 hat keinen Auto-Start: Countdown läuft weiter
+    s = applyCommand(s, { action: 'step', delta: 1 }, slides, 6000, noBuilds, schedule);
+    expect(s.slideId).toBe(30);
+    expect(s.countdown).toEqual(running);
+  });
+
+  it('ohne Ablaufplan bleibt alles wie bisher', () => {
+    const s = applyCommand(initialRunState(10), { action: 'goto', slideId: 20 }, slides, 1000);
+    expect(s.countdown).toBeUndefined();
+  });
+
+  it('startet den Countdown einer Folie von Hand und verlängert ihn', () => {
+    let s = applyCommand(initialRunState(10), { action: 'countdown-slide', slideId: 30 }, slides, 1000, noBuilds, schedule);
+    expect(s.countdown).toEqual({ endsAt: 301_000, seconds: 300 });
+    s = applyCommand(s, { action: 'countdown-extend', seconds: 60 }, slides, 2000, noBuilds, schedule);
+    expect(s.countdown).toEqual({ endsAt: 361_000, seconds: 360 });
+    expect(() => applyCommand(s, { action: 'countdown-slide', slideId: 10 }, slides, 1000, noBuilds, schedule)).toThrow(CommandError);
+    expect(() => applyCommand(initialRunState(10), { action: 'countdown-extend', seconds: 60 }, slides)).toThrow(CommandError);
   });
 });

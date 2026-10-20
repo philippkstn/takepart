@@ -15,3 +15,4 @@ export * from './moderation.ts';
 export * from './breakout.ts';
 export * from './blocks.ts';
 export * from './rehearsal.ts';
+export * from './schedule.ts';

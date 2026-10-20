@@ -99,7 +99,7 @@ export function PauseAlert({ pause, offset }: { pause: ParticipantPause | null |
   useCountdownMoments(pause ?? null, offset, setMoment);
   useEffect(() => {
     if (!moment) return;
-    const t = window.setTimeout(() => setMoment(null), moment === 'warning' ? 6000 : 12000);
+    const t = window.setTimeout(() => setMoment(null), moment.kind === 'warning' ? 6000 : 12000);
     return () => window.clearTimeout(t);
   }, [moment]);
   useEffect(() => {
@@ -108,11 +108,11 @@ export function PauseAlert({ pause, offset }: { pause: ParticipantPause | null |
 
   if (!moment) return null;
   return (
-    <div className={`countdown-alert anim-pop ${moment === 'end' ? 'is-end' : ''}`} role="alert">
+    <div className={`countdown-alert anim-pop ${moment.kind === 'end' ? 'is-end' : ''}`} role="alert">
       <Coffee aria-hidden />
       <div className="grow">
-        <strong>{moment === 'warning' ? 'Noch 1 Minute Pause' : 'Die Pause ist vorbei'}</strong>
-        <div className="small">{moment === 'warning' ? 'Gleich geht es weiter.' : 'Bitte wieder Platz nehmen.'}</div>
+        <strong>{moment.kind === 'warning' ? 'Noch 1 Minute Pause' : 'Die Pause ist vorbei'}</strong>
+        <div className="small">{moment.kind === 'warning' ? 'Gleich geht es weiter.' : 'Bitte wieder Platz nehmen.'}</div>
       </div>
       <button className="icon-btn" aria-label="Schließen" onClick={() => setMoment(null)}>
         <X />
