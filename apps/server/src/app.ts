@@ -10,11 +10,15 @@ import { assetRoutes, deleteAllOrphanAssets } from './assets.ts';
 import { owns } from './access.ts';
 import { authRoutes, currentAccount } from './auth.ts';
 import { brandRoutes } from './brands.ts';
+import { compareRoutes } from './compare.ts';
 import type { Config } from './config.ts';
 import { one, type Db } from './db.ts';
+import { followupRoutes } from './followup.ts';
 import { LiveHub } from './live.ts';
+import { noteRoutes } from './notes.ts';
 import { participantByToken, participantRoutes } from './participants.ts';
 import { presentationRoutes } from './presentations.ts';
+import { protocolRoutes } from './protocol.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
 import { userRoutes } from './users.ts';
@@ -116,6 +120,11 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   userRoutes(app, db, live);
   transferRoutes(app, db);
   participantRoutes(app, db, live);
+  // Nach dem Workshop: Protokollnotizen, geteiltes Fotoprotokoll, Folgetermin, Vergleich
+  noteRoutes(app, db);
+  protocolRoutes(app, db);
+  followupRoutes(app, db);
+  compareRoutes(app, db);
 
   /**
    * Live-Verbindung. Drei Rollen:

@@ -299,4 +299,23 @@ export const migrations: Migration[] = [
       }
     },
   },
+  {
+    // Nach dem Workshop: Protokollnotizen der Moderation je Folie und ein eigener Link
+    // zum Teilen des Fotoprotokolls (mit oder ohne Namen).
+    name: '008_after',
+    statements: [
+      `CREATE TABLE run_notes (
+        run_id INT UNSIGNED NOT NULL,
+        slide_id INT UNSIGNED NOT NULL,
+        text TEXT NOT NULL,
+        updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (run_id, slide_id),
+        CONSTRAINT fk_run_notes_run FOREIGN KEY (run_id) REFERENCES runs (id) ON DELETE CASCADE,
+        CONSTRAINT fk_run_notes_slide FOREIGN KEY (slide_id) REFERENCES slides (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `ALTER TABLE runs ADD COLUMN protocol_token CHAR(32) NULL AFTER handout_token,
+        ADD COLUMN protocol_names TINYINT NOT NULL DEFAULT 1 AFTER protocol_token,
+        ADD UNIQUE KEY uq_runs_protocol_token (protocol_token)`,
+    ],
+  },
 ];

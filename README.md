@@ -9,24 +9,24 @@
 
 Your audience joins with a 6-digit code or QR code – no account, no app. You run the show from a control panel (laptop or phone) while a separate presenter view shows the results live. The interface is in German.
 
-| Activity | What it does |
-|---|---|
-| Text slide | Title, text and – on the title slide – join code and QR code |
-| Multiple choice | Single or multiple answers, live bar chart |
-| Open answers | Free text, show single answers full screen |
-| Scale | 1–5 / 1–7 / 1–10 with average and distribution |
-| Word cloud | 1–3 terms per person |
-| Ranking | Tap options in order, Borda count |
-| Quiz | Timer, points for speed, leaderboard |
-| Brainstorming | Collect ideas, audience upvotes |
-| Pinboard | Shared sticky notes in columns |
-| Feedback | Star rating plus comment |
-| Q&A | Named questions, upvotes, moderation, show one question full screen |
+| Activity              | What it does                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| Text slide            | Title, text and – on the title slide – join code and QR code                                     |
+| Multiple choice       | Single or multiple answers, live bar chart                                                       |
+| Open answers          | Free text, show single answers full screen                                                       |
+| Scale                 | 1–5 / 1–7 / 1–10 with average and distribution                                                   |
+| Word cloud            | 1–3 terms per person                                                                             |
+| Ranking               | Tap options in order, Borda count                                                                |
+| Quiz                  | Timer, points for speed, leaderboard                                                             |
+| Brainstorming         | Collect ideas, audience upvotes                                                                  |
+| Pinboard              | Shared sticky notes in columns                                                                   |
+| Feedback              | Star rating plus comment                                                                         |
+| Q&A                   | Named questions, upvotes, moderation, show one question full screen                              |
 | Complete the sentence | Everyone types the most likely next word; you reveal the answers and append the most popular one |
 
 **Run the whole talk in TakePart:** import your slides as PDF (export from PowerPoint, Keynote or Google Slides) and place interactive slides between them. Speaker notes and build animations (elements appearing click by click) come along from the `.pptx` if you add it. A presenter view shows notes, the next slide, a timer and the clock; a laser pointer and pen draw on the shared screen; afterwards you can share the slides and aggregated results with the audience via a link.
 
-Plus: optional branding per presentation (logo, accent and chart colour), multiple accounts with passkey and/or password login (each account only sees its own presentations), import/export of whole presentations including sessions, automatic group assignment (random, by size or count, mixed by role), an archive of every session with CSV export and a print-ready photo protocol (PDF), and a demo deck that shows every feature.
+Plus: optional branding per presentation (logo, accent and chart colour), multiple accounts with passkey and/or password login (each account only sees its own presentations), import/export of whole presentations including sessions, automatic group assignment (random, by size or count, mixed by role), an archive of every session with CSV export and a print-ready photo protocol (PDF) including live minutes by the facilitator and an optional share link, a follow-up template built from the agreed top topics, a comparison across sessions of a workshop series (recurring topics), and a demo deck that shows every feature.
 
 ## Quick start (Docker)
 
@@ -62,15 +62,15 @@ In the editor, click **“PDF importieren”** and choose the PDF export of your
 
 Set these as environment variables (with Compose, e.g. in a `.env` file next to `docker-compose.yml`).
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `APP_ORIGIN` | `http://localhost:8080` | Public address in the browser. Passkeys are bound to it. |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | see compose file | MariaDB/MySQL connection. **Change `DB_PASSWORD`.** |
-| `TRUST_PROXY_HOPS` | `0` (compose) | Number of proxies in front of TakePart: none `0`, reverse proxy `1`, reverse proxy + Cloudflare `2`. Too high lets clients fake their IP. |
-| `SETUP_TOKEN` | generated | Fixed token for the first account instead of the generated one. |
-| `IMPRINT_URL`, `PRIVACY_URL` | – | Legal links in the footer (shown only if set). |
-| `SOURCE_URL` | this repository | Source code link in the footer. If you run a modified version, link your code (AGPL). |
-| `TAKEPART_PORT` | `8080` | Host port in `docker-compose.yml`. |
+| Variable                                                  | Default                 | Purpose                                                                                                                                   |
+| --------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ORIGIN`                                              | `http://localhost:8080` | Public address in the browser. Passkeys are bound to it.                                                                                  |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | see compose file        | MariaDB/MySQL connection. **Change `DB_PASSWORD`.**                                                                                       |
+| `TRUST_PROXY_HOPS`                                        | `0` (compose)           | Number of proxies in front of TakePart: none `0`, reverse proxy `1`, reverse proxy + Cloudflare `2`. Too high lets clients fake their IP. |
+| `SETUP_TOKEN`                                             | generated               | Fixed token for the first account instead of the generated one.                                                                           |
+| `IMPRINT_URL`, `PRIVACY_URL`                              | –                       | Legal links in the footer (shown only if set).                                                                                            |
+| `SOURCE_URL`                                              | this repository         | Source code link in the footer. If you run a modified version, link your code (AGPL).                                                     |
+| `TAKEPART_PORT`                                           | `8080`                  | Host port in `docker-compose.yml`.                                                                                                        |
 
 Example `.env` for a public instance:
 

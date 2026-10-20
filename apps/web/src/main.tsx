@@ -19,6 +19,8 @@ const ProtocolPage = lazy(() => import('./pages/admin/ProtocolPage.tsx'));
 const SettingsPage = lazy(() => import('./pages/admin/SettingsPage.tsx'));
 const DisplayPage = lazy(() => import('./pages/DisplayPage.tsx'));
 const HandoutPage = lazy(() => import('./pages/HandoutPage.tsx'));
+const ProtocolSharePage = lazy(() => import('./pages/ProtocolSharePage.tsx'));
+const ComparePage = lazy(() => import('./pages/admin/ComparePage.tsx'));
 
 function CodeRoute() {
   const { code = '' } = useParams();
@@ -31,12 +33,14 @@ const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/d/:token', element: <DisplayPage /> },
   { path: '/h/:token', element: <HandoutPage /> },
+  { path: '/p/:token', element: <ProtocolSharePage /> },
   {
     path: '/admin',
     element: <AdminLayout />,
     children: [
       { index: true, element: <PresentationsPage /> },
       { path: 'p/:id', element: <EditorPage /> },
+      { path: 'p/:id/vergleich', element: <ComparePage /> },
       { path: 'runs/:runId', element: <ArchivePage /> },
       { path: 'runs/:runId/protokoll', element: <ProtocolPage /> },
       { path: 'einstellungen', element: <SettingsPage /> },

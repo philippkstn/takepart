@@ -44,6 +44,7 @@ import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
+import { LiveRunNote } from '../../components/protocol/RunNoteEditor.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
 import './admin.css';
 
@@ -307,6 +308,7 @@ export default function ControlPage() {
 
         <PanelResizer width={panelWidth} onWidth={setPanelWidth} />
         <PresenterSidebar view={view} build={build} builds={builds}>
+          {slide && <LiveRunNote runId={runId} slideId={slide.id} />}
           {slide ? <Panel view={view} command={command} busy={busy} /> : <p className="muted">Keine Folie ausgewählt.</p>}
         </PresenterSidebar>
       </div>

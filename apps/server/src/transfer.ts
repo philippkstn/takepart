@@ -14,7 +14,7 @@ import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts
  * Sprechernotizen, Bildern, Branding und allen Durchführungen samt Antworten,
  * Beiträgen und Kartenwand. Format: gzip-komprimiertes JSON (`.takepart`).
  *
- * Nie exportiert: Teilnehmer-Tokens, Codes, Anzeige- und Freigabe-Links – sie
+ * Nie exportiert: Teilnehmer-Tokens, Codes, Anzeige-, Freigabe- und Protokoll-Links – sie
  * sind Zugriffsrechte. Importierte Durchführungen sind immer beendet; alle IDs
  * werden neu vergeben und die Verweise darauf (Live-Zustand, Kartenschlüssel)
  * umgeschrieben.
@@ -106,6 +106,8 @@ const fileSchema = z.object({
           fields: z.array(z.string()).nullable(),
         }),
       ),
+      /** Protokollnotizen der Moderation – fehlt in älteren Dateien */
+      notes: z.array(z.object({ slideId: id, text: z.string().max(10000) })).default([]),
     }),
   ),
 });
@@ -264,6 +266,7 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
       position: number;
       fields: string | null;
     }>(db, 'SELECT slide_id, target, lane, cell, position, fields FROM board_places WHERE run_id = ?', [run.id]);
+    const notes = await query<{ slide_id: number; text: string }>(db, 'SELECT slide_id, text FROM run_notes WHERE run_id = ?', [run.id]);
     runData.push({
       startedAt: iso(run.started_at),
       endedAt: iso(run.ended_at),
@@ -306,6 +309,7 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
         position: p.position,
         fields: p.fields ? json<string[]>(p.fields) : null,
       })),
+      notes: notes.map((n) => ({ slideId: n.slide_id, text: n.text })),
     });
   }
 
@@ -502,6 +506,12 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
           'INSERT IGNORE INTO board_places (run_id, slide_id, target, lane, cell, position, fields) VALUES (?, ?, ?, ?, ?, ?, ?)',
           [runId, slideId, target, p.lane, p.cell, p.position, p.fields ? JSON.stringify(p.fields) : null],
         );
+      }
+
+      for (const n of run.notes) {
+        const slideId = slides.get(n.slideId);
+        if (slideId && n.text.trim())
+          await exec(conn, 'INSERT IGNORE INTO run_notes (run_id, slide_id, text) VALUES (?, ?, ?)', [runId, slideId, n.text]);
       }
 
       const state = remapState(run.state as unknown as RunState, slides, posts, participants);

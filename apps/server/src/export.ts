@@ -105,6 +105,16 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
     if (p.author_name) row[4] = p.author_name;
     rows.push([...row, '', p.text, details, p.created_at.toISOString()]);
   }
+  // Protokollnotizen der Moderation
+  const notes = await query<{ slide_id: number; text: string; updated_at: Date }>(
+    db,
+    'SELECT slide_id, text, updated_at FROM run_notes WHERE run_id = ?',
+    [runId],
+  );
+  for (const n of notes) {
+    if (!bySlide.has(n.slide_id)) continue;
+    rows.push([...base(n.slide_id, null), '', n.text, 'Notiz der Moderation', n.updated_at.toISOString()]);
+  }
 
   return '﻿' + rows.map((r) => r.map(cell).join(';')).join('\r\n') + '\r\n';
 }

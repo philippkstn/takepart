@@ -33,6 +33,7 @@ import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
 import { CommandError } from './errors.ts';
 import { exportCsv } from './export.ts';
+import { loadRunNotes } from './notes.ts';
 import type { LiveHub } from './live.ts';
 import { computeResults, effectiveQuiz, loadSlides, sentenceText } from './snapshot.ts';
 
@@ -468,10 +469,19 @@ function handoutBoard(config: SlideConfigs['board'], board: BoardSummary, result
 
 export async function runResults(db: Db, runId: number) {
   const run = await one<
-    BrandRow & { id: number; presentation_id: number; title: string; state: string; started_at: Date; ended_at: Date | null }
+    BrandRow & {
+      id: number;
+      presentation_id: number;
+      title: string;
+      state: string;
+      started_at: Date;
+      ended_at: Date | null;
+      protocol_token: string | null;
+      protocol_names: number;
+    }
   >(
     db,
-    `SELECT r.id, r.presentation_id, p.title, r.state, r.started_at, r.ended_at, ${BRAND_COLUMNS}
+    `SELECT r.id, r.presentation_id, p.title, r.state, r.started_at, r.ended_at, r.protocol_token, r.protocol_names, ${BRAND_COLUMNS}
        FROM runs r JOIN presentations p ON p.id = r.presentation_id LEFT JOIN brands b ON b.id = p.brand_id WHERE r.id = ?`,
     [runId],
   );
@@ -504,6 +514,8 @@ export async function runResults(db: Db, runId: number) {
     ),
   );
 
+  const notes = await loadRunNotes(db, runId);
+
   return {
     id: run.id,
     presentationId: run.presentation_id,
@@ -512,6 +524,8 @@ export async function runResults(db: Db, runId: number) {
     endedAt: run.ended_at,
     participants: Number(participants),
     brand: brandView(run),
+    // Geteiltes Fotoprotokoll (nur für den Host; protocolData entfernt es wieder)
+    protocol: run.protocol_token ? { url: `/p/${run.protocol_token}`, names: !!run.protocol_names } : null,
     slides: await Promise.all(
       slides.map(async (slide) => {
         const own = responses.filter((r) => r.slide_id === slide.id);
@@ -523,6 +537,8 @@ export async function runResults(db: Db, runId: number) {
           typeLabel: SLIDE_TYPE_LABELS[slide.type],
           headline: slideHeadline(slide),
           config: slide.config,
+          /** Protokollnotiz der Moderation (nicht die Sprechernotizen) */
+          note: notes.get(slide.id) ?? null,
           results: computeResults(
             slide,
             relevant.map((r) => json(r.payload)),

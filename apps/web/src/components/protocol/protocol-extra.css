@@ -1,0 +1,82 @@
+/*
+ * Notizen der Moderation, Link zum Teilen und Fußzeile des geteilten Fotoprotokolls.
+ */
+/* Notizen der Moderation */
+.protocol-minutes {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  break-inside: avoid;
+}
+.protocol-minutes h3 {
+  font-size: 0.95rem;
+  margin: 0;
+}
+.protocol-minutes p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+.run-note {
+  display: grid;
+  gap: 6px;
+}
+.run-note-error {
+  color: var(--danger);
+}
+.print-only {
+  display: none;
+}
+
+/* Fotoprotokoll teilen */
+.protocol-share {
+  display: grid;
+  gap: 10px;
+}
+.protocol-share-link {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.protocol-share-link .input {
+  flex: 1 1 260px;
+  min-height: 38px;
+  font-size: 0.9rem;
+}
+.protocol-share-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-s);
+  background: var(--warn-soft);
+  color: var(--ink);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.protocol-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+  padding: 0 16px 32px;
+  font-size: 0.85rem;
+  color: var(--ink-3);
+}
+
+@media print {
+  .print-only {
+    display: grid;
+  }
+}
+
+/* Steuerpult: Protokollnotiz unter den Sprechernotizen */
+.control-panel .run-note {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.control-panel .run-note .textarea {
+  min-height: 72px;
+}

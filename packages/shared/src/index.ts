@@ -11,3 +11,4 @@ export * from './words.ts';
 export * from './deck.ts';
 export * from './board.ts';
 export * from './teams.ts';
+export * from './similar.ts';

@@ -3,6 +3,8 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ChevronUp, Download, FileText, Radio, Trash2 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { BoardProtocol } from '../../components/board/BoardProtocol.tsx';
+import { FollowupButton, ProtocolShare, type ProtocolShareState } from '../../components/protocol/ProtocolShare.tsx';
+import { RunNoteEditor } from '../../components/protocol/RunNoteEditor.tsx';
 import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { FullScreenSpinner, useToast } from '../../components/ui.tsx';
@@ -20,6 +22,8 @@ interface ArchiveSlide {
   sentence: string | null;
   board: BoardSummary | null;
   teams: { name: string; members: string[] }[] | null;
+  /** Protokollnotiz der Moderation */
+  note: string | null;
 }
 
 interface RunResults {
@@ -29,6 +33,7 @@ interface RunResults {
   startedAt: string;
   endedAt: string | null;
   participants: number;
+  protocol: ProtocolShareState | null;
   slides: ArchiveSlide[];
 }
 
@@ -70,6 +75,7 @@ export default function ArchivePage() {
           <Link className="btn" to={`/admin/runs/${run.id}/protokoll`}>
             <FileText /> Fotoprotokoll (PDF)
           </Link>
+          <FollowupButton runId={run.id} />
           <a className="btn" href={`/api/runs/${run.id}/export.csv`} download>
             <Download /> CSV-Export
           </a>
@@ -81,6 +87,8 @@ export default function ArchivePage() {
           </button>
         </div>
       </div>
+
+      <ProtocolShare key={run.protocol?.url ?? 'none'} runId={run.id} protocol={run.protocol} />
 
       {run.slides.map((s, i) => (
         <section key={s.id} className="card card-pad stack archive-slide">
@@ -141,6 +149,7 @@ export default function ArchivePage() {
               ))}
             </ul>
           )}
+          <RunNoteEditor key={s.id} runId={run.id} slideId={s.id} initial={s.note ?? ''} rows={2} />
         </section>
       ))}
     </main>

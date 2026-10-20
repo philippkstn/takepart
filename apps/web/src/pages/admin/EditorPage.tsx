@@ -323,9 +323,16 @@ export default function EditorPage() {
 
       {runs.data && runs.data.length > 0 && (
         <section className="card card-pad stack runs-section">
-          <h2 className="row">
-            <Archive size={20} /> Durchführungen
-          </h2>
+          <div className="row-between">
+            <h2 className="row">
+              <Archive size={20} /> Durchführungen
+            </h2>
+            {runs.data.filter((r) => r.endedAt).length >= 2 && (
+              <Link className="btn btn-small" to={`/admin/p/${id}/vergleich`}>
+                Durchführungen vergleichen
+              </Link>
+            )}
+          </div>
           <ul className="run-list">
             {runs.data.map((r) => (
               <li key={r.id}>

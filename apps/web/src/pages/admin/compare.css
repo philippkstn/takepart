@@ -1,0 +1,47 @@
+/* Durchführungen vergleichen – baut auf protocol.css auf */
+.compare-cover {
+  min-height: 0;
+}
+.compare-select {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.compare-select legend {
+  margin-bottom: 6px;
+}
+/* Breite Vergleiche scrollen innerhalb des Blocks, nie die ganze Seite */
+.compare-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+}
+.compare-topics {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 8px;
+}
+.compare-variants {
+  font-size: 0.8rem;
+  color: var(--ink-2);
+}
+.compare-variants:empty {
+  display: none;
+}
+.compare-table h3 {
+  font-size: 0.95rem;
+  margin: 8px 0 0;
+}
+.protocol-note.is-muted {
+  border-style: dashed;
+}
+
+@media print {
+  .compare-scroll {
+    overflow: visible;
+  }
+}
