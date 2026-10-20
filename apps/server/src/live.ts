@@ -227,7 +227,7 @@ export class LiveHub {
         } else if (c.role === 'display') {
           msg = display ??= JSON.stringify({ type: 'view', view: displayView(snap, participants) } satisfies ServerMessage);
         } else {
-          msg = host ??= JSON.stringify({ type: 'view', view: hostView(snap, participants) } satisfies ServerMessage);
+          msg = host ??= JSON.stringify({ type: 'view', view: hostView(snap, participants, participantIds) } satisfies ServerMessage);
         }
         c.ws.send(msg);
       }

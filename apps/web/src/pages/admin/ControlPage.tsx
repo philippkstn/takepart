@@ -26,7 +26,6 @@ import {
   Timer,
   Trophy,
   Undo2,
-  Users,
   X,
 } from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -43,6 +42,7 @@ import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
+import { PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
 import { PauseControl } from './PauseControl.tsx';
@@ -125,9 +125,8 @@ export default function ControlPage() {
           </span>
         </div>
         <PresenterClock view={view} offset={offset} onReset={() => command({ action: 'timer-reset' })} />
-        <span className="pill" title="Verbundene Teilnehmende">
-          <Users /> <span className="tabular">{view.participants}</span>
-        </span>
+        <SignalsBar view={view} offset={offset} command={command} />
+        <PresenceButton view={view} />
         <div className="row control-head-actions">
           <a className="btn btn-small" href={displayUrl} target="slides-display" rel="noopener">
             <Maximize2 /> Beamer öffnen
@@ -303,6 +302,7 @@ export default function ControlPage() {
             <ControlGroup label="Pause">
               <PauseControl view={view} offset={offset} command={command} />
             </ControlGroup>
+            <PickerControl view={view} command={command} busy={busy || ended} />
             <ControlGroup label="Teilen">
               <HandoutToggle runId={runId} url={view.handoutUrl} />
             </ControlGroup>

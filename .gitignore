@@ -8,3 +8,4 @@ release.tgz
 .DS_Store
 coverage/
 apps/web/public/pdfjs/
+.claude/worktrees/

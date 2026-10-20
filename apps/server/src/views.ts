@@ -23,6 +23,7 @@ import {
 import { buildBoardView } from './board.ts';
 import { participantTeam, teamsView } from './teams.ts';
 import { displayPause, participantPause, pauseStats } from './pause.ts';
+import { displayPicked, hostSignals, participantModeration, pickerView, presenceView } from './moderation.ts';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
 
 /** Aufgedeckter Animationsschritt der aktuellen Folie (begrenzt auf die vorhandenen Schritte) */
@@ -214,6 +215,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     countdown: state.countdown ?? null,
     team: participantTeam(snap, participantId),
     pause: participantPause(state, participantId),
+    ...participantModeration(snap, participantId),
   };
 }
 
@@ -264,10 +266,11 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     countdown: state.countdown ?? null,
     teams: teamsView(snap, false),
     pause: displayPause(snap),
+    picked: displayPicked(snap),
   };
 }
 
-export function hostView(snap: Snapshot, participants: number): HostView {
+export function hostView(snap: Snapshot, participants: number, online: ReadonlySet<number> = new Set()): HostView {
   const { state } = snap.run;
   const slide = snap.current;
   const posts = snap.posts.map(stripPost);
@@ -315,6 +318,9 @@ export function hostView(snap: Snapshot, participants: number): HostView {
     startedAt: snap.run.startedAt,
     targetMinutes: snap.run.targetMinutes,
     handoutUrl: handoutUrl(snap),
+    signals: hostSignals(snap),
+    picker: pickerView(snap),
+    presence: presenceView(snap, online),
     slides: snap.slides.map((s) => ({
       id: s.id,
       type: s.type,

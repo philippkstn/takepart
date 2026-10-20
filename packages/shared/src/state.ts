@@ -12,6 +12,15 @@ import {
   type SlideType,
 } from './slides.ts';
 import type { WordCount } from './words.ts';
+import {
+  SIGNAL_KINDS,
+  type PickerState,
+  type PickerView,
+  type PresenceView,
+  type SignalKind,
+  type SignalStore,
+  type SignalsView,
+} from './moderation.ts';
 
 /* ───────────────────────── Zustand einer Durchführung ───────────────────────── */
 
@@ -66,6 +75,10 @@ export interface RunState {
   pause?: Pause | null;
   /** Rückmeldungen der aktuellen Pause je Teilnehmer-ID (beim Start geleert) */
   pauseVotes?: Record<string, PauseVote>;
+  /** Handzeichen der Teilnehmenden: Zeitpunkt je Art und Person (siehe moderation.ts) */
+  signals?: SignalStore;
+  /** Zufallsauswahl („Wer startet?“) */
+  picker?: PickerState | null;
 }
 
 /** Laufende Pause – gleiche Form wie der Countdown (für Restzeit, Hinweise und Töne) */
@@ -243,8 +256,18 @@ export const hostCommand = z.discriminatedUnion('action', [
     name: participantName,
     tag: z.number().int().min(0).nullable().default(null),
   }),
+  /** Handzeichen einer Art quittieren („gesehen“) */
+  z.object({ action: z.literal('signals-clear'), kind: z.enum(SIGNAL_KINDS) }),
+  /** Zufallsauswahl: Person ziehen (team = Index in der geltenden Gruppeneinteilung) */
+  z.object({ action: z.literal('pick-draw'), team: z.number().int().min(0).nullable().default(null) }),
+  z.object({ action: z.literal('pick-show') }),
+  z.object({ action: z.literal('pick-hide') }),
+  z.object({ action: z.literal('pick-reset') }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
+
+/** Handzeichen von Teilnehmenden (`POST /api/p/signal`) */
+export const signalInput = z.object({ kind: z.enum(SIGNAL_KINDS), active: z.boolean() });
 
 /* ───────────────────────── Ansichten (über WebSocket) ───────────────────────── */
 
@@ -382,6 +405,10 @@ export interface ParticipantView {
   team: ParticipantTeam | null;
   /** Laufende Pause mit der eigenen Rückmeldung */
   pause?: ParticipantPause | null;
+  /** Eigene aktive Handzeichen mit Ablaufzeitpunkt (Serverzeit) */
+  signals?: Partial<Record<SignalKind, number>>;
+  /** Bei der Zufallsauswahl gezogen: „Du bist dran!“ */
+  picked?: boolean;
 }
 
 export interface ParticipantPause extends Pause {
@@ -459,6 +486,8 @@ export interface DisplayView {
   countdown: Countdown | null;
   teams: TeamsView | null;
   pause?: DisplayPause | null;
+  /** Zufallsauswahl: gezogener Name groß auf dem Beamer */
+  picked?: string | null;
 }
 
 export interface HostSlideSummary {
@@ -490,6 +519,11 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   handoutUrl: string | null;
   /** Rückmeldungen der laufenden Pause */
   pauseStats?: PauseStats | null;
+  /** Handzeichen – nur für die Moderation */
+  signals: SignalsView;
+  picker: PickerView;
+  /** Wer gerade verbunden ist */
+  presence: PresenceView;
 }
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────
