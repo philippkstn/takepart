@@ -7,7 +7,8 @@ import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { ZodError, z } from 'zod';
 import { assetRoutes, deleteAllOrphanAssets } from './assets.ts';
-import { authRoutes, isHost } from './auth.ts';
+import { owns } from './access.ts';
+import { authRoutes, currentAccount } from './auth.ts';
 import { brandRoutes } from './brands.ts';
 import type { Config } from './config.ts';
 import { one, type Db } from './db.ts';
@@ -15,6 +16,8 @@ import { LiveHub } from './live.ts';
 import { participantByToken, participantRoutes } from './participants.ts';
 import { presentationRoutes } from './presentations.ts';
 import { handoutData, runRoutes } from './runs.ts';
+import { transferRoutes } from './transfer.ts';
+import { userRoutes } from './users.ts';
 
 function contentSecurityPolicy(origin: string): string {
   // Ältere Safari-Versionen zählen wss: nicht zu 'self' – deshalb explizit.
@@ -110,6 +113,8 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   assetRoutes(app, db);
   brandRoutes(app, db, live);
   runRoutes(app, db, live);
+  userRoutes(app, db, live);
+  transferRoutes(app, db);
   participantRoutes(app, db, live);
 
   /**
@@ -141,9 +146,10 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     if (q.data.run) {
       // Cookie-Anmeldung über WebSocket nur von der eigenen Seite (Schutz vor Cross-Site-WebSocket-Hijacking).
       if (request.headers.origin !== config.APP_ORIGIN) return reject(4003, 'Herkunft nicht erlaubt');
-      if (!(await isHost(db, request))) return reject(4001, 'Nicht angemeldet');
-      const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE id = ?', [q.data.run]);
-      if (!run) return reject(4004, 'Nicht gefunden');
+      const account = await currentAccount(db, request);
+      if (!account) return reject(4001, 'Nicht angemeldet');
+      const run = { id: q.data.run };
+      if (!(await owns(db, 'run', run.id, account.id))) return reject(4004, 'Nicht gefunden');
       const client = { ws: socket, role: 'host' as const, alive: true };
       if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
       // Nur Hosts senden: Laserpointer und Zeichnen

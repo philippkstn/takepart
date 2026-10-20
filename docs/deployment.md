@@ -29,7 +29,7 @@ Ziel: ein Uberspace-7-Konto (`<user>@<host>.uberspace.de`), Domain z. B. `slides
 2. **DNS**: A/AAAA-Einträge für die Domain auf die IPs setzen, die `uberspace web domain add` ausgibt. Das Let's-Encrypt-Zertifikat kommt automatisch, sobald der Name auflöst. Bei Cloudflare als DNS: WebSockets laufen auch über den Proxy (orange Wolke); kommt kein Zertifikat, den Proxy kurz deaktivieren.
 3. **Deploy-Schlüssel**: eigener ed25519-Schlüssel nur für dieses Repo, öffentlicher Teil in `~/.ssh/authorized_keys` auf dem Uberspace (Kommentar `github-actions@takepart`).
 4. **GitHub-Umgebung `production`** mit Secrets `DEPLOY_HOST`, `DEPLOY_USER`, `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS` (`ssh-keyscan <host>.uberspace.de`).
-5. Erster Login: `https://<domain>/login`, Setup-Token mit `ssh <user>@<host>.uberspace.de 'grep SETUP_TOKEN ~/slides/shared/.env'` holen, Passkey anlegen. Danach die Zeile `SETUP_TOKEN` aus der `.env` löschen und `supervisorctl restart slides`.
+5. Erster Login: `https://<domain>/login`, Setup-Token mit `ssh <user>@<host>.uberspace.de 'grep SETUP_TOKEN ~/slides/shared/.env'` holen, Admin-Konto mit Passkey oder Passwort anlegen. Danach die Zeile `SETUP_TOKEN` aus der `.env` löschen und `supervisorctl restart slides`.
 
 ## Ablauf eines Deployments
 
@@ -49,7 +49,9 @@ Manuell erneut ausrollen: Actions → Deploy → „Run workflow“.
 ## Sicherheit
 
 - **Proxy-Kette:** `TRUST_PROXY_HOPS` in der `.env` muss zur Kette passen – Uberspace allein `1`, mit Cloudflare-Proxy davor `2`. Ein zu hoher Wert lässt gefälschte `X-Forwarded-For`-IPs durch und hebelt die IP-Limits aus.
-- **Passkeys** verlangen Benutzerverifizierung (Fingerabdruck, Gesicht, PIN). Wird ein Passkey gelöscht, enden alle anderen Sitzungen.
+- **Konten:** jedes Konto sieht nur seine eigenen Präsentationen, Durchführungen und Brandings (`access.ts`, fremde Objekte antworten mit 404). Admins verwalten Konten, sehen aber auch nur ihre eigenen Präsentationen. Ein gelöschtes Konto nimmt seine Präsentationen mit.
+- **Passkeys** verlangen Benutzerverifizierung (Fingerabdruck, Gesicht, PIN). **Passwörter** (mind. 10 Zeichen) liegen als scrypt-Hash in der DB. Jedes Konto behält mindestens eine Anmeldeart. Wird ein Passkey gelöscht oder das Passwort geändert, enden alle anderen Sitzungen des Kontos.
+- **Export-Dateien** (`.takepart`) enthalten Namen, Freitexte und Antworten der Teilnehmenden – nie Tokens oder Links. Import bis 200 MB pro Datei; bei sehr großen Foliensätzen braucht der Server entsprechend Arbeitsspeicher.
 - **Limits:** Login 20/min pro IP; nach 30 falschen Beitritts-Codes in 10 Minuten ist eine IP gesperrt; höchstens 5.000 Teilnehmende und 6.000 Live-Verbindungen pro Durchführung, 5 pro Teilnehmer-Token.
 - **GitHub Actions** sind auf Commit-SHAs gepinnt. Zum Aktualisieren die SHA des neuen Tags eintragen (`gh api repos/actions/checkout/commits/v5 -q .sha`).
 - Abhängigkeiten prüfen: `npm audit` und `npm outdated --workspaces`. Der Server läuft gebündelt – Dev-Werkzeuge (z. B. `concurrently`) landen nicht in Produktion.

@@ -8,11 +8,11 @@ import './admin.css';
 
 export function useRequireHost() {
   const auth = useQuery({ queryKey: ['auth'], queryFn: authStatus });
-  return { loading: auth.isLoading, loggedIn: !!auth.data?.loggedIn };
+  return { loading: auth.isLoading, loggedIn: !!auth.data?.loggedIn, account: auth.data?.account ?? null };
 }
 
 export default function AdminLayout() {
-  const { loading, loggedIn } = useRequireHost();
+  const { loading, loggedIn, account } = useRequireHost();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   if (loading) return <FullScreenSpinner />;
@@ -31,6 +31,7 @@ export default function AdminLayout() {
           <BrandMark /> TakePart
         </Link>
         <span className="grow" />
+        {account && <span className="topbar-user">{account.username}</span>}
         <Link to="/admin/einstellungen" className="icon-btn" aria-label="Einstellungen" title="Einstellungen">
           <Settings />
         </Link>

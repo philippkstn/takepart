@@ -26,7 +26,7 @@ Your audience joins with a 6-digit code or QR code – no account, no app. You r
 
 **Run the whole talk in TakePart:** import your slides as PDF (export from PowerPoint, Keynote or Google Slides) and place interactive slides between them. Speaker notes and build animations (elements appearing click by click) come along from the `.pptx` if you add it. A presenter view shows notes, the next slide, a timer and the clock; a laser pointer and pen draw on the shared screen; afterwards you can share the slides and aggregated results with the audience via a link.
 
-Plus: optional branding per presentation (logo, accent and chart colour), passkey login for the presenter, an archive of every session with CSV export, and a demo deck that shows every feature.
+Plus: optional branding per presentation (logo, accent and chart colour), multiple accounts with passkey and/or password login (each account only sees its own presentations), import/export of whole presentations including sessions, an archive of every session with CSV export, and a demo deck that shows every feature.
 
 ## Quick start (Docker)
 
@@ -39,10 +39,10 @@ docker compose logs app | grep Setup-Token
 ```
 
 1. Open **http://localhost:8080/login** and enter the setup token from the log.
-2. Create your passkey (fingerprint, face or device PIN). That's your login from now on.
+2. Pick a username and create a passkey (fingerprint, face or device PIN) or a password – that's your admin account. You can add the other method later in the settings.
 3. Click **“Demo-Präsentation laden”** to load a demo deck with every feature, then **“Live starten”**.
 
-The setup token is only needed once and changes on every restart until the first passkey exists.
+The setup token is only needed once and changes on every restart until the first account exists. As an admin you create further accounts under **Settings → Accounts**.
 
 > **Running it on the internet?** Passkeys require HTTPS. Put TakePart behind a reverse proxy with TLS (e.g. Caddy or Traefik) and set `APP_ORIGIN` to the public address – see [Configuration](#configuration).
 
@@ -55,6 +55,7 @@ In the editor, click **“PDF importieren”** and choose the PDF export of your
 - **Presenter view (control panel):** current slide with laser pointer and pen, next slide, speaker notes (resizable sidebar, adjustable font size; the next-slide preview collapses to its title when space runs short), elapsed time against a target duration, clock; step through slides and animations, black or white screen, show/hide results, approve questions, append words. Works on a phone.
 - **Presenter view:** “Beamer öffnen” opens a read-only link for the screen you share. `F` toggles full screen; when you're logged in in the same browser, the keys work like in PowerPoint: → ↓ PageDown Space Enter N next, ← ↑ PageUp Backspace P back, `B`/`.` black screen, `W`/`,` white screen, Home/End, number + Enter jumps to a slide. Presenter remotes (clickers) work the same way, including their blank-screen button. Keep that window visible while sharing – browsers stop painting covered windows.
 - **Audience:** opens your address and enters the code, or scans the QR code on the title slide.
+- **Back up and move:** the download arrow in the presentation list saves a `.takepart` file with slides, notes, images, branding and every session (including participant names and answers – treat it as confidential). “Importieren” turns it into a new presentation in your own account; imported sessions are ended and show up in the archive.
 - **After the talk:** “Folien freigeben” creates a link with the slides and aggregated results (no names, free texts or questions). Participants see it on their phones; it can be printed or saved as PDF.
 
 ## Configuration
@@ -66,7 +67,7 @@ Set these as environment variables (with Compose, e.g. in a `.env` file next to 
 | `APP_ORIGIN` | `http://localhost:8080` | Public address in the browser. Passkeys are bound to it. |
 | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | see compose file | MariaDB/MySQL connection. **Change `DB_PASSWORD`.** |
 | `TRUST_PROXY_HOPS` | `0` (compose) | Number of proxies in front of TakePart: none `0`, reverse proxy `1`, reverse proxy + Cloudflare `2`. Too high lets clients fake their IP. |
-| `SETUP_TOKEN` | generated | Fixed token for the first passkey instead of the generated one. |
+| `SETUP_TOKEN` | generated | Fixed token for the first account instead of the generated one. |
 | `IMPRINT_URL`, `PRIVACY_URL` | – | Legal links in the footer (shown only if set). |
 | `SOURCE_URL` | this repository | Source code link in the footer. If you run a modified version, link your code (AGPL). |
 | `TAKEPART_PORT` | `8080` | Host port in `docker-compose.yml`. |

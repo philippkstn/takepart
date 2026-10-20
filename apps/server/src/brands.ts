@@ -1,7 +1,8 @@
 import { brandInput, LOGO_MAX_BYTES, LOGO_TYPES, type BrandView } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireHost } from './auth.ts';
+import { requireOwner } from './access.ts';
+import { accountOf, requireHost } from './auth.ts';
 import { exec, one, query, type Db } from './db.ts';
 import type { LiveHub } from './live.ts';
 
@@ -40,6 +41,7 @@ const idParam = z.object({ id: z.coerce.number().int() });
 
 export function brandRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   const host = { preHandler: requireHost(db) };
+  const ownBrand = requireOwner(db, 'brand');
 
   /** Laufende Durchführungen mit diesem Branding neu zeichnen. */
   async function touch(brandId: number) {
@@ -51,22 +53,28 @@ export function brandRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     for (const r of runs) live.notify(r.id, true);
   }
 
-  app.get('/api/brands', host, async () => {
+  app.get('/api/brands', host, async (request) => {
     const rows = await query<BrandRow & { used: number }>(
       db,
       `SELECT ${BRAND_COLUMNS}, (SELECT COUNT(*) FROM presentations p WHERE p.brand_id = b.id) AS used
-         FROM brands b ORDER BY b.name`,
+         FROM brands b WHERE b.user_id = ? ORDER BY b.name`,
+      [accountOf(request).id],
     );
     return rows.map((r) => ({ id: r.brand_id!, ...brandView(r)!, used: Number(r.used) }));
   });
 
   app.post('/api/brands', host, async (request) => {
     const body = brandInput.parse(request.body);
-    const result = await exec(db, 'INSERT INTO brands (name, accent, chart) VALUES (?, ?, ?)', [body.name, body.accent, body.chart]);
+    const result = await exec(db, 'INSERT INTO brands (user_id, name, accent, chart) VALUES (?, ?, ?, ?)', [
+      accountOf(request).id,
+      body.name,
+      body.accent,
+      body.chart,
+    ]);
     return { id: result.insertId };
   });
 
-  app.patch('/api/brands/:id', host, async (request) => {
+  app.patch('/api/brands/:id', ownBrand, async (request) => {
     const { id } = idParam.parse(request.params);
     const body = brandInput.parse(request.body);
     await exec(db, 'UPDATE brands SET name = ?, accent = ?, chart = ? WHERE id = ?', [body.name, body.accent, body.chart, id]);
@@ -74,7 +82,7 @@ export function brandRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { ok: true };
   });
 
-  app.delete('/api/brands/:id', host, async (request) => {
+  app.delete('/api/brands/:id', ownBrand, async (request) => {
     const { id } = idParam.parse(request.params);
     const runs = await query<{ id: number }>(
       db,
@@ -87,7 +95,7 @@ export function brandRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   });
 
   // Logo als Data-URL (aus dem Dateiauswahl-Dialog), daher größeres Body-Limit nur hier.
-  app.put('/api/brands/:id/logo', { ...host, bodyLimit: Math.ceil(LOGO_MAX_BYTES * 1.4) + 1024 }, async (request, reply) => {
+  app.put('/api/brands/:id/logo', { ...ownBrand, bodyLimit: Math.ceil(LOGO_MAX_BYTES * 1.4) + 1024 }, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const { dataUrl } = z.object({ dataUrl: z.string() }).parse(request.body);
     const match = /^data:([a-z+/.-]+);base64,(.+)$/.exec(dataUrl);
@@ -102,7 +110,7 @@ export function brandRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { ok: true };
   });
 
-  app.delete('/api/brands/:id/logo', host, async (request) => {
+  app.delete('/api/brands/:id/logo', ownBrand, async (request) => {
     const { id } = idParam.parse(request.params);
     await exec(db, 'UPDATE brands SET logo = NULL, logo_type = NULL WHERE id = ?', [id]);
     await touch(id);

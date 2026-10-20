@@ -57,6 +57,11 @@
   font-weight: 700;
   justify-content: center;
 }
+/* Anmeldung: Passwort-Formular unter dem Passkey-Knopf, abgesetzt durch eine feine Linie */
+.login-password {
+  border-top: 1px solid var(--border);
+  padding-top: 18px;
+}
 .p-footer {
   display: flex;
   flex-wrap: wrap;

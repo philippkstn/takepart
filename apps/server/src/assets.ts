@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { assetId } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireHost } from './auth.ts';
+import { requireOwner } from './access.ts';
 import { exec, one, type Conn, type Db } from './db.ts';
 
 /**
@@ -78,14 +78,12 @@ export async function copyAssets(conn: Conn, fromId: number, toId: number): Prom
 }
 
 export function assetRoutes(app: FastifyInstance, db: Db) {
-  const host = { preHandler: requireHost(db) };
-
   // Rohe Bilddaten als Body (nur für die Upload-Routen relevant; alle anderen erwarten JSON)
   app.addContentTypeParser([...IMAGE_TYPES], { parseAs: 'buffer', bodyLimit: MAX_IMAGE_BYTES }, (_req, body, done) => done(null, body));
 
   const uploadQuery = z.object({ width: z.coerce.number().int().min(1).max(10000), height: z.coerce.number().int().min(1).max(10000) });
 
-  app.post('/api/presentations/:id/assets', { ...host, bodyLimit: MAX_IMAGE_BYTES }, async (request, reply) => {
+  app.post('/api/presentations/:id/assets', { ...requireOwner(db, 'presentation'), bodyLimit: MAX_IMAGE_BYTES }, async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     const { width, height } = uploadQuery.parse(request.query);
     const data = request.body;
@@ -106,7 +104,7 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
     return { asset: publicId };
   });
 
-  app.put('/api/assets/:asset/thumb', { ...host, bodyLimit: MAX_IMAGE_BYTES }, async (request, reply) => {
+  app.put('/api/assets/:asset/thumb', { ...requireOwner(db, 'asset', 'asset'), bodyLimit: MAX_IMAGE_BYTES }, async (request, reply) => {
     const { asset } = z.object({ asset: assetId }).parse(request.params);
     const data = request.body;
     const mime = Buffer.isBuffer(data) ? sniffImage(data) : null;

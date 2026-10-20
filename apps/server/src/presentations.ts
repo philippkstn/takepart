@@ -2,7 +2,8 @@ import { buildsConfig, CREATABLE_SLIDE_TYPES, defaultConfig, parseConfig, SENTEN
 import type { FastifyInstance } from 'fastify';
 import { z, ZodError } from 'zod';
 import { copyAssets, deleteOrphanAssets } from './assets.ts';
-import { requireHost } from './auth.ts';
+import { requireOwner, owns } from './access.ts';
+import { accountOf, requireHost } from './auth.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts';
 import { DEMO_TITLE, insertDemoSlides } from './demo.ts';
@@ -46,6 +47,8 @@ const notesInput = z.string().max(20000);
 
 export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   const host = { preHandler: requireHost(db) };
+  const ownPresentation = requireOwner(db, 'presentation');
+  const ownSlide = requireOwner(db, 'slide');
 
   /** Laufende Durchführungen dieser Präsentation über Folienänderungen informieren. */
   async function touch(presentationId: number) {
@@ -54,7 +57,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     for (const r of runs) live.notify(r.id, true);
   }
 
-  app.get('/api/presentations', host, async () => {
+  app.get('/api/presentations', host, async (request) => {
     const rows = await query<{
       id: number;
       title: string;
@@ -71,7 +74,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
               (SELECT COUNT(*) FROM runs r WHERE r.presentation_id = p.id) AS runs,
               (SELECT r.id FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL LIMIT 1) AS live_run,
               (SELECT r.code FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL LIMIT 1) AS live_code
-         FROM presentations p ORDER BY p.updated_at DESC`,
+         FROM presentations p WHERE p.user_id = ? ORDER BY p.updated_at DESC`,
+      [accountOf(request).id],
     );
     return rows.map((r) => ({
       id: r.id,
@@ -87,7 +91,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
   app.post('/api/presentations', host, async (request) => {
     const body = z.object({ title: z.string().trim().min(1).max(200), template: z.boolean().default(true) }).parse(request.body);
     const id = await transaction(db, async (conn) => {
-      const result = await exec(conn, 'INSERT INTO presentations (title) VALUES (?)', [body.title]);
+      const result = await exec(conn, 'INSERT INTO presentations (user_id, title) VALUES (?, ?)', [accountOf(request).id, body.title]);
       if (body.template) {
         for (const [i, s] of STARTER_SLIDES.entries()) await insertSlide(conn, result.insertId, i, s.type, s.config);
       }
@@ -97,9 +101,9 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
   });
 
   /** Neue Präsentation mit dem Demo-Foliensatz (alle Funktionen). */
-  app.post('/api/presentations/demo', host, async () => {
+  app.post('/api/presentations/demo', host, async (request) => {
     const id = await transaction(db, async (conn) => {
-      const result = await exec(conn, 'INSERT INTO presentations (title) VALUES (?)', [DEMO_TITLE]);
+      const result = await exec(conn, 'INSERT INTO presentations (user_id, title) VALUES (?, ?)', [accountOf(request).id, DEMO_TITLE]);
       await insertDemoSlides(conn, result.insertId);
       return result.insertId;
     });
@@ -107,7 +111,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
   });
 
   /** Demo-Folien in eine leere Präsentation laden. */
-  app.post('/api/presentations/:id/demo-slides', host, async (request, reply) => {
+  app.post('/api/presentations/:id/demo-slides', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const pres = await one<{ id: number }>(db, 'SELECT id FROM presentations WHERE id = ?', [id]);
     if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
@@ -122,7 +126,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { ok: true };
   });
 
-  app.get('/api/presentations/:id', host, async (request, reply) => {
+  app.get('/api/presentations/:id', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const pres = await one<BrandRow & { id: number; title: string; updated_at: Date; share_slides: number; target_minutes: number | null }>(
       db,
@@ -157,7 +161,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     };
   });
 
-  app.patch('/api/presentations/:id', host, async (request) => {
+  app.patch('/api/presentations/:id', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z
       .object({
@@ -167,6 +171,9 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
         targetMinutes: z.number().int().min(1).max(600).nullable().optional(),
       })
       .parse(request.body);
+    if (body.brandId && !(await owns(db, 'brand', body.brandId, accountOf(request).id))) {
+      return reply.code(404).send({ error: 'Branding nicht gefunden' });
+    }
     if (body.shareSlides !== undefined)
       await exec(db, 'UPDATE presentations SET share_slides = ? WHERE id = ?', [body.shareSlides ? 1 : 0, id]);
     if (body.targetMinutes !== undefined)
@@ -177,7 +184,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { ok: true };
   });
 
-  app.delete('/api/presentations/:id', host, async (request) => {
+  app.delete('/api/presentations/:id', ownPresentation, async (request) => {
     const { id } = idParam.parse(request.params);
     const runs = await query<{ id: number }>(db, 'SELECT id FROM runs WHERE presentation_id = ?', [id]);
     for (const r of runs) live.end(r.id);
@@ -185,7 +192,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { ok: true };
   });
 
-  app.post('/api/presentations/:id/duplicate', host, async (request, reply) => {
+  app.post('/api/presentations/:id/duplicate', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const pres = await one<{ title: string; brand_id: number | null; share_slides: number; target_minutes: number | null }>(
       db,
@@ -201,12 +208,11 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       ]),
     );
     const newId = await transaction(db, async (conn) => {
-      const result = await exec(conn, 'INSERT INTO presentations (title, brand_id, share_slides, target_minutes) VALUES (?, ?, ?, ?)', [
-        `${pres.title} (Kopie)`.slice(0, 200),
-        pres.brand_id,
-        pres.share_slides,
-        pres.target_minutes,
-      ]);
+      const result = await exec(
+        conn,
+        'INSERT INTO presentations (user_id, title, brand_id, share_slides, target_minutes) VALUES (?, ?, ?, ?, ?)',
+        [accountOf(request).id, `${pres.title} (Kopie)`.slice(0, 200), pres.brand_id, pres.share_slides, pres.target_minutes],
+      );
       // Eigene Kopien der Bilder: die Kennungen sind zugleich Zugriffsrechte und sollen nicht geteilt werden.
       const assetMap = await copyAssets(conn, id, result.insertId);
       for (const [i, s] of slides.entries()) {
@@ -218,7 +224,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { id: newId };
   });
 
-  app.post('/api/presentations/:id/slides', host, async (request, reply) => {
+  app.post('/api/presentations/:id/slides', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z
       .object({ type: z.enum(CREATABLE_SLIDE_TYPES), afterId: z.number().int().nullable().default(null), config: z.unknown().optional() })
@@ -241,7 +247,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { id: slideId };
   });
 
-  app.patch('/api/slides/:id', host, async (request, reply) => {
+  app.patch('/api/slides/:id', ownSlide, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z.object({ config: z.unknown().optional(), notes: notesInput.optional() }).parse(request.body);
     const slide = await one<{ presentation_id: number; type: SlideType; config: string }>(
@@ -270,7 +276,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { config, notes: body.notes };
   });
 
-  app.delete('/api/slides/:id', host, async (request) => {
+  app.delete('/api/slides/:id', ownSlide, async (request) => {
     const { id } = idParam.parse(request.params);
     const slide = await one<{ presentation_id: number }>(db, 'SELECT presentation_id FROM slides WHERE id = ?', [id]);
     if (!slide) return { ok: true };
@@ -280,7 +286,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { ok: true };
   });
 
-  app.post('/api/slides/:id/duplicate', host, async (request, reply) => {
+  app.post('/api/slides/:id/duplicate', ownSlide, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const slide = await one<{ presentation_id: number; type: SlideType; config: string; notes: string | null }>(
       db,
@@ -308,7 +314,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
    * Bild-Folien einfügen – hinter `afterId` oder am Ende.
    */
   // Eigenes Limit: 100+ Folien mit Sprechernotizen sprengen die üblichen 64 KB.
-  app.post('/api/presentations/:id/slides/import', { ...host, bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
+  app.post('/api/presentations/:id/slides/import', { ...ownPresentation, bodyLimit: 8 * 1024 * 1024 }, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z
       .object({
@@ -358,7 +364,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { ids: created };
   });
 
-  app.put('/api/presentations/:id/order', host, async (request, reply) => {
+  app.put('/api/presentations/:id/order', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z.object({ ids: z.array(z.number().int()) }).parse(request.body);
     const existing = (await query<{ id: number }>(db, 'SELECT id FROM slides WHERE presentation_id = ?', [id])).map((s) => s.id);

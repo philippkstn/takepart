@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Pencil, Play, Plus, Radio, Sparkles, Trash2 } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { Copy, Download, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload } from 'lucide-react';
+import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
@@ -32,6 +32,7 @@ export default function PresentationsPage() {
   const [title, setTitle] = useState('');
   const [template, setTemplate] = useState(true);
   const start = useStartRun();
+  const fileInput = useRef<HTMLInputElement>(null);
 
   const create = useMutation({
     mutationFn: () => api<{ id: number }>('/api/presentations', { body: { title, template } }),
@@ -52,6 +53,31 @@ export default function PresentationsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['presentations'] }),
   });
 
+  const importFile = useMutation({
+    mutationFn: async (file: File) => {
+      const res = await fetch('/api/presentations/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream' },
+        body: file,
+        credentials: 'same-origin',
+      });
+      const data = (await res.json().catch(() => null)) as { id?: number; error?: string } | null;
+      if (!res.ok || !data?.id) throw new Error(data?.error ?? `Fehler ${res.status}`);
+      return data.id;
+    },
+    onSuccess: (id) => {
+      toast('Präsentation importiert');
+      navigate(`/admin/p/${id}`);
+    },
+    onError: (err) => toast(errorMessage(err), 'error'),
+  });
+
+  const pickFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) importFile.mutate(file);
+  };
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (title.trim()) create.mutate();
@@ -61,6 +87,15 @@ export default function PresentationsPage() {
     <main className="page stack">
       <div className="row-between">
         <h1>Präsentationen</h1>
+        <button
+          className="btn btn-ghost"
+          onClick={() => fileInput.current?.click()}
+          disabled={importFile.isPending}
+          title="Eine exportierte .takepart-Datei samt Durchführungen übernehmen"
+        >
+          <Upload /> {importFile.isPending ? 'Importiere …' : 'Importieren'}
+        </button>
+        <input ref={fileInput} type="file" accept=".takepart,application/gzip" hidden onChange={pickFile} />
       </div>
 
       <form className="card card-pad create-form" onSubmit={submit}>
@@ -120,6 +155,15 @@ export default function PresentationsPage() {
                 <button className="icon-btn" onClick={() => duplicate.mutate(p.id)} aria-label="Duplizieren" title="Duplizieren">
                   <Copy />
                 </button>
+                <a
+                  className="icon-btn"
+                  href={`/api/presentations/${p.id}/export`}
+                  download
+                  aria-label="Exportieren"
+                  title="Exportieren – mit allen Durchführungen, Namen und Antworten"
+                >
+                  <Download />
+                </a>
                 <button
                   className="icon-btn"
                   onClick={() => {

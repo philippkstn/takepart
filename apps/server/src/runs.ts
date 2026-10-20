@@ -26,7 +26,7 @@ import {
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireHost } from './auth.ts';
+import { requireOwner } from './access.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
@@ -217,10 +217,11 @@ function newCode(): string {
 }
 
 export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
-  const host = { preHandler: requireHost(db) };
+  const ownPresentation = requireOwner(db, 'presentation');
+  const ownRun = requireOwner(db, 'run');
   const idParam = z.object({ id: z.coerce.number().int() });
 
-  app.post('/api/presentations/:id/runs', host, async (request, reply) => {
+  app.post('/api/presentations/:id/runs', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const pres = await one<{ id: number }>(db, 'SELECT id FROM presentations WHERE id = ?', [id]);
     if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
@@ -244,7 +245,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     throw new Error('Kein freier Code gefunden');
   });
 
-  app.get('/api/presentations/:id/runs', host, async (request) => {
+  app.get('/api/presentations/:id/runs', ownPresentation, async (request) => {
     const { id } = idParam.parse(request.params);
     const rows = await query<{ id: number; code: string | null; started_at: Date; ended_at: Date | null; participants: number }>(
       db,
@@ -262,7 +263,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     }));
   });
 
-  app.post('/api/runs/:id/command', host, async (request, reply) => {
+  app.post('/api/runs/:id/command', ownRun, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const parsed = hostCommand.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Ungültiger Befehl' });
@@ -345,7 +346,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { ok: true };
   });
 
-  app.post('/api/runs/:id/end', host, async (request) => {
+  app.post('/api/runs/:id/end', ownRun, async (request) => {
     const { id } = idParam.parse(request.params);
     await exec(db, 'UPDATE runs SET ended_at = UTC_TIMESTAMP(3), code = NULL WHERE id = ? AND ended_at IS NULL', [id]);
     const run = await one<{ handout_token: string | null }>(db, 'SELECT handout_token FROM runs WHERE id = ?', [id]);
@@ -354,7 +355,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   });
 
   /** Folien und Ergebnisse für Teilnehmende freigeben (eigener, zufälliger Link) oder zurückziehen. */
-  app.post('/api/runs/:id/handout', host, async (request, reply) => {
+  app.post('/api/runs/:id/handout', ownRun, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const { enabled } = z.object({ enabled: z.boolean() }).parse(request.body);
     const token = enabled ? randomBytes(24).toString('base64url') : null;
@@ -371,7 +372,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { handoutUrl: run?.handout_token ? `/h/${run.handout_token}` : null };
   });
 
-  app.post('/api/runs/:id/display-token', host, async (request) => {
+  app.post('/api/runs/:id/display-token', ownRun, async (request) => {
     const { id } = idParam.parse(request.params);
     await exec(db, 'UPDATE runs SET display_token = ? WHERE id = ?', [randomBytes(24).toString('base64url'), id]);
     live.dropDisplays(id);
@@ -379,7 +380,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { ok: true };
   });
 
-  app.delete('/api/runs/:id', host, async (request) => {
+  app.delete('/api/runs/:id', ownRun, async (request) => {
     const { id } = idParam.parse(request.params);
     live.end(id);
     await exec(db, 'DELETE FROM runs WHERE id = ?', [id]);
@@ -387,14 +388,14 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   });
 
   /** Vollständige Ergebnisse aller Folien – für das Archiv nach dem Vortrag. */
-  app.get('/api/runs/:id/results', host, async (request, reply) => {
+  app.get('/api/runs/:id/results', ownRun, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const data = await runResults(db, id);
     if (!data) return reply.code(404).send({ error: 'Durchführung nicht gefunden' });
     return data;
   });
 
-  app.get('/api/runs/:id/export.csv', host, async (request, reply) => {
+  app.get('/api/runs/:id/export.csv', ownRun, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const csv = await exportCsv(db, id);
     if (csv === null) return reply.code(404).send({ error: 'Durchführung nicht gefunden' });

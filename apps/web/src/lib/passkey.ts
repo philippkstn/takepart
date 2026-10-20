@@ -6,13 +6,30 @@ import {
 } from '@simplewebauthn/browser';
 import { api } from './api.ts';
 
+export interface Account {
+  id: number;
+  username: string;
+  isAdmin: boolean;
+  hasPassword: boolean;
+}
+
 export interface AuthStatus {
   loggedIn: boolean;
-  hasPasskey: boolean;
+  account: Account | null;
+  /** Noch kein Konto: Ersteinrichtung mit Setup-Token */
+  setupNeeded: boolean;
   setupPossible: boolean;
 }
 
 export const authStatus = () => api<AuthStatus>('/api/auth/status');
+
+/** Muss zur Prüfung in apps/server/src/password.ts passen */
+export const MIN_PASSWORD_LENGTH = 10;
+
+export const loginWithPassword = (username: string, password: string) => api('/api/auth/password/login', { body: { username, password } });
+
+export const setupWithPassword = (username: string, password: string, setupToken: string) =>
+  api('/api/auth/setup/password', { body: { username, password, setupToken } });
 
 export async function loginWithPasskey() {
   const { options, challengeId } = await api<{ options: PublicKeyCredentialRequestOptionsJSON; challengeId: string }>(
@@ -23,10 +40,12 @@ export async function loginWithPasskey() {
   await api('/api/auth/login/verify', { body: { challengeId, response } });
 }
 
-export async function registerPasskey(label: string, setupToken?: string) {
+/** Passkey für das angemeldete Konto – oder bei der Ersteinrichtung (Setup-Token + Benutzername) für das erste Konto. */
+export async function registerPasskey(label: string, setup?: { setupToken: string; username: string }) {
+  const setupToken = setup?.setupToken;
   const { options, challengeId } = await api<{ options: PublicKeyCredentialCreationOptionsJSON; challengeId: string }>(
     '/api/auth/register/options',
-    { body: { setupToken } },
+    { body: { setupToken, username: setup?.username } },
   );
   const response = await startRegistration({ optionsJSON: options });
   await api('/api/auth/register/verify', { body: { challengeId, response, label, setupToken } });

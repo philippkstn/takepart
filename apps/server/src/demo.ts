@@ -24,6 +24,7 @@ export const DEMO_BRANDS = [
   { name: 'Demo · Leuchtturm', accent: '#C8102E', chart: '#0E7FB0', letter: 'L' },
 ];
 
+/** Nur für Migration 003 (damals ohne Konten) – neue Konten bekommen insertDemoBrandsFor. */
 export async function insertDemoBrands(conn: Conn) {
   for (const b of DEMO_BRANDS) {
     await exec(
@@ -32,6 +33,19 @@ export async function insertDemoBrands(conn: Conn) {
        SELECT ?, ?, ?, ?, 'image/svg+xml' FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM brands WHERE name = ?)`,
       [b.name, b.accent, b.chart, initialLogo(b.letter, b.accent), b.name],
     );
+  }
+}
+
+/** Demo-Brandings für ein neues Konto */
+export async function insertDemoBrandsFor(conn: Conn, userId: number) {
+  for (const b of DEMO_BRANDS) {
+    await exec(conn, `INSERT INTO brands (user_id, name, accent, chart, logo, logo_type) VALUES (?, ?, ?, ?, ?, 'image/svg+xml')`, [
+      userId,
+      b.name,
+      b.accent,
+      b.chart,
+      initialLogo(b.letter, b.accent),
+    ]);
   }
 }
 

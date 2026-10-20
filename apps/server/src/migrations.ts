@@ -5,7 +5,7 @@
  * migrate.mjs enthalten sind. Einträge nie ändern oder umsortieren – nur neue
  * anhängen. Ausgeführt von deploy.sh vor dem Umschalten (`node migrate.mjs`).
  */
-import type { Conn } from './db.ts';
+import { exec, one, type Conn } from './db.ts';
 import { insertDemoBrands } from './demo.ts';
 
 export interface Migration {
@@ -209,5 +209,52 @@ export const migrations: Migration[] = [
         CONSTRAINT fk_board_places_slide FOREIGN KEY (slide_id) REFERENCES slides (id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
     ],
+  },
+  {
+    // Mehrere Konten: jedes mit eigenen Passkeys, optionalem Passwort, eigenen Präsentationen und Brandings.
+    // Bestehende Daten gehören danach dem Konto „admin“; alle Sitzungen enden (neu anmelden).
+    name: '006_accounts',
+    run: async (conn) => {
+      await exec(
+        conn,
+        `CREATE TABLE users (
+          id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(100) NOT NULL,
+          password_hash VARCHAR(255) NULL,
+          webauthn_handle VARCHAR(64) NOT NULL,
+          is_admin TINYINT(1) NOT NULL DEFAULT 0,
+          created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+          last_login_at DATETIME(3) NULL,
+          UNIQUE KEY uq_users_username (username)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      );
+      for (const table of ['credentials', 'presentations', 'brands']) {
+        await exec(conn, `ALTER TABLE ${table} ADD COLUMN user_id INT UNSIGNED NULL`);
+      }
+      const used = await one<{ n: number }>(conn, 'SELECT (SELECT COUNT(*) FROM credentials) + (SELECT COUNT(*) FROM presentations) AS n');
+      if (Number(used?.n) > 0) {
+        // Bisherige Passkeys wurden mit der Kennung „slides-host“ angelegt – beibehalten.
+        await exec(conn, "INSERT INTO users (id, username, webauthn_handle, is_admin) VALUES (1, 'admin', ?, 1)", [
+          Buffer.from('slides-host').toString('base64url'),
+        ]);
+        for (const table of ['credentials', 'presentations', 'brands']) await exec(conn, `UPDATE ${table} SET user_id = 1`);
+      } else {
+        // Frische Installation: die Demo-Brandings bekommt jedes neue Konto selbst.
+        await exec(conn, 'DELETE FROM brands');
+      }
+      for (const table of ['credentials', 'presentations', 'brands']) {
+        await exec(
+          conn,
+          `ALTER TABLE ${table} MODIFY user_id INT UNSIGNED NOT NULL,
+            ADD CONSTRAINT fk_${table}_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE`,
+        );
+      }
+      await exec(conn, 'DELETE FROM host_sessions');
+      await exec(
+        conn,
+        `ALTER TABLE host_sessions ADD COLUMN user_id INT UNSIGNED NOT NULL AFTER token_hash,
+          ADD CONSTRAINT fk_host_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE`,
+      );
+    },
   },
 ];
