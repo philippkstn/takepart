@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { LeaderboardEntry, SlideResults } from './results.ts';
 import { BOARD_KEY } from './board.ts';
+import { participantName } from './responses.ts';
 import {
   BOARD_RIGHTS,
   type BoardConfig,
@@ -198,6 +199,13 @@ export const hostCommand = z.discriminatedUnion('action', [
     team: z.number().int().min(0).nullable(),
   }),
   z.object({ action: z.literal('teams-clear'), slideId: z.number().int() }),
+  /** Person ohne Handy aufnehmen (z. B. vor Ort); mit bestehenden Gruppen kommt sie in die kleinste */
+  z.object({
+    action: z.literal('teams-add'),
+    slideId: z.number().int(),
+    name: participantName,
+    tag: z.number().int().min(0).nullable().default(null),
+  }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
 

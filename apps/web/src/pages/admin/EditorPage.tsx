@@ -29,8 +29,9 @@ import {
   Sparkles,
   Timer,
   Trash2,
+  X,
 } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
@@ -72,6 +73,10 @@ export default function EditorPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  /** Hinter welcher Folie der Einfügen-Dialog bzw. der PDF-Import einfügt (Rechtsklick oder +) */
+  const [insertAfter, setInsertAfter] = useState<number | null>(null);
+  const [inserting, setInserting] = useState(false);
+  const [menu, setMenu] = useState<{ slideId: number; x: number; y: number } | null>(null);
   const start = useStartRun();
 
   const slides = pres.data?.slides ?? [];
@@ -81,10 +86,11 @@ export default function EditorPage() {
   const onError = (err: unknown) => toast(errorMessage(err), 'error');
 
   const addSlide = useMutation({
-    mutationFn: ({ type, config }: { type: SlideType; config?: unknown }) =>
-      api<{ id: number }>(`/api/presentations/${id}/slides`, { body: { type, afterId: selected?.id ?? null, config } }),
+    mutationFn: ({ type, config, afterId }: { type: SlideType; config?: unknown; afterId: number | null }) =>
+      api<{ id: number }>(`/api/presentations/${id}/slides`, { body: { type, afterId, config } }),
     onSuccess: async ({ id: newId }) => {
       setAdding(false);
+      setInserting(false);
       await refresh();
       setSelectedId(newId);
     },
@@ -220,7 +226,15 @@ export default function EditorPage() {
         <aside className="slide-list card">
           <ol>
             {slides.map((s, i) => (
-              <li key={s.id} className={s.id === selected?.id ? 'is-selected' : ''}>
+              <li
+                key={s.id}
+                className={s.id === selected?.id ? 'is-selected' : ''}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setSelectedId(s.id);
+                  setMenu({ slideId: s.id, x: e.clientX, y: e.clientY });
+                }}
+              >
                 <button className="slide-item" onClick={() => setSelectedId(s.id)}>
                   <span className="slide-num tabular">{i + 1}</span>
                   {s.type === 'image' ? (
@@ -242,6 +256,17 @@ export default function EditorPage() {
                     </button>
                     <button className="icon-btn" aria-label="Nach unten" onClick={() => move(s.id, 1)} disabled={i === slides.length - 1}>
                       <ArrowDown />
+                    </button>
+                    <button
+                      className="icon-btn"
+                      aria-label="Danach einfügen"
+                      title="Danach einfügen (auch per Rechtsklick)"
+                      onClick={() => {
+                        setInsertAfter(s.id);
+                        setInserting(true);
+                      }}
+                    >
+                      <Plus />
                     </button>
                     <button className="icon-btn" aria-label="Duplizieren" onClick={() => duplicateSlide.mutate(s.id)}>
                       <Copy />
@@ -265,46 +290,22 @@ export default function EditorPage() {
             <button className="btn btn-block" onClick={() => setAdding((a) => !a)}>
               <Plus /> Folie hinzufügen
             </button>
-            <button className="btn btn-block" onClick={() => setImporting(true)}>
+            <button
+              className="btn btn-block"
+              onClick={() => {
+                setInsertAfter(selected?.id ?? null);
+                setImporting(true);
+              }}
+            >
               <FileUp /> PDF importieren
             </button>
           </div>
           {adding && (
-            <div className="type-picker anim-rise">
-              {CREATABLE_SLIDE_TYPES.filter((t) => t !== 'board').map((t) => (
-                <button key={t} className="type-option" onClick={() => addSlide.mutate({ type: t })} disabled={addSlide.isPending}>
-                  <span className="slide-type-icon">
-                    <SlideIcon type={t} />
-                  </span>
-                  <span>
-                    <strong>{SLIDE_TYPE_LABELS[t]}</strong>
-                    <span className="small faint" style={{ display: 'block' }}>
-                      {SLIDE_TYPE_HINTS[t]}
-                    </span>
-                  </span>
-                </button>
-              ))}
-              <span className="label type-picker-label">Workshop: {SLIDE_TYPE_LABELS.board}</span>
-              {BOARD_MODES.map((mode) => (
-                <button
-                  key={mode}
-                  className="type-option"
-                  disabled={addSlide.isPending}
-                  // Neue Schritte arbeiten mit der zuletzt verwendeten Wand weiter
-                  onClick={() => addSlide.mutate({ type: 'board', config: { mode, board: lastBoard(slides, selected) } })}
-                >
-                  <span className="slide-type-icon">
-                    <SlideIcon type="board" />
-                  </span>
-                  <span>
-                    <strong>{BOARD_MODE_LABELS[mode]}</strong>
-                    <span className="small faint" style={{ display: 'block' }}>
-                      {BOARD_MODE_HINTS[mode]}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
+            <TypePicker
+              disabled={addSlide.isPending}
+              board={lastBoard(slides, selected)}
+              onPick={(type, config) => addSlide.mutate({ type, config, afterId: selected?.id ?? null })}
+            />
           )}
         </aside>
 
@@ -346,10 +347,62 @@ export default function EditorPage() {
           </ul>
         </section>
       )}
+      {menu && (
+        <SlideMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              label: 'Danach einfügen …',
+              icon: <Plus />,
+              run: () => {
+                setInsertAfter(menu.slideId);
+                setInserting(true);
+              },
+            },
+            {
+              label: 'PDF danach importieren …',
+              icon: <FileUp />,
+              run: () => {
+                setInsertAfter(menu.slideId);
+                setImporting(true);
+              },
+            },
+            { label: 'Duplizieren', icon: <Copy />, run: () => duplicateSlide.mutate(menu.slideId) },
+            {
+              label: 'Löschen',
+              icon: <Trash2 />,
+              danger: true,
+              run: () => {
+                const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
+                if (window.confirm(`Folie löschen?${warn}`)) removeSlide.mutate(menu.slideId);
+              },
+            },
+          ]}
+        />
+      )}
+      {inserting && (
+        <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="insert-title" onClick={() => setInserting(false)}>
+          <div className="dialog card card-pad stack" onClick={(e) => e.stopPropagation()}>
+            <div className="row-between">
+              <h2 id="insert-title">Nach Folie {slides.findIndex((s) => s.id === insertAfter) + 1} einfügen</h2>
+              <button className="icon-btn" onClick={() => setInserting(false)} aria-label="Schließen">
+                <X />
+              </button>
+            </div>
+            <TypePicker
+              disabled={addSlide.isPending}
+              board={lastBoard(slides, slides.find((s) => s.id === insertAfter) ?? null)}
+              onPick={(type, config) => addSlide.mutate({ type, config, afterId: insertAfter })}
+            />
+          </div>
+        </div>
+      )}
       {importing && (
         <ImportDialog
           presentationId={id}
-          afterId={selected?.id ?? null}
+          afterId={insertAfter}
           onClose={() => setImporting(false)}
           onDone={async (count, note) => {
             setImporting(false);
@@ -364,6 +417,103 @@ export default function EditorPage() {
 }
 
 /** Name der Kartenwand, mit der ein neuer Schritt weiterarbeitet: die letzte vor der Auswahl. */
+/** Auswahl des Folientyps – in der Seitenleiste oder im Einfügen-Dialog */
+function TypePicker({
+  onPick,
+  disabled,
+  board,
+}: {
+  onPick: (type: SlideType, config?: unknown) => void;
+  disabled: boolean;
+  /** Wand, mit der neue Kartenwand-Schritte weiterarbeiten */
+  board: string;
+}) {
+  return (
+    <div className="type-picker anim-rise">
+      {CREATABLE_SLIDE_TYPES.filter((t) => t !== 'board').map((t) => (
+        <button key={t} className="type-option" onClick={() => onPick(t)} disabled={disabled}>
+          <span className="slide-type-icon">
+            <SlideIcon type={t} />
+          </span>
+          <span>
+            <strong>{SLIDE_TYPE_LABELS[t]}</strong>
+            <span className="small faint" style={{ display: 'block' }}>
+              {SLIDE_TYPE_HINTS[t]}
+            </span>
+          </span>
+        </button>
+      ))}
+      <span className="label type-picker-label">Workshop: {SLIDE_TYPE_LABELS.board}</span>
+      {BOARD_MODES.map((mode) => (
+        <button key={mode} className="type-option" disabled={disabled} onClick={() => onPick('board', { mode, board })}>
+          <span className="slide-type-icon">
+            <SlideIcon type="board" />
+          </span>
+          <span>
+            <strong>{BOARD_MODE_LABELS[mode]}</strong>
+            <span className="small faint" style={{ display: 'block' }}>
+              {BOARD_MODE_HINTS[mode]}
+            </span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Kontextmenü einer Folie (Rechtsklick in der Folienliste) */
+function SlideMenu({
+  x,
+  y,
+  items,
+  onClose,
+}: {
+  x: number;
+  y: number;
+  items: { label: string; icon: ReactNode; run: () => void; danger?: boolean }[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent && e.key !== 'Escape') return;
+      if (e instanceof PointerEvent && ref.current?.contains(e.target as Node)) return;
+      onClose();
+    };
+    window.addEventListener('pointerdown', close);
+    window.addEventListener('keydown', close);
+    window.addEventListener('scroll', onClose, true);
+    window.addEventListener('blur', onClose);
+    ref.current?.querySelector('button')?.focus();
+    return () => {
+      window.removeEventListener('pointerdown', close);
+      window.removeEventListener('keydown', close);
+      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('blur', onClose);
+    };
+  }, [onClose]);
+  // Am Fensterrand nach innen klappen
+  const style = { left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 48 * items.length - 16) };
+  return (
+    <div ref={ref} className="context-menu" role="menu" style={style}>
+      {items.map((it) => (
+        <button
+          key={it.label}
+          role="menuitem"
+          className={it.danger ? 'is-danger' : ''}
+          onClick={() => {
+            onClose();
+            it.run();
+          }}
+        >
+          {it.icon}
+          {it.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function lastBoard(slides: Slide[], selected: Slide | null): string {
   const upTo = selected ? slides.slice(0, slides.indexOf(selected) + 1) : slides;
   const found = [...upTo].reverse().find((s) => s.type === 'board') ?? slides.find((s) => s.type === 'board');

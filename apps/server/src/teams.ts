@@ -9,7 +9,8 @@ import {
   type TeamPerson,
   type TeamsView,
 } from '@slides/shared';
-import { json, query, type Conn } from './db.ts';
+import { randomBytes } from 'node:crypto';
+import { exec, json, query, type Conn } from './db.ts';
 import { CommandError } from './errors.ts';
 import type { Snapshot } from './snapshot.ts';
 
@@ -19,7 +20,7 @@ import type { Snapshot } from './snapshot.ts';
  * `RunState.teams[slideId]` – ein Neustart verliert also nichts.
  */
 
-export type TeamsCommand = Extract<HostCommand, { action: 'teams-make' | 'teams-fill' | 'teams-move' | 'teams-clear' }>;
+export type TeamsCommand = Extract<HostCommand, { action: 'teams-make' | 'teams-fill' | 'teams-move' | 'teams-clear' | 'teams-add' }>;
 
 export const isTeamsCommand = (cmd: HostCommand): cmd is TeamsCommand => cmd.action.startsWith('teams-');
 
@@ -71,6 +72,29 @@ export async function applyTeamsCommand(db: Conn, runId: number, state: RunState
     case 'teams-clear':
       delete teams[key];
       break;
+    case 'teams-add': {
+      // Ohne Gerät: eigener Eintrag mit zufälligem Token, das nie jemand erhält
+      const result = await exec(db, 'INSERT INTO participants (run_id, token, name) VALUES (?, ?, ?)', [
+        runId,
+        randomBytes(24).toString('base64url'),
+        cmd.name,
+      ]);
+      const id = result.insertId;
+      if (cmd.tag !== null) {
+        await exec(db, 'INSERT INTO responses (run_id, slide_id, participant_id, payload) VALUES (?, ?, ?, ?)', [
+          runId,
+          cmd.slideId,
+          id,
+          JSON.stringify({ tag: cmd.tag }),
+        ]);
+      }
+      if (current.length > 0) {
+        const people = await loadPeople(db, runId, cmd.slideId);
+        const tags = new Map(people.map((p) => [p.id, p.tag]));
+        teams[key] = fillTeams(current, [{ id, tag: cmd.tag }], (pid) => tags.get(pid) ?? null);
+      }
+      break;
+    }
   }
   next.teams = teams;
   return next;

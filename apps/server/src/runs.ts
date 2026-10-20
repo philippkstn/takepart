@@ -286,7 +286,10 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           return;
         }
         if (isTeamsCommand(cmd)) {
-          if (slides.find((s) => s.id === cmd.slideId)?.type !== 'teams') throw new CommandError('Keine Folie zum Gruppenbilden');
+          const teamsSlide = slides.find((s) => s.id === cmd.slideId);
+          if (teamsSlide?.type !== 'teams') throw new CommandError('Keine Folie zum Gruppenbilden');
+          if (cmd.action === 'teams-add' && cmd.tag !== null && cmd.tag >= teamsSlide.config.tags.length)
+            throw new CommandError('Unbekannte Kennzeichnung');
           await saveRunState(db, id, await applyTeamsCommand(db, id, run.state, cmd));
           return;
         }

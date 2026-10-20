@@ -920,3 +920,44 @@
 .control-group .countdown-control select {
   min-width: 12em;
 }
+
+/* Kontextmenü der Folienliste */
+.context-menu {
+  position: fixed;
+  z-index: 70;
+  min-width: 220px;
+  padding: 4px;
+  display: grid;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-2);
+  animation: pop 120ms var(--ease);
+}
+.context-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.context-menu button:hover,
+.context-menu button:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+.context-menu button svg {
+  width: 16px;
+  height: 16px;
+  color: var(--ink-2);
+}
+.context-menu button.is-danger,
+.context-menu button.is-danger svg {
+  color: var(--danger);
+}

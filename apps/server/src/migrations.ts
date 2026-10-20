@@ -5,6 +5,7 @@
  * migrate.mjs enthalten sind. Einträge nie ändern oder umsortieren – nur neue
  * anhängen. Ausgeführt von deploy.sh vor dem Umschalten (`node migrate.mjs`).
  */
+import type { Pool, RowDataPacket } from 'mysql2/promise';
 import { exec, one, type Conn } from './db.ts';
 import { insertDemoBrands } from './demo.ts';
 
@@ -255,6 +256,47 @@ export const migrations: Migration[] = [
         `ALTER TABLE host_sessions ADD COLUMN user_id INT UNSIGNED NOT NULL AFTER token_hash,
           ADD CONSTRAINT fk_host_sessions_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE`,
       );
+    },
+  },
+  {
+    // Zeitstempel mit CURRENT_TIMESTAMP-Vorgabe wurden in der Zeitzone des Datenbankservers
+    // gespeichert, aber als UTC gelesen. Seit jede Verbindung UTC nutzt, einmalig umrechnen.
+    // Auf Servern mit UTC (z. B. Docker) ist der Versatz 0 und es passiert nichts.
+    name: '007_utc_timestamps',
+    run: async (db) => {
+      const conn = await (db as Pool).getConnection();
+      let offset = 0;
+      try {
+        await conn.query('SET time_zone = @@global.time_zone');
+        const [rows] = await conn.query<RowDataPacket[]>('SELECT TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), NOW()) AS off');
+        offset = Number(rows[0]?.off ?? 0);
+      } finally {
+        await conn.query("SET time_zone = '+00:00'");
+        conn.release();
+      }
+      if (offset === 0) return;
+      const columns: Record<string, string[]> = {
+        credentials: ['created_at'],
+        host_sessions: ['created_at'],
+        users: ['created_at'],
+        presentations: ['created_at', 'updated_at'],
+        slides: ['created_at', 'updated_at'],
+        brands: ['created_at', 'updated_at'],
+        assets: ['created_at'],
+        runs: ['started_at'],
+        participants: ['created_at'],
+        responses: ['created_at', 'updated_at'],
+        posts: ['created_at'],
+        board_groups: ['created_at'],
+      };
+      for (const [table, cols] of Object.entries(columns)) {
+        // updated_at ausdrücklich mit setzen, sonst stempelt ON UPDATE die Zeile neu
+        await exec(
+          db,
+          `UPDATE ${table} SET ${cols.map((c) => `${c} = ${c} - INTERVAL ? MINUTE`).join(', ')}`,
+          cols.map(() => offset),
+        );
+      }
     },
   },
 ];

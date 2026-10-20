@@ -1,6 +1,6 @@
 import type { HostCommand, HostView, TeamMember } from '@slides/shared';
 import { Shuffle, UserPlus, X } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type TeamsSlide = Extract<NonNullable<HostView['slide']>, { type: 'teams' }>;
@@ -16,6 +16,8 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
   const [mode, setMode] = useState<'count' | 'size'>('size');
   const [n, setN] = useState(2);
   const [mix, setMix] = useState(tags.length > 0);
+  const [guest, setGuest] = useState('');
+  const [guestTag, setGuestTag] = useState<number | null>(null);
   const named = teams.unassigned.length + teams.groups.reduce((sum, g) => sum + g.members.length, 0);
   const made = teams.groups.length > 0;
   const tagOf = (m: TeamMember) => (m.tag === null ? null : (tags[m.tag] ?? null));
@@ -23,6 +25,12 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
   const make = () => {
     if (made && !window.confirm('Gruppen neu mischen? Die bisherige Einteilung geht verloren.')) return;
     void command({ action: 'teams-make', slideId: slide.id, mode, n, mix });
+  };
+  const addGuest = async (e: FormEvent) => {
+    e.preventDefault();
+    if (guest.trim().length < 2) return;
+    await command({ action: 'teams-add', slideId: slide.id, name: guest.trim(), tag: guestTag });
+    setGuest('');
   };
   const move = (m: TeamMember, team: number | null) =>
     m.id !== undefined && void command({ action: 'teams-move', slideId: slide.id, participantId: m.id, team });
@@ -105,6 +113,39 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
           </p>
         )}
       </div>
+
+      <form className="stack-s" onSubmit={addGuest}>
+        <span className="label">Person ohne Handy hinzufügen</span>
+        <div className="row">
+          <input
+            className="input grow"
+            value={guest}
+            maxLength={40}
+            placeholder="Name"
+            onChange={(e) => setGuest(e.target.value)}
+            aria-label="Name der Person ohne Handy"
+          />
+          {tags.length > 0 && (
+            <select
+              className="select select-small"
+              value={guestTag ?? ''}
+              aria-label="Kennzeichnung"
+              onChange={(e) => setGuestTag(e.target.value === '' ? null : Number(e.target.value))}
+            >
+              <option value="">ohne Angabe</option>
+              {tags.map((t, i) => (
+                <option key={i} value={i}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          )}
+          <button className="btn btn-small" disabled={busy || guest.trim().length < 2}>
+            <UserPlus /> Hinzufügen
+          </button>
+        </div>
+        {made && <p className="small faint">Kommt in die kleinste Gruppe – danach bei Bedarf verschieben.</p>}
+      </form>
 
       {teams.groups.map((g, i) => (
         <div key={i} className="stack-s">

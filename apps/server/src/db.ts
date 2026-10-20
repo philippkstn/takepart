@@ -5,7 +5,7 @@ export type Db = Pool;
 export type Conn = Pool | PoolConnection;
 
 export function createPool(config: Config): Pool {
-  return mysql.createPool({
+  const pool = mysql.createPool({
     host: config.DB_HOST,
     port: config.DB_PORT,
     user: config.DB_USER,
@@ -17,6 +17,10 @@ export function createPool(config: Config): Pool {
     waitForConnections: true,
     enableKeepAlive: true,
   });
+  // Alle Zeiten in UTC: sonst füllt CURRENT_TIMESTAMP in der Zeitzone des Datenbank-
+  // servers (z. B. Europe/Berlin), gelesen wird aber als UTC (`timezone: 'Z'`).
+  pool.pool.on('connection', (conn) => conn.query("SET time_zone = '+00:00'"));
+  return pool;
 }
 
 export async function query<T>(db: Conn, sql: string, params: unknown[] = []): Promise<T[]> {
