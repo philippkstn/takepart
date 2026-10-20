@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
  *   zurück   ← ↑ Bild↑ Rücktaste P
  *   schwarz  B oder .   (die „Bildschirm aus“-Taste vieler Presenter)
  *   weiß     W oder ,
+ *   Pause    Z   (startet 10 Minuten Pausenmodus bzw. beendet ihn)
  *   Anfang/Ende  Pos1 / Ende
  *   Folie n  Nummer tippen, dann Enter
  */
@@ -16,15 +17,17 @@ export function usePresenterKeys(
   send: ((cmd: HostCommand) => unknown) | null,
   blank: 'black' | 'white' | null,
   extra?: (e: KeyboardEvent) => boolean,
+  /** Läuft gerade eine Pause? (dann beendet Z sie) */
+  pause = false,
 ) {
   // Aktuelle Werte für den einmal registrierten Listener
-  const latest = useRef({ send, blank, extra });
-  latest.current = { send, blank, extra };
+  const latest = useRef({ send, blank, extra, pause });
+  latest.current = { send, blank, extra, pause };
   const digits = useRef({ value: '', at: 0 });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const { send, blank, extra } = latest.current;
+      const { send, blank, extra, pause } = latest.current;
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target instanceof Element ? e.target : null;
       if (target?.closest('input, textarea, select, [contenteditable]')) return;
@@ -77,6 +80,9 @@ export function usePresenterKeys(
         case 'W':
         case ',':
           return run({ action: 'blank', mode: blank === 'white' ? null : 'white' });
+        case 'z':
+        case 'Z':
+          return run(pause ? { action: 'pause-end' } : { action: 'pause-start', seconds: 600, question: true });
         case 'Escape':
           if (blank) run({ action: 'blank', mode: null });
           return;

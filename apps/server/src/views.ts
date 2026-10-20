@@ -22,6 +22,7 @@ import {
 } from '@slides/shared';
 import { buildBoardView } from './board.ts';
 import { participantTeam, teamsView } from './teams.ts';
+import { displayPause, participantPause, pauseStats } from './pause.ts';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
 
 /** Aufgedeckter Animationsschritt der aktuellen Folie (begrenzt auf die vorhandenen Schritte) */
@@ -212,6 +213,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     parking: parkingViews(snap, participantId),
     countdown: state.countdown ?? null,
     team: participantTeam(snap, participantId),
+    pause: participantPause(state, participantId),
   };
 }
 
@@ -261,6 +263,7 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     board: boardViewOf(snap),
     countdown: state.countdown ?? null,
     teams: teamsView(snap, false),
+    pause: displayPause(snap),
   };
 }
 
@@ -301,6 +304,8 @@ export function hostView(snap: Snapshot, participants: number): HostView {
     board: boardViewOf(snap),
     countdown: state.countdown ?? null,
     teams: teamsView(snap, true),
+    pause: displayPause(snap),
+    pauseStats: pauseStats(state, participants),
     state,
     displayToken: snap.run.displayToken,
     presentationId: snap.run.presentationId,

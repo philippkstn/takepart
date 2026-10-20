@@ -9,19 +9,19 @@
 
 Your audience joins with a 6-digit code or QR code – no account, no app. You run the show from a control panel (laptop or phone) while a separate presenter view shows the results live. The interface is in German.
 
-| Activity | What it does |
-|---|---|
-| Text slide | Title, text and – on the title slide – join code and QR code |
-| Multiple choice | Single or multiple answers, live bar chart |
-| Open answers | Free text, show single answers full screen |
-| Scale | 1–5 / 1–7 / 1–10 with average and distribution |
-| Word cloud | 1–3 terms per person |
-| Ranking | Tap options in order, Borda count |
-| Quiz | Timer, points for speed, leaderboard |
-| Brainstorming | Collect ideas, audience upvotes |
-| Pinboard | Shared sticky notes in columns |
-| Feedback | Star rating plus comment |
-| Q&A | Named questions, upvotes, moderation, show one question full screen |
+| Activity              | What it does                                                                                     |
+| --------------------- | ------------------------------------------------------------------------------------------------ |
+| Text slide            | Title, text and – on the title slide – join code and QR code                                     |
+| Multiple choice       | Single or multiple answers, live bar chart                                                       |
+| Open answers          | Free text, show single answers full screen                                                       |
+| Scale                 | 1–5 / 1–7 / 1–10 with average and distribution                                                   |
+| Word cloud            | 1–3 terms per person                                                                             |
+| Ranking               | Tap options in order, Borda count                                                                |
+| Quiz                  | Timer, points for speed, leaderboard                                                             |
+| Brainstorming         | Collect ideas, audience upvotes                                                                  |
+| Pinboard              | Shared sticky notes in columns                                                                   |
+| Feedback              | Star rating plus comment                                                                         |
+| Q&A                   | Named questions, upvotes, moderation, show one question full screen                              |
 | Complete the sentence | Everyone types the most likely next word; you reveal the answers and append the most popular one |
 
 **Run the whole talk in TakePart:** import your slides as PDF (export from PowerPoint, Keynote or Google Slides) and place interactive slides between them. Speaker notes and build animations (elements appearing click by click) come along from the `.pptx` if you add it. A presenter view shows notes, the next slide, a timer and the clock; a laser pointer and pen draw on the shared screen; afterwards you can share the slides and aggregated results with the audience via a link.
@@ -54,6 +54,7 @@ In the editor, click **“PDF importieren”** and choose the PDF export of your
 
 - **Presenter view (control panel):** current slide with laser pointer and pen, next slide, speaker notes (resizable sidebar, adjustable font size; the next-slide preview collapses to its title when space runs short), elapsed time against a target duration, clock; step through slides and animations, black or white screen, show/hide results, approve questions, append words. Works on a phone.
 - **Presenter view:** “Beamer öffnen” opens a read-only link for the screen you share. `F` toggles full screen; when you're logged in in the same browser, the keys work like in PowerPoint: → ↓ PageDown Space Enter N next, ← ↑ PageUp Backspace P back, `B`/`.` black screen, `W`/`,` white screen, Home/End, number + Enter jumps to a slide. Presenter remotes (clickers) work the same way, including their blank-screen button. Keep that window visible while sharing – browsers stop painting covered windows.
+- **Break mode:** start a break from any slide (5–30 minutes or custom, key `Z`): the screen shows the remaining time, “back at …”, the join code for latecomers and a short recap; phones get “I'm back” and an optional energy check (1–5) whose result shows up in the control panel. Reminder one minute before the end, extend by 5 minutes; moving to another slide ends the break.
 - **Audience:** opens your address and enters the code, or scans the QR code on the title slide.
 - **Back up and move:** the download arrow in the presentation list saves a `.takepart` file with slides, notes, images, branding and every session (including participant names and answers – treat it as confidential). “Importieren” turns it into a new presentation in your own account; imported sessions are ended and show up in the archive.
 - **After the talk:** “Folien freigeben” creates a link with the slides and aggregated results (no names, free texts or questions). Participants see it on their phones; it can be printed or saved as PDF.
@@ -62,15 +63,15 @@ In the editor, click **“PDF importieren”** and choose the PDF export of your
 
 Set these as environment variables (with Compose, e.g. in a `.env` file next to `docker-compose.yml`).
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `APP_ORIGIN` | `http://localhost:8080` | Public address in the browser. Passkeys are bound to it. |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | see compose file | MariaDB/MySQL connection. **Change `DB_PASSWORD`.** |
-| `TRUST_PROXY_HOPS` | `0` (compose) | Number of proxies in front of TakePart: none `0`, reverse proxy `1`, reverse proxy + Cloudflare `2`. Too high lets clients fake their IP. |
-| `SETUP_TOKEN` | generated | Fixed token for the first account instead of the generated one. |
-| `IMPRINT_URL`, `PRIVACY_URL` | – | Legal links in the footer (shown only if set). |
-| `SOURCE_URL` | this repository | Source code link in the footer. If you run a modified version, link your code (AGPL). |
-| `TAKEPART_PORT` | `8080` | Host port in `docker-compose.yml`. |
+| Variable                                                  | Default                 | Purpose                                                                                                                                   |
+| --------------------------------------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ORIGIN`                                              | `http://localhost:8080` | Public address in the browser. Passkeys are bound to it.                                                                                  |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | see compose file        | MariaDB/MySQL connection. **Change `DB_PASSWORD`.**                                                                                       |
+| `TRUST_PROXY_HOPS`                                        | `0` (compose)           | Number of proxies in front of TakePart: none `0`, reverse proxy `1`, reverse proxy + Cloudflare `2`. Too high lets clients fake their IP. |
+| `SETUP_TOKEN`                                             | generated               | Fixed token for the first account instead of the generated one.                                                                           |
+| `IMPRINT_URL`, `PRIVACY_URL`                              | –                       | Legal links in the footer (shown only if set).                                                                                            |
+| `SOURCE_URL`                                              | this repository         | Source code link in the footer. If you run a modified version, link your code (AGPL).                                                     |
+| `TAKEPART_PORT`                                           | `8080`                  | Host port in `docker-compose.yml`.                                                                                                        |
 
 Example `.env` for a public instance:
 

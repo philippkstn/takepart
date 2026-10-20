@@ -23,6 +23,7 @@ import { applyBoardOp, loadBoard, targetsOf } from './board.ts';
 import { CommandError } from './errors.ts';
 import type { LiveHub } from './live.ts';
 import { withRunLock } from './runs.ts';
+import { pauseRoutes } from './pause.ts';
 import { effectiveQuiz, loadSlides } from './snapshot.ts';
 
 /**
@@ -135,6 +136,8 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     await exec(db, 'INSERT INTO participants (run_id, token) VALUES (?, ?)', [run.id, token]);
     return { runId: run.id, token, name: null };
   });
+
+  pauseRoutes(app, db, live, { auth, rateLimit: perParticipant(30) });
 
   app.post('/api/p/name', perParticipant(20), async (request, reply) => {
     const p = await auth(request, reply);

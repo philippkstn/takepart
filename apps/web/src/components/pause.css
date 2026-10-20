@@ -1,0 +1,181 @@
+/* ───────────── Pausenmodus ───────────── */
+
+/* Bühne: über Folie, Einblendungen und Zeichnungen, unter dem Schwarzbild (z-index 50) */
+.pause-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  padding: 1.6em 2.2em;
+  background: var(--bg);
+  color: var(--ink);
+}
+.pause-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.35em;
+  min-height: 0;
+}
+.pause-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  font-size: 1.3em;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.pause-kicker svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+.pause-time {
+  margin: 0;
+  font-size: 7em;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  transition: color 0.4s ease;
+}
+.pause-time.is-soon {
+  color: var(--warn);
+}
+.pause-over {
+  margin: 0.4em 0;
+  font-size: 3.2em;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.pause-progress {
+  width: 18em;
+  height: 0.28em;
+  margin: 0.5em 0 0.3em;
+  border-radius: 1em;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.pause-progress > div {
+  height: 100%;
+  background: var(--ink-3);
+  transform-origin: left center;
+  transition: transform 0.3s linear;
+}
+.pause-until {
+  margin: 0;
+  font-size: 1.5em;
+  font-weight: 600;
+  color: var(--ink-2);
+}
+.pause-soon {
+  margin: 0.4em 0 0;
+  padding: 0.3em 0.9em;
+  border-radius: 0.5em;
+  border: 1px solid var(--warn);
+  background: var(--warn-soft);
+  font-size: 1em;
+  font-weight: 650;
+}
+.pause-foot {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1em;
+}
+.pause-recap {
+  font-size: 0.85em;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.pause-join {
+  display: flex;
+  align-items: center;
+  gap: 0.8em;
+  padding: 0.6em 0.6em 0.6em 0.9em;
+  border-radius: 0.5em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 0.8em;
+}
+.pause-join-text {
+  display: grid;
+  gap: 0.1em;
+  text-align: right;
+  color: var(--ink-2);
+}
+.pause-join-text strong {
+  color: var(--ink);
+}
+.pause-join-qr {
+  width: 5em;
+  height: 5em;
+}
+.pause-join-qr.qr {
+  padding: 0.2em;
+  border-radius: 0.4em;
+}
+
+/* Handy */
+.p-pause {
+  text-align: center;
+}
+.p-pause-time {
+  margin: 0;
+  font-size: 3.5rem;
+  font-weight: 700;
+  line-height: 1;
+  transition: color 0.4s ease;
+}
+.p-pause-time.is-soon {
+  color: var(--warn);
+}
+.p-pause-over {
+  margin: 4px 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+.p-pause .scale-buttons {
+  grid-template-columns: repeat(5, 1fr);
+}
+.p-pause-ready {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius);
+  background: var(--good-soft);
+  border: 1px solid var(--good);
+}
+.p-pause-ready svg {
+  color: var(--good);
+}
+
+/* Steuerpult */
+.pause-control {
+  flex-wrap: wrap;
+}
+.pause-control select {
+  min-width: 10em;
+}
+.pause-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.pause-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 18px;
+}
+.pause-bars > span {
+  width: 5px;
+  min-height: 1px;
+  border-radius: 1px;
+  background: var(--chart);
+}

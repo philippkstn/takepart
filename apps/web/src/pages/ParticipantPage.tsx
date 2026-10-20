@@ -5,6 +5,7 @@ import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
 import { ParkingButton } from '../components/participant/BoardActivity.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
+import { PauseActivity, PauseAlert } from '../components/participant/PauseActivity.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
@@ -141,9 +142,14 @@ export default function ParticipantPage({ code }: { code: string }) {
       </header>
       <ConnectionBadge status={status} />
       <CountdownAlert countdown={view.countdown} offset={offset} />
+      <PauseAlert pause={view.pause} offset={offset} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
-      <main className={`p-main ${mainWidth(view)}`}>
-        <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
+      <main className={`p-main ${view.pause ? '' : mainWidth(view)}`}>
+        {view.pause ? (
+          <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.length > 0} />
+        ) : (
+          <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
+        )}
       </main>
       <footer className="p-footer">
         <LegalLinks imprint={false} />

@@ -28,6 +28,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
 import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
+import { applyPauseCommand, endPause } from './pause.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Db } from './db.ts';
@@ -96,11 +97,13 @@ export function applyCommand(
       assertSlide(cmd.slideId);
       enter(cmd.slideId, 0);
       s.blank = null;
+      endPause(s);
       break;
     case 'step': {
       // Wie in PowerPoint: erst die Animationen der Folie, dann die nächste Folie.
       // Zurück: erst Animationen zurücknehmen, dann die vorige Folie im Endzustand.
       s.blank = null;
+      endPause(s);
       const current = s.slideId;
       const build = current === null ? 0 : (s.build?.[current] ?? 0);
       const steps = current === null ? 0 : (buildSteps.get(current) ?? 0);
@@ -121,6 +124,7 @@ export function applyCommand(
       const target = cmd.index === -1 ? slideIds.at(-1) : slideIds[Math.min(cmd.index, slideIds.length - 1)];
       if (target !== undefined) enter(target, 0);
       s.blank = null;
+      endPause(s);
       break;
     }
     case 'blank':
@@ -204,6 +208,11 @@ export function applyCommand(
     case 'board-rights':
       assertSlide(cmd.slideId);
       s.boardRights = { ...s.boardRights, [cmd.slideId]: cmd.rights };
+      break;
+    case 'pause-start':
+    case 'pause-extend':
+    case 'pause-end':
+      applyPauseCommand(s, cmd, now);
       break;
     case 'post-status':
     case 'clear-responses':
