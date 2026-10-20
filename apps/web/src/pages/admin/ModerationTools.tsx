@@ -91,21 +91,29 @@ function SignalChip({ kind, entries, now, command }: { kind: SignalKind; entries
             <span className="tabular">{n}</span>
           </div>
           <ul className="presence-list">
-            {entries.map((e, i) => (
-              <li key={i}>
-                <span className="grow">{e.name ?? <em className="faint">ohne Namen</em>}</span>
-                <span className="small faint">{ago(e.at)}</span>
+            {entries.map((e) => (
+              <li key={e.id}>
+                {/* Klick auf eine Person quittiert nur ihr Handzeichen */}
+                <button
+                  className="signal-person"
+                  title="Nur dieses Handzeichen zurücksetzen"
+                  onClick={() => void command({ action: 'signals-clear', kind, participantId: e.id })}
+                >
+                  <span className="grow">{e.name ?? <em className="faint">ohne Namen</em>}</span>
+                  <span className="small faint">{ago(e.at)}</span>
+                  <Check aria-hidden />
+                </button>
               </li>
             ))}
           </ul>
           <button
             className="btn btn-small"
             onClick={() => {
-              void command({ action: 'signals-clear', kind });
+              void command({ action: 'signals-clear', kind, participantId: null });
               setOpen(false);
             }}
           >
-            <Check /> Gesehen – zurücksetzen
+            <Check /> {n > 1 ? 'Alle gesehen – zurücksetzen' : 'Gesehen – zurücksetzen'}
           </button>
         </div>
       )}

@@ -118,3 +118,35 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Person in der Handzeichen-Liste: Klick quittiert nur ihr Zeichen */
+.signal-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  margin: -4px -6px;
+  border: 0;
+  border-radius: var(--radius-s);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.signal-person svg {
+  width: 14px;
+  height: 14px;
+  color: var(--ink-3);
+  opacity: 0;
+}
+.signal-person:hover,
+.signal-person:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+.signal-person:hover svg,
+.signal-person:focus-visible svg {
+  opacity: 1;
+}

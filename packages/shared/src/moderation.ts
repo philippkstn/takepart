@@ -47,15 +47,26 @@ export function setSignal(state: RunState, kind: SignalKind, participantId: numb
 }
 
 /** Moderation hat die Signale einer Art gesehen: alle zurücksetzen */
-export function clearSignals(state: RunState, kind: SignalKind, now: number): RunState {
+/** Handzeichen einer Art quittieren – alle oder nur das einer Person */
+export function clearSignals(state: RunState, kind: SignalKind, now: number, participantId: number | null = null): RunState {
   const signals = pruneSignals(state.signals, now);
-  delete signals[kind];
+  if (participantId === null) delete signals[kind];
+  else if (signals[kind]) {
+    const rest = { ...signals[kind] };
+    delete rest[participantId];
+    if (Object.keys(rest).length > 0) signals[kind] = rest;
+    else delete signals[kind];
+  }
   return { ...state, signals };
 }
 
-/** Für das Steuerpult: Ablaufzeitpunkte je Art (aufsteigend). Gezählt wird im Browser, damit Signale auch ohne neue Ansicht erlöschen. */
-/** Ein Handzeichen im Steuerpult: wer (null = ohne Namen), seit wann und bis wann */
+/**
+ * Ein Handzeichen im Steuerpult: wer (null = ohne Namen), seit wann und bis wann.
+ * Gezählt wird im Browser, damit Signale auch ohne neue Ansicht erlöschen.
+ */
 export interface SignalEntry {
+  /** Teilnehmer-ID – nur im Steuerpult, zum einzelnen Quittieren */
+  id: number;
   name: string | null;
   at: number;
   until: number;
@@ -69,7 +80,7 @@ export function signalsView(store: SignalStore | undefined, now: number, names: 
   const view = {} as SignalsView;
   for (const kind of SIGNAL_KINDS) {
     view[kind] = Object.entries(live[kind] ?? {})
-      .map(([id, at]) => ({ name: names.get(Number(id)) ?? null, at, until: at + SIGNAL_TTL_MS }))
+      .map(([id, at]) => ({ id: Number(id), name: names.get(Number(id)) ?? null, at, until: at + SIGNAL_TTL_MS }))
       .sort((a, b) => a.at - b.at);
   }
   return view;

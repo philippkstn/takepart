@@ -55,7 +55,7 @@ export async function applyModerationCommand(
   const picker = state.picker ?? emptyPicker();
   switch (cmd.action) {
     case 'signals-clear':
-      return clearSignals(state, cmd.kind, now);
+      return clearSignals(state, cmd.kind, now, cmd.participantId);
     case 'pick-draw': {
       let group: number[] | null = null;
       if (cmd.team !== null) {

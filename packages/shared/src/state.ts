@@ -287,8 +287,12 @@ export const hostCommand = z.discriminatedUnion('action', [
     name: participantName,
     tag: z.number().int().min(0).nullable().default(null),
   }),
-  /** Handzeichen einer Art quittieren („gesehen“) */
-  z.object({ action: z.literal('signals-clear'), kind: z.enum(SIGNAL_KINDS) }),
+  /** Handzeichen einer Art quittieren („gesehen“) – alle oder nur das einer Person */
+  z.object({
+    action: z.literal('signals-clear'),
+    kind: z.enum(SIGNAL_KINDS),
+    participantId: z.number().int().nullable().default(null),
+  }),
   /** Zufallsauswahl: Person ziehen (team = Index in der geltenden Gruppeneinteilung) */
   z.object({ action: z.literal('pick-draw'), team: z.number().int().min(0).nullable().default(null) }),
   z.object({ action: z.literal('pick-show') }),

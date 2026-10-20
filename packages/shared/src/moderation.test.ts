@@ -36,7 +36,7 @@ describe('Handzeichen', () => {
     const later = T0 + SIGNAL_TTL_MS;
     expect(signalsView(s.signals, later - 1).break).toHaveLength(2);
     expect(signalsView(s.signals, later, new Map([[2, 'Ben']])).break).toEqual([
-      { name: 'Ben', at: T0 + 60_000, until: T0 + 60_000 + SIGNAL_TTL_MS },
+      { id: 2, name: 'Ben', at: T0 + 60_000, until: T0 + 60_000 + SIGNAL_TTL_MS },
     ]);
     expect(ownSignals(s.signals, 1, later)).toEqual({});
     // Zählen im Browser anhand der Ablaufzeitpunkte
@@ -102,5 +102,16 @@ describe('Zufallsauswahl', () => {
     expect(teamsAt(slides, 3, { 10: [[1, 2]], 12: [] })).toEqual({ slideId: 10, groups: [[1, 2]] });
     expect(teamsAt(slides, -1, teams)).toBeNull();
     expect(teamsAt(slides, 3, undefined)).toBeNull();
+  });
+});
+
+describe('Handzeichen einzeln quittieren', () => {
+  it('setzt nur das Zeichen einer Person zurück', () => {
+    let s = setSignal(initialRunState(1), 'question', 1, true, T0);
+    s = setSignal(s, 'question', 2, true, T0);
+    s = clearSignals(s, 'question', T0 + 1000, 1);
+    expect(Object.keys(s.signals!.question!)).toEqual(['2']);
+    s = clearSignals(s, 'question', T0 + 1000, 2);
+    expect(s.signals!.question).toBeUndefined();
   });
 });
