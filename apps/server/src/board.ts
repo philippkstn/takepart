@@ -184,6 +184,10 @@ export function buildBoardView(slide: BoardSlide, data: BoardData, rights: Board
     rows,
     totals: data.totals,
     rights,
+    tags: [],
+    tagCounts: {},
+    tied: [],
+    chosen: {},
   };
 }
 

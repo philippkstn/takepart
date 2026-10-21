@@ -166,3 +166,69 @@ export interface PresenceView {
   /** Ohne Namen */
   unnamed: { online: number; total: number };
 }
+
+/* ───────────────────────── Reihum (Redereihenfolge) ───────────────────────── */
+
+/**
+ * Feste Reihenfolge für Runden „reihum“ (Erwartungen, Karten einbringen,
+ * Feedback). Gilt für die ganze Durchführung, damit das Feedback am Ende in
+ * derselben Reihenfolge läuft wie die Erwartungsrunde am Anfang.
+ */
+export interface TurnsState {
+  /** Teilnehmer-IDs in Reihenfolge */
+  order: number[];
+  /** Index der Person, die gerade dran ist (null = Runde nicht gestartet) */
+  current: number | null;
+  /** Reihenfolge als Liste groß auf dem Beamer */
+  shown: boolean;
+}
+
+export const emptyTurns = (): TurnsState => ({ order: [], current: null, shown: false });
+
+/** Wie eine neue Reihenfolge entsteht: Beitritt, Zufall oder erste Karte auf einer Wand */
+export const TURN_SOURCES = ['joined', 'random', 'board'] as const;
+export type TurnSource = (typeof TURN_SOURCES)[number];
+
+/** Weiter/zurück; am Ende bleibt die letzte Person, vor dem Anfang endet die Runde nicht */
+export function stepTurn(turns: TurnsState, delta: number): TurnsState {
+  if (turns.order.length === 0) return turns;
+  const from = turns.current ?? -1;
+  const next = Math.min(turns.order.length - 1, Math.max(0, from + delta));
+  return { ...turns, current: next };
+}
+
+/** Person um `delta` Plätze verschieben; „dran“ bleibt bei derselben Person */
+export function moveTurn(turns: TurnsState, participantId: number, delta: number): TurnsState {
+  const i = turns.order.indexOf(participantId);
+  const j = i + delta;
+  if (i < 0 || j < 0 || j >= turns.order.length) return turns;
+  const order = [...turns.order];
+  [order[i], order[j]] = [order[j]!, order[i]!];
+  const currentId = turns.current === null ? null : turns.order[turns.current];
+  return { ...turns, order, current: currentId === null || currentId === undefined ? turns.current : order.indexOf(currentId) };
+}
+
+/** Reihum im Steuerpult */
+export interface TurnsHostView {
+  order: { id: number; name: string; online: boolean }[];
+  current: number | null;
+  shown: boolean;
+  /** Personen mit Namen, die noch nicht in der Reihenfolge stehen */
+  missing: number;
+}
+
+/** Reihum auf dem Beamer: nur Namen */
+export interface TurnsDisplayView {
+  names: string[];
+  current: number | null;
+  shown: boolean;
+}
+
+/** Reihum auf dem eigenen Handy */
+export interface MyTurnView {
+  /** Eigene Position (0-basiert) und Länge der Runde */
+  position: number;
+  of: number;
+  /** Wer gerade dran ist (null = noch niemand) */
+  current: number | null;
+}

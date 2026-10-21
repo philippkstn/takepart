@@ -447,6 +447,7 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
             place: 'Alle Zuordnungen dieser Folie zurücksetzen?',
             dots: 'Alle Punkte dieser Folie löschen?',
             rate: 'Alle Bewertungen dieser Folie löschen?',
+            choose: 'Alle Stimmen und Festlegungen dieser Folie löschen?',
             table: 'Alle Zeilen der Tabelle löschen?',
           }[slide.config.mode]
         : 'Alle Antworten dieser Folie in dieser Durchführung löschen?';

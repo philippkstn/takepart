@@ -58,7 +58,7 @@ interface Ctx {
 }
 
 export function emptyBoard(config: Config): BoardView {
-  return { name: config.board, mode: config.mode, groups: [], targets: [], places: {}, rows: [], totals: {}, rights: config.rights };
+  return { name: config.board, mode: config.mode, groups: [], targets: [], places: {}, rows: [], totals: {}, rights: config.rights, tags: [], tagCounts: {}, tied: [], chosen: {} };
 }
 
 function Count({ ctx }: { ctx: Ctx }) {

@@ -35,6 +35,8 @@ export interface BoardResults {
   dots: Record<string, number>;
   /** Einschätzungen je Eintrag (nur Bewerten-Folien) */
   ratings: Record<string, BoardRating>;
+  /** Einordnen: Stimmen je Kategorie (Index in `choices`) je Eintrag */
+  picks: Record<string, number[]>;
 }
 
 const avg = (sum: number, n: number) => (n === 0 ? null : Math.round((sum / n) * 100) / 100);
@@ -139,7 +141,14 @@ export function boardResults(config: SlideConfigs['board'], rows: ResponsePayloa
       return n === 0 ? null : Math.round((d.reduce((sum, count, level) => sum + count * level, 0) / n) * 100) / 100;
     });
   }
-  return { type: 'board', voters: rows.length, dots: dotTotals(rows), ratings };
+  const picks: Record<string, number[]> = {};
+  for (const r of rows) {
+    for (const [key, chosen] of Object.entries(r.picks ?? {})) {
+      const counts = (picks[key] ??= config.choices.map(() => 0));
+      for (const i of new Set(chosen)) if (i < counts.length) counts[i]!++;
+    }
+  }
+  return { type: 'board', voters: rows.length, dots: dotTotals(rows), ratings, picks };
 }
 
 /**

@@ -116,7 +116,8 @@ function participantBoardPosts(snap: Snapshot, board: BoardView, participantId: 
       }
       break;
     case 'dots':
-    case 'rate': {
+    case 'rate':
+    case 'choose': {
       const keys = new Set(board.targets);
       posts = visible.filter((p) => keys.has(cardKey(p.id)));
       break;
@@ -342,6 +343,7 @@ export function hostView(
     handoutUrl: handoutUrl(snap),
     signals: hostSignals(snap),
     picker: pickerView(snap),
+    turnsHost: { order: [], current: null, shown: false, missing: 0 },
     presence: presenceView(snap, online),
     rehearsal: snap.run.rehearsal,
     fakeParticipants: snap.run.fakeParticipants,

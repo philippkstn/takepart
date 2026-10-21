@@ -114,6 +114,8 @@ export const pinboardConfig = z.object({
 export const feedbackConfig = z.object({
   question: text(300).default('Wie hat dir der Vortrag gefallen?'),
   withComment: z.boolean().default(true),
+  /** Name einer Kartenwand (z. B. „Erwartungen“): jedes Handy zeigt die eigenen Karten von dort zum Gegenlesen */
+  recall: z.string().trim().max(60).default(''),
 });
 export const qaConfig = z.object({
   title: text(200).default('Eure Fragen'),
@@ -128,7 +130,7 @@ export const sentenceConfig = z.object({
  * folgenden geclustert, zugeordnet, gepunktet und bewertet. So liegen die
  * Übungsschritte im normalen Folienablauf zwischen den Anleitungsfolien.
  */
-export const BOARD_MODES = ['collect', 'cluster', 'place', 'dots', 'rate', 'table'] as const;
+export const BOARD_MODES = ['collect', 'cluster', 'place', 'dots', 'rate', 'choose', 'table'] as const;
 export type BoardMode = (typeof BOARD_MODES)[number];
 export const BOARD_MODE_LABELS: Record<BoardMode, string> = {
   collect: 'Karten sammeln',
@@ -136,6 +138,7 @@ export const BOARD_MODE_LABELS: Record<BoardMode, string> = {
   place: 'Zuordnen',
   dots: 'Punkte kleben',
   rate: 'Bewerten',
+  choose: 'Einordnen',
   table: 'Ergebnistabelle',
 };
 export const BOARD_MODE_HINTS: Record<BoardMode, string> = {
@@ -144,6 +147,7 @@ export const BOARD_MODE_HINTS: Record<BoardMode, string> = {
   place: 'Karten oder Gruppen in Spalten, Prozessschritte oder eine Matrix',
   dots: 'Klebepunkte auf Gruppen oder Karten verteilen',
   rate: 'Einträge einschätzen, z. B. Nutzen und Aufwand in S bis XL',
+  choose: 'Einträgen eine oder mehrere Kategorien geben, z. B. die Art des Nutzens',
   table: 'Top-Themen mit Verantwortlichen und nächsten Schritten',
 };
 export const BOARD_RIGHTS = ['host', 'own', 'all'] as const;
@@ -175,6 +179,8 @@ export const boardConfig = z.object({
   anytime: z.boolean().default(false),
   /** Jede Gruppe (aus „Gruppen bilden“) sammelt für sich und sieht die Karten der eigenen Gruppe */
   perTeam: z.boolean().default(false),
+  /** Beim Betreten der Folie sind die Ergebnisse auf dem Beamer verborgen (Moderation deckt auf) */
+  startHidden: z.boolean().default(false),
   /* Clustern */
   layout: z.enum(['wall', 'mindmap']).default('wall'),
   /* Zuordnen: Bahnen mit eigenen Feldern; zwei Bahnen à zwei Felder ergeben eine Matrix */
@@ -195,7 +201,8 @@ export const boardConfig = z.object({
   /** Noch nicht eingeordnete Karten auf dem Beamer zeigen */
   showUnsorted: z.boolean().default(false),
   /* Zuordnen, Punkte, Bewerten: worauf sich die Folie bezieht */
-  targets: z.enum(['auto', 'cards', 'groups']).default('auto'),
+  /** `table`: die Zeilen der letzten Ergebnistabelle derselben Wand vor dieser Folie (z. B. die bestätigten Top 3) */
+  targets: z.enum(['auto', 'cards', 'groups', 'table']).default('auto'),
   /** Nur die N Einträge mit den meisten Punkten (0 = alle) */
   top: z.number().int().min(0).max(30).default(0),
   /* Punkte */
@@ -210,6 +217,10 @@ export const boardConfig = z.object({
     .default([{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] }]),
   /** Felder der Matrix bei zwei Kriterien: oben links, oben rechts, unten links, unten rechts */
   quadrants: z.array(text(40)).length(4).default(['Quick Wins', 'Strategisch', 'Mitnehmen', 'Zurückstellen']),
+  /* Einordnen: Kategorien je Eintrag (Teilnehmende stimmen ab, die Moderation kann festlegen) */
+  choices: z.array(shortLabel(40)).min(2).max(8).default(['Zeit', 'Qualität', 'Umsatz', 'Kunde']),
+  /** Mehrere Kategorien je Eintrag erlaubt */
+  multi: z.boolean().default(true),
   /* Ergebnistabelle */
   columns: z.array(shortLabel(40)).min(1).max(5).default(['Lösungsrichtung', 'Verantwortlich', 'Nächster Schritt', 'Bis']),
 });

@@ -20,6 +20,8 @@ export const responsePayloads = {
   board: z.object({
     dots: z.record(z.string().regex(BOARD_KEY), z.number().int().min(0).max(10)).optional(),
     ratings: z.record(z.string().regex(BOARD_KEY), z.array(z.number().int().min(0).max(6).nullable()).min(1).max(2)).optional(),
+    /** Einordnen: gewählte Kategorien (Indizes in `choices`) je Eintrag */
+    picks: z.record(z.string().regex(BOARD_KEY), z.array(z.number().int().min(0).max(7)).max(8)).optional(),
   }),
   /** Gruppen bilden: gewählte Kennzeichnung (null = keine Angabe) */
   teams: z.object({ tag: z.number().int().min(0).nullable() }),

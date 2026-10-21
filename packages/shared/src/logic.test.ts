@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   boardResults,
   boardTargets,
+  tagCounts,
+  tiedKeys,
   dotTotals,
   levelLabel,
   parseBoardKey,
@@ -149,7 +151,12 @@ describe('Kartenwand', () => {
     expect(boardTargets(config, cards, [], {})).toEqual(['c1', 'c2', 'c3']);
     expect(boardTargets(config, cards, [{ id: 7 }, { id: 8 }], {})).toEqual(['g7', 'g8']);
     const top = board({ mode: 'rate', top: 2, targets: 'cards' });
-    expect(boardTargets(top, cards, [{ id: 7 }], { c3: 4, c1: 1, c2: 1 })).toEqual(['c3', 'c1']);
+    expect(boardTargets(top, cards, [{ id: 7 }], { c3: 4, c1: 2, c2: 1 })).toEqual(['c3', 'c1']);
+    // Gleichstand an der Grenze: beide kommen mit und werden als gleichauf benannt
+    expect(boardTargets(top, cards, [{ id: 7 }], { c3: 4, c1: 1, c2: 1 })).toEqual(['c3', 'c1', 'c2']);
+    expect(tiedKeys(['c3', 'c1', 'c2'], { c3: 4, c1: 1, c2: 1 })).toEqual(['c1', 'c2']);
+    expect(boardTargets(board({ mode: 'place', targets: 'table' }), cards, [{ id: 7 }], {}, ['g7'])).toEqual(['g7']);
+    expect(tagCounts([{ column: 0 }, { column: 3 }, { column: 3 }, { column: null }], 4)).toEqual([1, 0, 0, 2]);
     expect(dotTotals([{ dots: { g1: 2 } }, { dots: { g1: 1, g2: 3 } }, {}])).toEqual({ g1: 3, g2: 3 });
     expect(parseBoardKey('g12')).toEqual({ kind: 'group', id: 12 });
     expect(parseBoardKey('g0')).toBeNull();

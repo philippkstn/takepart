@@ -21,6 +21,11 @@ import {
   type SignalKind,
   type SignalStore,
   type SignalsView,
+  type TurnsState,
+  type TurnsHostView,
+  type TurnsDisplayView,
+  type MyTurnView,
+  TURN_SOURCES,
 } from './moderation.ts';
 
 /* ───────────────────────── Zustand einer Durchführung ───────────────────────── */
@@ -86,6 +91,8 @@ export interface RunState {
   teamDone?: Record<string, number[]>;
   /** Sammelruf „Alle zurück ins Plenum“ */
   callback?: Callback | null;
+  /** Reihum: feste Redereihenfolge für die ganze Durchführung */
+  turns?: TurnsState | null;
 }
 
 /** Laufende Pause – gleiche Form wie der Countdown (für Restzeit, Hinweise und Töne) */
@@ -194,6 +201,8 @@ export const boardOp = z.discriminatedUnion('op', [
   /** Die N Einträge mit den meisten Punkten als Zeilen übernehmen */
   z.object({ op: z.literal('rows-top'), n: z.number().int().min(1).max(20) }),
   z.object({ op: z.literal('row-fields'), key: boardKey, fields: z.array(z.string().trim().max(300)).max(5) }),
+  /** Einordnen: Kategorien eines Eintrags festlegen (leer = Festlegung aufheben, es zählen die Stimmen) */
+  z.object({ op: z.literal('choose-set'), key: boardKey, choices: z.array(z.number().int().min(0).max(7)).max(8) }),
 ]);
 export type BoardOp = z.infer<typeof boardOp>;
 
@@ -302,6 +311,24 @@ export const hostCommand = z.discriminatedUnion('action', [
   z.object({ action: z.literal('pick-show') }),
   z.object({ action: z.literal('pick-hide') }),
   z.object({ action: z.literal('pick-reset') }),
+  /** Reihum: neue Reihenfolge (nach Beitritt, zufällig oder nach der ersten Karte auf der Wand `board`) */
+  z.object({
+    action: z.literal('turns-make'),
+    source: z.enum(TURN_SOURCES),
+    board: z.string().trim().max(60).default(''),
+  }),
+  /** Personen mit Namen, die noch fehlen, hinten anhängen */
+  z.object({ action: z.literal('turns-fill') }),
+  /** Person ohne Handy hinten anhängen */
+  z.object({ action: z.literal('turns-add'), name: participantName }),
+  z.object({ action: z.literal('turns-move'), participantId: z.number().int(), delta }),
+  z.object({ action: z.literal('turns-remove'), participantId: z.number().int() }),
+  /** Weiter/zurück in der Runde */
+  z.object({ action: z.literal('turns-step'), delta }),
+  /** Bestimmte Position (null = niemand ist dran) */
+  z.object({ action: z.literal('turns-go'), index: z.number().int().min(0).nullable() }),
+  z.object({ action: z.literal('turns-show'), visible: z.boolean() }),
+  z.object({ action: z.literal('turns-clear') }),
 ]);
 export type HostCommand = z.infer<typeof hostCommand>;
 
@@ -364,6 +391,14 @@ export interface BoardView {
   breakout?: BreakoutView | null;
   /** Nur Teilnehmende beim gruppenweisen Sammeln: die eigene Arbeitsgruppe (null: keiner zugeteilt) */
   myTeam?: MyTeamView | null;
+  /** Kennzeichnungen der Wand (von ihrer ersten Sammel-Folie, z. B. S–XL) */
+  tags: string[];
+  /** Verteilung der Kennzeichnungen je Gruppe (`g<id>` → Anzahl je Kennzeichnung), z. B. „XL 3 · L 2“ */
+  tagCounts: Record<string, number[]>;
+  /** Einträge mit gleich vielen Punkten wie ein anderer (Gleichstand wird benannt, nicht aufgelöst) */
+  tied: string[];
+  /** Einordnen: von der Moderation festgelegte Kategorien je Eintrag */
+  chosen: Record<string, number[]>;
 }
 
 /** Arbeitsgruppe beim gruppenweisen Sammeln */
@@ -480,6 +515,10 @@ export interface ParticipantView {
   picked?: boolean;
   /** Sammelruf „zurück ins Plenum“, solange er gilt */
   callback?: Callback | null;
+  /** Reihum: eigene Position, solange eine Reihenfolge besteht und man darin steht */
+  myTurn?: MyTurnView | null;
+  /** Feedback mit Rückblick: eigene Karten der genannten Wand (z. B. Erwartungen vom Anfang) */
+  recall?: string[] | null;
 }
 
 export interface ParticipantPause extends Pause {
@@ -561,6 +600,8 @@ export interface DisplayView {
   picked?: string | null;
   /** Sammelruf „zurück ins Plenum“, solange er gilt */
   callback?: Callback | null;
+  /** Reihum: wer dran ist (und auf Wunsch die ganze Reihenfolge) */
+  turns?: TurnsDisplayView | null;
 }
 
 export interface HostSlideSummary {
@@ -599,6 +640,8 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   /** Handzeichen – nur für die Moderation */
   signals: SignalsView;
   picker: PickerView;
+  /** Reihum mit IDs (zum Verschieben) und Verbindungsstatus */
+  turnsHost: TurnsHostView;
   /** Wer gerade verbunden ist */
   presence: PresenceView;
   /** Probelauf: wird nicht archiviert, Testteilnehmende möglich */
