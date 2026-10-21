@@ -10,6 +10,7 @@ import { PickedAlert, SignalButton } from '../components/participant/SignalBar.t
 import { CallbackNotice } from '../components/participant/Breakout.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { PhaseBanner } from '../components/participant/PhaseBanner.tsx';
+import { TurnStrip } from '../components/participant/TurnStrip.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { api, errorMessage } from '../lib/api.ts';
 import { brandStyle } from '../lib/brand.ts';
@@ -148,6 +149,7 @@ export default function ParticipantPage({ code }: { code: string }) {
         </header>
         {/* In der Pause zählt nur die Pausenzeit */}
         {!view.pause && <PhaseBanner countdown={view.countdown} offset={offset} />}
+        {!view.pause && <TurnStrip turn={view.myTurn} />}
       </div>
       <ConnectionBadge status={status} />
       {/* Hinweise oben stapeln, statt sich zu überdecken */}

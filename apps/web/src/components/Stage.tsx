@@ -11,6 +11,7 @@ import { BuildLayer } from './BuildLayer.tsx';
 import { CountdownBadge } from './Countdown.tsx';
 import { PauseScreen } from './PauseScreen.tsx';
 import { PickOverlay } from './PickOverlay.tsx';
+import { TurnsOverlay } from './TurnsOverlay.tsx';
 import { SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
@@ -122,6 +123,7 @@ export function Stage({
             )}
           </AnimatePresence>
 
+          <TurnsOverlay turns={view.turns} />
           <PickOverlay name={view.picked} />
 
           <AnimatePresence>

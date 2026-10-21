@@ -1,0 +1,101 @@
+/* Reihum auf der Bühne (Maße in em wie die übrige Bühne) */
+
+/* Unter Zufallsauswahl (7), Pause (40) und Schwarzbild (50) */
+.turns-overlay {
+  z-index: 6;
+}
+.turns-card {
+  width: auto;
+  min-width: 18em;
+  max-width: 100%;
+  padding: 1.4em 2em 1.6em;
+}
+.turns-card.cols-2 {
+  width: min(100%, 44em);
+}
+.turns-card.cols-3 {
+  width: 100%;
+}
+.turns-stage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  columns: 1;
+  column-gap: 2em;
+  font-size: 1.35em;
+}
+.cols-2 .turns-stage-list {
+  columns: 2;
+}
+.cols-3 .turns-stage-list {
+  columns: 3;
+}
+.turns-stage-list.is-dense {
+  font-size: 1em;
+}
+.turns-stage-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  padding: 0.18em 0.5em;
+  border: 2px solid transparent;
+  border-radius: 0.35em;
+  break-inside: avoid;
+}
+.turns-stage-pos {
+  min-width: 1.4em;
+  text-align: right;
+  font-size: 0.75em;
+  color: var(--ink-3);
+}
+.turns-stage-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.turns-stage-list li.is-done {
+  color: var(--ink-3);
+}
+/* Wer dran ist: Rahmen und fette Schrift – nicht nur Farbe */
+.turns-stage-list li.is-current {
+  font-weight: 700;
+  border-color: var(--ink);
+  background: var(--surface-2);
+}
+
+/* Leiste „Jetzt · Danach“ unten links – oben sitzt der Sammelruf, unten mittig der Countdown-Hinweis */
+.turns-bar {
+  position: absolute;
+  left: 1.6em;
+  bottom: 0.9em;
+  z-index: 7;
+  max-width: 40%;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45em;
+  padding: 0.45em 0.9em;
+  border-radius: 0.5em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
+  font-size: 0.85em;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.turns-bar-label {
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--ink-3);
+}
+.turns-bar-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+strong.turns-bar-name {
+  font-size: 1.15em;
+}
+.turns-bar-sep {
+  color: var(--ink-3);
+}

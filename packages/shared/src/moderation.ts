@@ -208,6 +208,99 @@ export function moveTurn(turns: TurnsState, participantId: number, delta: number
   return { ...turns, order, current: currentId === null || currentId === undefined ? turns.current : order.indexOf(currentId) };
 }
 
+/** `current` nach einer Änderung der Reihenfolge wieder auf dieselbe Person setzen */
+function keepCurrent(before: TurnsState, order: number[]): number | null {
+  if (before.current === null || order.length === 0) return null;
+  const id = before.order[before.current];
+  const at = id === undefined ? -1 : order.indexOf(id);
+  if (at >= 0) return at;
+  // Die Person, die dran war, fehlt: die nächste in der Reihe ist dran
+  const kept = before.order.slice(0, before.current).filter((pid) => order.includes(pid)).length;
+  return Math.min(kept, order.length - 1);
+}
+
+/** Person aus der Reihenfolge nehmen; war sie dran, ist die nächste dran */
+export function removeTurn(turns: TurnsState, participantId: number): TurnsState {
+  const order = turns.order.filter((id) => id !== participantId);
+  return { ...turns, order, current: keepCurrent(turns, order) };
+}
+
+/** Nur bekannte Personen (gelöschte oder namenlose fallen heraus), „dran“ bleibt bei derselben Person */
+export function liveTurns(turns: TurnsState | null | undefined, known: { has(id: number): boolean }): TurnsState {
+  if (!turns) return emptyTurns();
+  const seen = new Set<number>();
+  const order = turns.order.filter((id) => known.has(id) && !seen.has(id) && !!seen.add(id));
+  return { ...turns, order, current: keepCurrent(turns, order) };
+}
+
+/** Personen hinten anhängen, die noch nicht in der Reihenfolge stehen */
+export function appendTurns(turns: TurnsState, ids: readonly number[]): TurnsState {
+  const order = [...turns.order];
+  for (const id of ids) if (!order.includes(id)) order.push(id);
+  return { ...turns, order };
+}
+
+/**
+ * Reihenfolge nach der ersten Karte: wer zuerst eine Karte geschrieben hat,
+ * steht vorn; Personen ohne Karte folgen in ihrer bisherigen (Beitritts-)Reihenfolge.
+ */
+export function orderByFirstCard(people: readonly number[], firstCard: ReadonlyMap<number, number>): number[] {
+  const index = new Map(people.map((id, i) => [id, i]));
+  const withCard = people.filter((id) => firstCard.has(id));
+  withCard.sort((a, b) => firstCard.get(a)! - firstCard.get(b)! || index.get(a)! - index.get(b)!);
+  return [...withCard, ...people.filter((id) => !firstCard.has(id))];
+}
+
+/** Zufällig mischen (Fisher-Yates); `random(n)` liefert eine ganze Zahl in [0, n) */
+export function shuffleTurns(people: readonly number[], random: (n: number) => number): number[] {
+  const order = [...people];
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = random(i + 1);
+    [order[i], order[j]] = [order[j]!, order[i]!];
+  }
+  return order;
+}
+
+/**
+ * Eigene Stelle in der Runde – nur während einer Runde (jemand ist dran oder die
+ * Liste steht auf dem Beamer) und nur für Personen, die in der Reihe stehen.
+ */
+export function myTurn(turns: TurnsState, participantId: number): MyTurnView | null {
+  const position = turns.order.indexOf(participantId);
+  if (position < 0 || (turns.current === null && !turns.shown)) return null;
+  return { position, of: turns.order.length, current: turns.current };
+}
+
+/**
+ * Karten nach Person ordnen (Clustern): Reihenfolge wie reihum, wer dran ist
+ * zuerst, Personen außerhalb der Reihe danach (in Reihenfolge ihrer ersten Karte),
+ * Karten der Moderation (ohne Person) zuletzt.
+ */
+export function cardsByTurn<T extends { authorId?: number | null }>(
+  posts: readonly T[],
+  order: readonly number[],
+  current: number | null,
+): { authorId: number | null; posts: T[] }[] {
+  const byAuthor = new Map<number | null, T[]>();
+  for (const p of posts) {
+    const key = p.authorId ?? null;
+    const list = byAuthor.get(key);
+    if (list) list.push(p);
+    else byAuthor.set(key, [p]);
+  }
+  const currentId = current === null ? null : (order[current] ?? null);
+  const rank = (id: number | null) => {
+    if (id === null) return Number.MAX_SAFE_INTEGER;
+    if (id === currentId) return -1;
+    const i = order.indexOf(id);
+    return i < 0 ? order.length : i;
+  };
+  return [...byAuthor.entries()]
+    .map(([authorId, list], seen) => ({ authorId, posts: list, seen }))
+    .sort((a, b) => rank(a.authorId) - rank(b.authorId) || a.seen - b.seen)
+    .map(({ authorId, posts: list }) => ({ authorId, posts: list }));
+}
+
 /** Reihum im Steuerpult */
 export interface TurnsHostView {
   order: { id: number; name: string; online: boolean }[];
@@ -215,6 +308,8 @@ export interface TurnsHostView {
   shown: boolean;
   /** Personen mit Namen, die noch nicht in der Reihenfolge stehen */
   missing: number;
+  /** Wand-Namen der Präsentation (Folienreihenfolge) für „nach erster Karte“ */
+  boards: string[];
 }
 
 /** Reihum auf dem Beamer: nur Namen */

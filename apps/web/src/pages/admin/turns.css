@@ -1,0 +1,126 @@
+/* Reihum im Steuerpult (Reiter „Moderation“) */
+
+.turns-panel {
+  flex-basis: 100%;
+  min-width: 0;
+}
+.turns-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.turns-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.turns-row .select {
+  width: auto;
+  max-width: 14em;
+}
+.turns-row .btn svg {
+  width: 15px;
+  height: 15px;
+}
+.turns-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow: auto;
+  border-top: 1px solid var(--border);
+}
+.turns-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 0;
+  border-bottom: 1px solid var(--border);
+}
+.turns-list .icon-btn {
+  width: 30px;
+  height: 30px;
+}
+.turns-list .icon-btn svg {
+  width: 15px;
+  height: 15px;
+}
+.turns-pos {
+  min-width: 1.6em;
+  text-align: right;
+  font-size: 0.78rem;
+  color: var(--ink-3);
+}
+.turns-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+  background: none;
+  font: inherit;
+  font-size: 0.88rem;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.turns-name:hover,
+.turns-name:focus-visible {
+  background: var(--surface-2);
+  outline: none;
+}
+.turns-list li.is-done .turns-name {
+  color: var(--ink-3);
+}
+/* Wer dran ist: Rahmen, fette Schrift und Hinweis – nicht nur Farbe */
+.turns-list li.is-current .turns-name {
+  font-weight: 650;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.turns-badge {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.turns-add {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.turns-add .input {
+  width: 12em;
+  min-height: 34px;
+}
+
+/* Ablage beim Clustern nach Person (BoardPanel) */
+.cards-person {
+  display: grid;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-s);
+}
+.cards-person.is-current {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.cards-person-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.cards-person-badge {
+  margin-left: auto;
+  font-weight: 650;
+  color: var(--ink-2);
+}

@@ -354,6 +354,8 @@ export interface PostView {
   group?: number | null;
   /** Breakout: Arbeitsgruppe (Index der Einteilung), in der die Karte gesammelt wurde */
   team?: number | null;
+  /** Nur in der Host-Ansicht: Teilnehmer-ID der Person (null = Moderation), z. B. zum Ordnen nach Reihum */
+  authorId?: number | null;
 }
 
 /* ───────────── Kartenwand ───────────── */

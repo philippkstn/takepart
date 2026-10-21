@@ -16,6 +16,8 @@ import { ArrowDown, ArrowUp, Check, Eye, EyeOff, ListPlus, Maximize2, MessageSqu
 import { useState, type FormEvent } from 'react';
 import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
 import { BreakoutPanel } from '../../components/board/Breakout.tsx';
+import { CardsByPerson } from './TurnsCards.tsx';
+import './turns.css';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type BoardHostSlide = Extract<NonNullable<HostView['slide']>, { type: 'board' }>;
@@ -208,17 +210,17 @@ function ClusterControls({ view, op, command }: { view: HostView; op: (o: BoardO
       <InlineForm placeholder="Überschrift der neuen Gruppe" cta="Gruppe" onSubmit={(name) => op({ op: 'group-add', name, postIds: [] })} />
       <InlineForm placeholder="Karte ergänzen" cta="Karte" max={300} onSubmit={(text) => op({ op: 'card-add', text, groupId: null })} />
 
+      {/* Ablage nach Person, in Reihum-Reihenfolge (TurnsCards.tsx) */}
       {unsorted.length > 0 && (
-        <div className="stack-s">
-          <span className="label">Ablage ({unsorted.length})</span>
-          <ul className="mod-list">
-            {unsorted.map((p) => (
-              <CardRow key={p.id} post={p} view={view} op={op} command={command}>
-                {groupSelect(p)}
-              </CardRow>
-            ))}
-          </ul>
-        </div>
+        <CardsByPerson
+          posts={unsorted}
+          turns={view.turnsHost}
+          renderCard={(p) => (
+            <CardRow key={p.id} post={p} view={view} op={op} command={command}>
+              {groupSelect(p)}
+            </CardRow>
+          )}
+        />
       )}
 
       {board.groups.map((g, i) => (

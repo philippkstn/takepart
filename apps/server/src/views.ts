@@ -25,6 +25,7 @@ import {
 import { buildBoardView } from './board.ts';
 import { breakoutPosts, breakoutView, myTeamView } from './breakout.ts';
 import { participantTeam, teamsView } from './teams.ts';
+import { displayTurns, participantTurn, turnsHostView } from './turns.ts';
 import { displayPause, participantPause, pauseStats } from './pause.ts';
 import { displayPicked, hostSignals, participantModeration, pickerView, presenceView } from './moderation.ts';
 import { computeResults, effectiveQuiz, publicPosts, publicSlide, sentenceText, stripPost, type Snapshot } from './snapshot.ts';
@@ -231,6 +232,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     team: participantTeam(snap, participantId),
     pause: participantPause(state, participantId),
     ...participantModeration(snap, participantId),
+    myTurn: participantTurn(snap, participantId),
     callback: activeCallback(state.callback, snap.now),
   };
 }
@@ -283,6 +285,7 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     teams: teamsView(snap, false),
     pause: displayPause(snap),
     picked: displayPicked(snap),
+    turns: displayTurns(snap),
     callback: activeCallback(state.callback, snap.now),
   };
 }
@@ -295,7 +298,8 @@ export function hostView(
 ): HostView {
   const { state } = snap.run;
   const slide = snap.current;
-  const posts = snap.posts.map(stripPost);
+  // Nur hier mit Teilnehmer-ID (Karten nach Person ordnen) – nie Beamer oder Publikum
+  const posts = snap.posts.map((p) => ({ ...stripPost(p), authorId: p.participantId }));
   const visible = publicPosts(snap).map(stripPost);
   return {
     kind: 'host',
@@ -343,7 +347,7 @@ export function hostView(
     handoutUrl: handoutUrl(snap),
     signals: hostSignals(snap),
     picker: pickerView(snap),
-    turnsHost: { order: [], current: null, shown: false, missing: 0 },
+    turnsHost: turnsHostView(snap, online),
     presence: presenceView(snap, online),
     rehearsal: snap.run.rehearsal,
     fakeParticipants: snap.run.fakeParticipants,

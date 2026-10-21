@@ -1,7 +1,16 @@
 import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
-import { parseConfig, plannedMinutes, schedulePhases, SLIDE_TYPES, type RunState, type SlideType } from '@slides/shared';
+import {
+  liveTurns,
+  parseConfig,
+  plannedMinutes,
+  schedulePhases,
+  SLIDE_TYPES,
+  type RunState,
+  type SlideType,
+  type TurnsState,
+} from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
@@ -148,6 +157,12 @@ function remapKeys<T>(record: Record<string, T> | undefined, map: (key: string) 
   return out;
 }
 
+/** Reihum auf neue Teilnehmer-IDs; fehlende Personen fallen heraus, nichts mehr auf dem Beamer */
+function remapTurns(turns: TurnsState, participants: IdMap): TurnsState {
+  const mapped = { ...turns, order: turns.order.map((id) => participants.get(id) ?? -1) };
+  return { ...liveTurns(mapped, { has: (id) => id >= 0 }), shown: false };
+}
+
 /** Live-Zustand einer Durchführung auf neue Folien-, Beitrags- und Teilnehmer-IDs umschreiben. */
 export function remapState(state: RunState, slides: IdMap, posts: IdMap, participants: IdMap = new Map()): RunState {
   const slideKey = (key: string) => {
@@ -173,6 +188,8 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap, partici
         )
       : undefined,
     teamDone: state.teamDone ? remapKeys(state.teamDone, slideKey) : undefined,
+    // Reihum: Teilnehmer-IDs umschreiben, „dran“ bleibt bei derselben Person
+    turns: state.turns ? remapTurns(state.turns, participants) : undefined,
     // Beendete Durchführung: keine laufenden Anzeigen übernehmen
     countdown: null,
     callback: null,

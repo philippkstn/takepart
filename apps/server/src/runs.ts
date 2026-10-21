@@ -33,6 +33,7 @@ import { requireOwner } from './access.ts';
 import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
 import { applyPauseCommand, endPause, startSlidePause } from './pause.ts';
 import { applyModerationCommand, isModerationCommand } from './moderation.ts';
+import { applyTurnsCommand, isTurnsCommand } from './turns.ts';
 import { applyBreakoutCommand } from './breakout.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { applyBoardOp, boardSummary, clearBoardSlide } from './board.ts';
@@ -361,6 +362,10 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
         }
         if (isModerationCommand(cmd)) {
           await saveRunState(db, id, await applyModerationCommand(db, id, run.state, slides, cmd));
+          return;
+        }
+        if (isTurnsCommand(cmd)) {
+          await saveRunState(db, id, await applyTurnsCommand(db, id, run.state, slides, cmd));
           return;
         }
         if (cmd.action === 'board') {

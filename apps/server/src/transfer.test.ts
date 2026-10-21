@@ -75,3 +75,25 @@ describe('Import: Gruppeneinteilung', () => {
     expect(next.teams).toEqual({ '110': [[501, 502], [503]] });
   });
 });
+
+describe('Import: Reihum', () => {
+  it('schreibt die Reihenfolge auf neue Teilnehmer-IDs um, „dran“ bleibt bei derselben Person', () => {
+    const state: RunState = { ...initialRunState(10), turns: { order: [1, 99, 2, 3], current: 2, shown: true } };
+    const next = remapState(
+      state,
+      slides,
+      posts,
+      new Map([
+        [1, 501],
+        [2, 502],
+        [3, 503],
+      ]),
+    );
+    expect(next.turns).toEqual({ order: [501, 502, 503], current: 1, shown: false });
+  });
+
+  it('ohne Teilnehmer-Zuordnung bleibt eine leere Reihenfolge', () => {
+    const state: RunState = { ...initialRunState(10), turns: { order: [1, 2], current: 0, shown: false } };
+    expect(remapState(state, slides, posts).turns).toEqual({ order: [], current: null, shown: false });
+  });
+});

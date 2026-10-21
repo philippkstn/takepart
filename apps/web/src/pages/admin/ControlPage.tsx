@@ -47,6 +47,7 @@ import { BoardPanel } from './BoardPanel.tsx';
 import { CallbackControl, hasTeams } from '../../components/board/Breakout.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
+import { TurnsPanel } from './TurnsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { LiveRunNote } from '../../components/protocol/RunNoteEditor.tsx';
 import { CountdownBadge } from '../../components/Countdown.tsx';
@@ -399,6 +400,7 @@ export default function ControlPage() {
             {tab === 'moderation' && (
               <>
                 <PickerControl view={view} command={command} busy={busy || ended} />
+                <TurnsPanel view={view} command={command} busy={busy || ended} />
                 {hasTeams(view) && (
                   <ControlGroup label="Gruppen">
                     <CallbackControl view={view} command={command} offset={offset} />
