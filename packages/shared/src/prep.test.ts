@@ -62,23 +62,29 @@ describe('Übungsbausteine', () => {
     const slides = blockSlides(block);
     expect(slides.map((s) => s.type)).toEqual(['teams', 'board', 'board', 'board', 'board', 'board', 'board']);
     const teams = slides[0]!;
-    expect(teams.schedule?.autoCountdown).toBe(true);
-    expect(teams.schedule?.phases?.map((p) => p.minutes)).toEqual([5, 12, 5, 3, 12, 5, 3]);
+    // Die Phasen starten erst auf der Sammel-Folie
+    expect(teams.schedule).toBeUndefined();
+    expect(slides[1]!.schedule?.autoCountdown).toBe(true);
+    expect(slides[1]!.schedule?.phases?.map((p) => p.minutes)).toEqual([12, 5, 3, 12, 5, 3]);
     expect(schedulePhases.safeParse(PAIR_INTERVIEW_PHASES).success).toBe(true);
     expect(parseConfig('teams', teams.config).tags.length).toBeGreaterThan(1);
     const [collect, parking, cluster, dots, choose, table] = slides.slice(1).map((s) => parseConfig('board', s.config));
     expect(collect).toMatchObject({ mode: 'collect', maxCards: 5, tags: ['S', 'M', 'L', 'XL'], startHidden: true, anytime: false });
     expect(parking).toMatchObject({ mode: 'collect', anytime: true, board: 'Parkplatz' });
-    expect(cluster).toMatchObject({ mode: 'cluster', rights: 'host', showUnsorted: true });
-    expect(dots).toMatchObject({ mode: 'dots', dots: 3, targets: 'groups' });
+    expect(cluster).toMatchObject({ mode: 'cluster', rights: 'own', showUnsorted: true });
+    expect(dots).toMatchObject({ mode: 'dots', dots: 3, targets: 'cards' });
     expect(choose).toMatchObject({
       mode: 'choose',
       top: 5,
-      targets: 'groups',
+      targets: 'cards',
       multi: true,
       choices: ['Zeit', 'Qualität', 'Umsatz', 'Kunde'],
     });
-    expect(table).toMatchObject({ mode: 'table', columns: ['Lösungsrichtung', 'Verantwortlich', 'Nächster Schritt', 'Bis'] });
+    expect(table).toMatchObject({
+      mode: 'table',
+      targets: 'cards',
+      columns: ['Lösungsrichtung', 'Verantwortlich', 'Nächster Schritt', 'Bis'],
+    });
   });
 
   it('Feedbackrunde blickt auf die (ggf. umbenannte) Erwartungswand zurück', () => {

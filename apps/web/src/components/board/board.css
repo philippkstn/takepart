@@ -576,3 +576,19 @@
 .board-table td {
   overflow-wrap: break-word;
 }
+
+/* Punkte auf einzelne Karten, nach Thema gruppiert */
+.dot-sections {
+  display: grid;
+  gap: 0.9em;
+}
+.dot-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6em;
+  margin: 0 0 0.35em;
+  font-size: 0.95em;
+  font-weight: 700;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--border);
+}

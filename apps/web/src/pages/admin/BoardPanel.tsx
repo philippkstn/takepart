@@ -16,7 +16,7 @@ import {
 } from '@slides/shared';
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, ListPlus, Maximize2, MessageSquareOff, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { cardsByGroup, itemsByCell, labelOf } from '../../lib/board.ts';
+import { cardSections, cardsByGroup, itemsByCell, labelOf } from '../../lib/board.ts';
 import { BreakoutPanel } from '../../components/board/Breakout.tsx';
 import { CardsByPerson } from './TurnsCards.tsx';
 import './turns.css';
@@ -374,17 +374,27 @@ function VoteSummary({ view }: { view: HostView }) {
       </span>
       {tie && <p className="small faint">{tie} – alle gleichauf liegenden stehen zur Wahl.</p>}
       {tied.size > 0 && <p className="small faint">Gleichstand – entscheidet gemeinsam, was weiterkommt.</p>}
-      <ol className="word-table">
-        {sorted.map((key) => (
-          <li key={key}>
-            <span className="grow">
-              {labelOf(key, view.posts, board)} <TagChips board={board} itemKey={key} />
-              {tied.has(key) && <TieMark />}
+      {(cardSections(sorted, view.posts, board) ?? [{ id: null, name: '', keys: sorted }]).map((section) => (
+        <div key={section.id ?? 'none'} className="stack-s">
+          {section.name && (
+            <span className="label row-between">
+              <span>{section.name}</span>
+              <span className="tabular faint">{section.keys.reduce((a, k) => a + score(k), 0)} P.</span>
             </span>
-            <span className="tabular faint">{results?.dots[key] ?? 0} P.</span>
-          </li>
-        ))}
-      </ol>
+          )}
+          <ol className="word-table">
+            {section.keys.map((key) => (
+              <li key={key}>
+                <span className="grow">
+                  {labelOf(key, view.posts, board)} <TagChips board={board} itemKey={key} />
+                  {tied.has(key) && <TieMark />}
+                </span>
+                <span className="tabular faint">{results?.dots[key] ?? 0} P.</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ))}
     </div>
   );
 }

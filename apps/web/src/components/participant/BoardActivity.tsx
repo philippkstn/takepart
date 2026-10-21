@@ -18,7 +18,7 @@ import {
 import { Check, GripVertical, Hourglass, Lock, Minus, Pencil, Plus, Send, Trash2, X } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
-import { cardsByGroup, labelOf, shortName } from '../../lib/board.ts';
+import { cardSections, cardsByGroup, labelOf, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { useToast } from '../ui.tsx';
 import { TeamBar } from './Breakout.tsx';
@@ -762,33 +762,38 @@ function Dots({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
           noch <strong className="tabular">{left}</strong> von {budget} {budget === 1 ? 'Punkt' : 'Punkten'}
         </span>
       </div>
-      <ul className="board-vote-list">
-        {board.targets.map((key) => {
-          const n = dots[key] ?? 0;
-          return (
-            <li key={key} className={n > 0 ? 'is-on' : ''}>
-              <span className="grow board-vote-text">
-                <Expandable text={labelOf(key, view.posts, board)} />
-                <TagChips board={board} itemKey={key} />
-              </span>
-              <span className="board-stepper">
-                <button className="icon-btn" aria-label="Punkt entfernen" disabled={n === 0} onClick={() => change(key, -1)}>
-                  <Minus />
-                </button>
-                <span className="tabular board-stepper-n">{n}</span>
-                <button
-                  className="icon-btn"
-                  aria-label="Punkt kleben"
-                  disabled={left === 0 || (!stack && n >= 1)}
-                  onClick={() => change(key, 1)}
-                >
-                  <Plus />
-                </button>
-              </span>
-            </li>
-          );
-        })}
-      </ul>
+      {(cardSections(board.targets, view.posts, board) ?? [{ id: null, name: '', keys: board.targets }]).map((section) => (
+        <div key={section.id ?? 'none'} className="board-vote-section">
+          {section.name && <h2 className="board-vote-head">{section.name}</h2>}
+          <ul className="board-vote-list">
+            {section.keys.map((key) => {
+              const n = dots[key] ?? 0;
+              return (
+                <li key={key} className={n > 0 ? 'is-on' : ''}>
+                  <span className="grow board-vote-text">
+                    <Expandable text={labelOf(key, view.posts, board)} />
+                    <TagChips board={board} itemKey={key} />
+                  </span>
+                  <span className="board-stepper">
+                    <button className="icon-btn" aria-label="Punkt entfernen" disabled={n === 0} onClick={() => change(key, -1)}>
+                      <Minus />
+                    </button>
+                    <span className="tabular board-stepper-n">{n}</span>
+                    <button
+                      className="icon-btn"
+                      aria-label="Punkt kleben"
+                      disabled={left === 0 || (!stack && n >= 1)}
+                      onClick={() => change(key, 1)}
+                    >
+                      <Plus />
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
       <button className="btn btn-primary btn-large board-submit" onClick={submit} disabled={busy || used === 0}>
         Punkte abgeben <Send />
       </button>

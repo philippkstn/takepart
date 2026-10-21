@@ -20,7 +20,7 @@ import {
 } from '@slides/shared';
 import { EyeOff, Plus } from 'lucide-react';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { axisPosition, cardsByGroup, itemsByCell, labelOf, shortName } from '../../lib/board.ts';
+import { axisPosition, cardSections, cardsByGroup, itemsByCell, labelOf, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { ScrollingResults } from '../../lib/autoScroll.tsx';
 import { BarList } from '../Results.tsx';
@@ -515,6 +515,22 @@ function Place({ ctx }: { ctx: Ctx }) {
 function TargetList({ ctx }: { ctx: Ctx }) {
   const { board } = ctx;
   if (board.targets.length === 0) return <Waiting>Noch keine Einträge auf dieser Wand</Waiting>;
+  const sections = cardSections(board.targets, ctx.view.posts, board);
+  if (sections)
+    return (
+      <div className="dot-sections">
+        {sections.map((s) => (
+          <section key={s.id ?? 'none'} className="dot-section">
+            <h2 className="dot-section-head">{s.name}</h2>
+            <ul className={`board-cards ${density(board.targets.length)}`}>
+              {s.keys.map((key) => (
+                <Item key={key} itemKey={key} ctx={ctx} />
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    );
   return (
     <ul className={`board-cards ${density(board.targets.length)}`}>
       {board.targets.map((key) => (
@@ -529,18 +545,42 @@ function Dots({ ctx }: { ctx: Ctx }) {
   if (!results || results.type !== 'board' || results.voters === 0) return <TargetList ctx={ctx} />;
   const items = [...ctx.board.targets].map((key, i) => ({ key, i, n: results.dots[key] ?? 0 })).sort((a, b) => b.n - a.n || a.i - b.i);
   const max = Math.max(1, ...items.map((e) => e.n));
+  const bar = (e: (typeof items)[number]) => ({
+    key: e.key,
+    label: labelOf(e.key, ctx.view.posts, ctx.board),
+    value: e.n,
+    display: `${e.n} ${e.n === 1 ? 'Punkt' : 'Punkte'}`,
+    extra: <BarMarks ctx={ctx} itemKey={e.key} />,
+  });
+  // Punkte auf einzelne Karten, die schon zu Themen geclustert sind: nach Thema mit Summe
+  const sections = cardSections(ctx.board.targets, ctx.view.posts, ctx.board);
+  if (sections) {
+    const sum = (keys: string[]) => keys.reduce((a, k) => a + (results.dots[k] ?? 0), 0);
+    const ordered = [...sections].sort((a, b) => sum(b.keys) - sum(a.keys));
+    return (
+      <ScrollingResults key={ctx.view.slide?.id} className="stage-results board-results">
+        <div className="dot-sections">
+          {ordered.map((s) => {
+            const total = sum(s.keys);
+            return (
+              <section key={s.id ?? 'none'} className="dot-section">
+                <h2 className="dot-section-head">
+                  <span className="grow">{s.name}</span>
+                  <span className="tabular faint">
+                    {total} {total === 1 ? 'Punkt' : 'Punkte'}
+                  </span>
+                </h2>
+                <BarList max={max} items={items.filter((e) => s.keys.includes(e.key)).map(bar)} />
+              </section>
+            );
+          })}
+        </div>
+      </ScrollingResults>
+    );
+  }
   return (
     <ScrollingResults key={ctx.view.slide?.id} className="stage-results board-results">
-      <BarList
-        max={max}
-        items={items.map((e) => ({
-          key: e.key,
-          label: labelOf(e.key, ctx.view.posts, ctx.board),
-          value: e.n,
-          display: `${e.n} ${e.n === 1 ? 'Punkt' : 'Punkte'}`,
-          extra: <BarMarks ctx={ctx} itemKey={e.key} />,
-        }))}
-      />
+      <BarList max={max} items={items.map(bar)} />
     </ScrollingResults>
   );
 }

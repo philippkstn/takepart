@@ -108,7 +108,6 @@ export function expectationsBoard(boards: string[]): string {
 
 /** Phasen der Paarinterviews (Hindernisse v3): zwei Runden mit Rollentausch, 45 Minuten */
 export const PAIR_INTERVIEW_PHASES = [
-  { label: 'Einführung & Paare bilden', minutes: 5 },
   { label: 'Runde 1: A fragt, B erzählt', minutes: 12 },
   { label: 'B schreibt Karten', minutes: 5 },
   { label: 'B schätzt den Nutzen (S–XL)', minutes: 3 },
@@ -200,8 +199,7 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
         type: 'teams',
         config: { title: 'Paare bilden', tagLabel: 'Deine Rolle', tags: ['Innendienst', 'Außendienst', 'Key Account', 'Führung'] },
         notes:
-          'Rollen im Editor an die Gruppe anpassen. Im Steuerpult Gruppengröße 2 und „Rollen mischen“ wählen – bei ungerader Zahl entsteht ein Dreierteam. Die Paare gehen in Breakout-Räume. Der Phasen-Countdown startet beim Betreten dieser Folie und läuft beim Weiterblättern weiter; jede Phase erscheint auf allen Handys.',
-        schedule: { phases: PAIR_INTERVIEW_PHASES, autoCountdown: true },
+          'Rollen im Editor an die Gruppe anpassen. Im Steuerpult Gruppengröße 2 und „Rollen mischen“ wählen – bei ungerader Zahl entsteht ein Dreierteam. Die Paare gehen in Breakout-Räume. Der Phasen-Countdown startet erst auf der Sammel-Folie.',
       },
       {
         type: 'board',
@@ -215,7 +213,8 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
           startHidden: true,
         },
         notes:
-          'Die Ergebnisse bleiben auf dem Beamer verborgen, bis du sie aufdeckst. Wer erzählt, schreibt danach seine eigenen Karten (höchstens fünf, je 300 Zeichen).',
+          'Der Phasen-Countdown (Interview, Karten schreiben, Nutzen schätzen – zwei Runden) startet beim Öffnen dieser Folie und erscheint auf allen Handys. Die Ergebnisse bleiben auf dem Beamer verborgen, bis du sie aufdeckst. Wer erzählt, schreibt danach seine eigenen Karten (höchstens fünf, je 300 Zeichen).',
+        schedule: { phases: PAIR_INTERVIEW_PHASES, autoCountdown: true },
       },
       {
         type: 'board',
@@ -230,13 +229,15 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
       },
       {
         type: 'board',
-        config: { board, mode: 'cluster', prompt: 'Ähnliche Hindernisse zu Themen bündeln', rights: 'host', showUnsorted: true },
-        notes: 'Die Moderation clustert und benennt die Themen gemeinsam mit der Gruppe; noch lose Karten stehen am Rand.',
+        config: { board, mode: 'cluster', prompt: 'Ähnliche Hindernisse zu Themen bündeln', rights: 'own', showUnsorted: true },
+        notes:
+          'Jede Person ordnet ihre eigenen Karten selbst einem Thema zu oder legt ein neues an – reihum, während sie vorliest. Die Moderation hilft und benennt die Themen; im Steuerpult lassen sich die Rechte jederzeit auf „Nur Moderation“ umschalten.',
       },
       {
         type: 'board',
-        config: { board, mode: 'dots', prompt: 'Wo wäre der Nutzen am größten, wenn das Hindernis weg wäre?', dots: 3, targets: 'groups' },
-        notes: 'Drei Klebepunkte pro Person auf die Themen, auch mehrere auf dasselbe.',
+        config: { board, mode: 'dots', prompt: 'Wo wäre der Nutzen am größten, wenn das Hindernis weg wäre?', dots: 3, targets: 'cards' },
+        notes:
+          'Drei Klebepunkte pro Person auf einzelne Hindernisse, auch mehrere auf dasselbe. Die Karten stehen nach Themen gruppiert, jedes Thema zeigt die Summe seiner Punkte.',
       },
       {
         type: 'board',
@@ -245,11 +246,11 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
           mode: 'choose',
           prompt: 'Welche Art von Nutzen bringt es, wenn das Hindernis weg ist?',
           top: 5,
-          targets: 'groups',
+          targets: 'cards',
           choices: ['Zeit', 'Qualität', 'Umsatz', 'Kunde'],
           multi: true,
         },
-        notes: 'Nur die fünf Themen mit den meisten Punkten. Mehrere Kategorien je Thema sind erlaubt.',
+        notes: 'Nur die fünf Hindernisse mit den meisten Punkten. Mehrere Kategorien je Hindernis sind erlaubt.',
       },
       {
         type: 'board',
@@ -257,7 +258,7 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
           board,
           mode: 'table',
           prompt: 'Unsere Top 3',
-          targets: 'groups',
+          targets: 'cards',
           columns: ['Lösungsrichtung', 'Verantwortlich', 'Nächster Schritt', 'Bis'],
         },
         notes: 'Im Steuerpult „Top 3 nach Punkten übernehmen“ und die Felder gemeinsam ausfüllen.',

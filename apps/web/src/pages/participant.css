@@ -1108,3 +1108,18 @@ button.board-group-name:hover {
     max-width: 640px;
   }
 }
+
+/* Punkte auf Karten: Abschnitt je Thema */
+.board-vote-section {
+  display: grid;
+  gap: 0.4rem;
+}
+.board-vote-section + .board-vote-section {
+  margin-top: 0.6rem;
+}
+.board-vote-head {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}

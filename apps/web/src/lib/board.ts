@@ -103,3 +103,29 @@ export function shortName(text: string, max = 80): string {
   const space = cut.lastIndexOf(' ');
   return `${(space > max / 2 ? cut.slice(0, space) : cut).replace(/[\s,.;:–-]+$/, '')} …`;
 }
+
+/** Abschnitt einer Karten-Liste: ein Thema (Gruppe) mit seinen Karten-Schlüsseln */
+export interface CardSection {
+  /** Gruppen-ID, `null` = ohne Thema */
+  id: number | null;
+  name: string;
+  keys: string[];
+}
+
+/**
+ * Bezieht sich eine Folie auf einzelne Karten, die schon zu Themen geclustert
+ * sind, werden sie nach Thema gruppiert (Reihenfolge der Wand, „Ohne Thema“
+ * zuletzt). Sonst `null` – dann bleibt die flache Liste.
+ */
+export function cardSections(keys: string[], posts: PostView[], board: Pick<BoardView, 'groups'>): CardSection[] | null {
+  if (board.groups.length === 0 || keys.length === 0) return null;
+  if (!keys.every((k) => parseBoardKey(k)?.kind === 'card')) return null;
+  const groupOf = new Map(posts.map((p) => [p.id, p.group ?? null]));
+  const sections: CardSection[] = board.groups.map((g) => ({ id: g.id, name: g.name, keys: [] }));
+  const loose: CardSection = { id: null, name: 'Ohne Thema', keys: [] };
+  for (const key of keys) {
+    const group = groupOf.get(parseBoardKey(key)!.id) ?? null;
+    (sections.find((s) => s.id === group) ?? loose).keys.push(key);
+  }
+  return [...sections, loose].filter((s) => s.keys.length > 0);
+}

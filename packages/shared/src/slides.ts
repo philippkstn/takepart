@@ -228,7 +228,7 @@ export const boardConfig = z.object({
    * einordnen oder gemeinsam alles bearbeiten (Karten verschieben und ändern,
    * Gruppen anlegen und umbenennen). Im Steuerpult live umschaltbar.
    */
-  rights: z.enum(BOARD_RIGHTS).default('host'),
+  rights: z.enum(BOARD_RIGHTS).default('own'),
   /** Noch nicht eingeordnete Karten auf dem Beamer zeigen */
   showUnsorted: z.boolean().default(false),
   /* Zuordnen, Punkte, Bewerten: worauf sich die Folie bezieht */
