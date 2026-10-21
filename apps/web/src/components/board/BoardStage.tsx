@@ -1,6 +1,7 @@
 import {
   BOARD_MODE_LABELS,
   cardKey,
+  groupKey,
   levelLabel,
   parseBoardKey,
   teamShort,
@@ -18,6 +19,8 @@ import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { ScrollingResults } from '../../lib/autoScroll.tsx';
 import { BarList } from '../Results.tsx';
 import { BreakoutWall, doneSummary } from './Breakout.tsx';
+import { TagChips, TieMark, tiedSet, topTieText } from './BoardMarks.tsx';
+import { ChooseStage } from './Choose.tsx';
 import './board.css';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
@@ -30,7 +33,18 @@ type Config = BoardSlide['config'];
 export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide: BoardSlide; onBoard?: (op: BoardOp) => void }) {
   const config = slide.config;
   const board = view.board ?? emptyBoard(config);
-  const ctx: Ctx = { view, config, board, onBoard, focus: view.spotlight?.id ?? null };
+  const ctx: Ctx = {
+    view,
+    config,
+    board,
+    onBoard,
+    focus: view.spotlight?.id ?? null,
+    tied: tiedSet(board, view.results as BoardResults | null),
+  };
+  const tie =
+    config.top > 0 && config.mode !== 'collect' && config.mode !== 'cluster' && config.mode !== 'table'
+      ? topTieText(board, config.top, config.targets)
+      : null;
   return (
     <>
       <div className="row-between stage-head-row">
@@ -39,6 +53,7 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
             {BOARD_MODE_LABELS[config.mode]} · {config.board}
           </span>
           {config.prompt && <h1 className="stage-title board-title">{config.prompt}</h1>}
+          {tie && <span className="board-tie-note">{tie}</span>}
         </div>
         <Count ctx={ctx} />
       </div>
@@ -55,10 +70,25 @@ interface Ctx {
   board: BoardView;
   onBoard?: (op: BoardOp) => void;
   focus: number | null;
+  /** Einträge im Gleichstand nach Punkten */
+  tied: Set<string>;
 }
 
 export function emptyBoard(config: Config): BoardView {
-  return { name: config.board, mode: config.mode, groups: [], targets: [], places: {}, rows: [], totals: {}, rights: config.rights, tags: [], tagCounts: {}, tied: [], chosen: {} };
+  return {
+    name: config.board,
+    mode: config.mode,
+    groups: [],
+    targets: [],
+    places: {},
+    rows: [],
+    totals: {},
+    rights: config.rights,
+    tags: [],
+    tagCounts: {},
+    tied: [],
+    chosen: {},
+  };
 }
 
 function Count({ ctx }: { ctx: Ctx }) {
@@ -66,7 +96,7 @@ function Count({ ctx }: { ctx: Ctx }) {
   const n = view.answers;
   let text: string;
   if (config.mode === 'collect') text = `${n} ${n === 1 ? 'Person' : 'Personen'}`;
-  else if (config.mode === 'dots' || config.mode === 'rate') text = `${n} ${n === 1 ? 'Antwort' : 'Antworten'}`;
+  else if (config.mode === 'dots' || config.mode === 'rate' || config.mode === 'choose') text = `${n} ${n === 1 ? 'Antwort' : 'Antworten'}`;
   else if (config.mode === 'table') text = `${ctx.board.rows.length} ${ctx.board.rows.length === 1 ? 'Thema' : 'Themen'}`;
   else text = `${n} ${n === 1 ? 'Karte' : 'Karten'}`;
   return (
@@ -95,6 +125,17 @@ function Body({ ctx }: { ctx: Ctx }) {
       return <Dots ctx={ctx} />;
     case 'rate':
       return <Rate ctx={ctx} />;
+    case 'choose':
+      return (
+        <ChooseStage
+          slideId={ctx.view.slide?.id}
+          config={ctx.config}
+          board={ctx.board}
+          posts={ctx.view.posts}
+          results={ctx.view.results as BoardResults | null}
+          tied={ctx.tied}
+        />
+      );
     case 'table':
       return <Table ctx={ctx} />;
   }
@@ -160,7 +201,8 @@ function FitList({ children }: { children: ReactNode }) {
 }
 
 function Card({ post, ctx, tag = true }: { post: PostView; ctx: Ctx; tag?: boolean }) {
-  const label = tag && post.column !== null ? ctx.config.tags[post.column] : undefined;
+  // Auf späteren Folien der Wand gelten die Kennzeichnungen der Sammel-Folie
+  const label = tag && post.column !== null ? (ctx.config.tags[post.column] ?? ctx.board.tags[post.column]) : undefined;
   // Herkunft aus der Gruppenarbeit (gruppenweises Sammeln), z. B. „G2“ – nicht beim Sammeln selbst (dort sind es Spalten)
   const team = ctx.config.mode !== 'collect' && post.team !== null && post.team !== undefined ? teamShort(post.team) : undefined;
   return (
@@ -191,6 +233,8 @@ function Item({ itemKey, ctx, extra }: { itemKey: string; ctx: Ctx; extra?: Reac
     >
       <span className="board-card-text">{labelOf(itemKey, ctx.view.posts, ctx.board)}</span>
       {group && <span className="board-tag tabular">{group.cards} Karten</span>}
+      <TagChips board={ctx.board} itemKey={itemKey} />
+      {ctx.tied.has(itemKey) && <TieMark />}
       {extra}
     </li>
   );
@@ -284,6 +328,7 @@ function ClusterWall({ ctx }: { ctx: Ctx }) {
         <Zone key={g.id} className="cluster-group" onDrop={onBoard && assign(g.id)} label={g.name}>
           <h2 className="cluster-name">
             {g.name} <span className="faint tabular">{g.cards}</span>
+            <TagChips board={board} itemKey={groupKey(g.id)} />
           </h2>
           <FitList>
             {(groups.get(g.id) ?? []).map((p) => (
@@ -346,6 +391,7 @@ function Mindmap({ ctx }: { ctx: Ctx }) {
               <Zone className="cluster-group" onDrop={onBoard && assign(g.id)} label={g.name}>
                 <h2 className="cluster-name">
                   {g.name} <span className="faint tabular">{g.cards}</span>
+                  <TagChips board={board} itemKey={groupKey(g.id)} />
                 </h2>
                 <FitList>
                   {cards.slice(0, maxCards).map((p) => (
@@ -472,9 +518,21 @@ function Dots({ ctx }: { ctx: Ctx }) {
           label: labelOf(e.key, ctx.view.posts, ctx.board),
           value: e.n,
           display: `${e.n} ${e.n === 1 ? 'Punkt' : 'Punkte'}`,
+          extra: <BarMarks ctx={ctx} itemKey={e.key} />,
         }))}
       />
     </ScrollingResults>
+  );
+}
+
+/** Marken hinter dem Text eines Balkens: Verteilung der Kennzeichnungen und Gleichstand */
+function BarMarks({ ctx, itemKey }: { ctx: Ctx; itemKey: string }) {
+  if (!ctx.board.tagCounts[itemKey] && !ctx.tied.has(itemKey)) return null;
+  return (
+    <span className="bar-marks">
+      <TagChips board={ctx.board} itemKey={itemKey} />
+      {ctx.tied.has(itemKey) && <TieMark />}
+    </span>
   );
 }
 
@@ -498,6 +556,7 @@ function Rate({ ctx }: { ctx: Ctx }) {
           label: labelOf(e.key, view.posts, board),
           value: e.avg === null ? 0 : e.avg + 1,
           display: e.avg === null ? '–' : `${levelLabel(scale.levels, e.avg)} · ${e.n}×`,
+          extra: <BarMarks ctx={ctx} itemKey={e.key} />,
         }))}
       />
     </ScrollingResults>
@@ -555,6 +614,7 @@ export function RatingMatrix({ ctx, results }: { ctx: Pick<Ctx, 'config' | 'boar
           <li key={p.key}>
             <span className="rating-point is-static tabular">{p.number}</span>
             <span className="grow clamp">{labelOf(p.key, view.posts, board)}</span>
+            <TagChips board={board} itemKey={p.key} />
             <span className="faint">{p.text}</span>
           </li>
         ))}
@@ -585,11 +645,15 @@ function Table({ ctx }: { ctx: Ctx }) {
             <td className="tabular">{i + 1}</td>
             <td className="board-table-topic">
               <span className="clamp">{labelOf(r.key, view.posts, board)}</span>
-              {(board.totals[r.key] ?? 0) > 0 && (
-                <span className="board-tag tabular">
-                  {board.totals[r.key]} {board.totals[r.key] === 1 ? 'Punkt' : 'Punkte'}
-                </span>
-              )}
+              <span className="row" style={{ gap: '0.35em' }}>
+                {(board.totals[r.key] ?? 0) > 0 && (
+                  <span className="board-tag tabular">
+                    {board.totals[r.key]} {board.totals[r.key] === 1 ? 'Punkt' : 'Punkte'}
+                  </span>
+                )}
+                <TagChips board={board} itemKey={r.key} />
+                {ctx.tied.has(r.key) && <TieMark />}
+              </span>
             </td>
             {config.columns.map((_, j) => (
               <td key={j}>{r.fields[j] || <span className="faint">–</span>}</td>

@@ -179,7 +179,7 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       // Nur Einträge, die auf dieser Folie zur Wahl stehen
       const allowed = new Set(targetsOf(slide.config, await loadBoard(db, p.runId, ctx.slides, slide)));
       const value = result.value as ResponsePayloads['board'];
-      const keys = Object.keys(value.dots ?? value.ratings ?? {});
+      const keys = Object.keys(value.dots ?? value.ratings ?? value.picks ?? {});
       if (keys.some((k) => !allowed.has(k))) return reply.code(409).send({ error: 'Die Auswahl hat sich geändert – bitte noch einmal' });
     }
     if (slide.type === 'sentence') {

@@ -6,6 +6,8 @@ import {
   groupKey,
   targetKind,
   teamShort,
+  tieAtLimit,
+  topByDots,
   type BoardOp,
   type BoardResults,
   type HostCommand,
@@ -18,6 +20,8 @@ import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.
 import { BreakoutPanel } from '../../components/board/Breakout.tsx';
 import { CardsByPerson } from './TurnsCards.tsx';
 import './turns.css';
+import { TagChips, TieMark, tiedSet, topTieText } from '../../components/board/BoardMarks.tsx';
+import { ChooseControls } from './ChooseControls.tsx';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type BoardHostSlide = Extract<NonNullable<HostView['slide']>, { type: 'board' }>;
@@ -65,6 +69,7 @@ export function BoardPanel({ view, command, busy, onClear }: { view: HostView; c
       {config.mode === 'cluster' && <ClusterControls view={view} op={op} command={command} />}
       {config.mode === 'place' && <PlaceControls view={view} op={op} />}
       {(config.mode === 'dots' || config.mode === 'rate') && <VoteSummary view={view} />}
+      {config.mode === 'choose' && <ChooseControls view={view} op={op} busy={busy} />}
       {config.mode === 'table' && <TableControls view={view} op={op} busy={busy} />}
 
       <div className="row panel-footer">
@@ -239,6 +244,7 @@ function ClusterControls({ view, op, command }: { view: HostView; op: (o: BoardO
               onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
             />
             <span className="pill tabular">{g.cards}</span>
+            <TagChips board={board} itemKey={groupKey(g.id)} />
             <button
               className="icon-btn"
               aria-label="Nach vorn"
@@ -358,16 +364,23 @@ function VoteSummary({ view }: { view: HostView }) {
   const score = (key: string) =>
     dots ? (results?.dots[key] ?? 0) : (results?.ratings[key]?.average.reduce<number>((a, b) => a + (b ?? 0), 0) ?? -1);
   const sorted = [...board.targets].sort((a, b) => score(b) - score(a));
+  const tied = tiedSet(board, results);
+  const tie = topTieText(board, slide.config.top, slide.config.targets);
   return (
     <div className="stack-s">
       <span className="label">
         {view.answers} {view.answers === 1 ? 'Antwort' : 'Antworten'}
         {!view.resultsVisible && ' · Ergebnisse auf dem Beamer verborgen'}
       </span>
+      {tie && <p className="small faint">{tie} – alle gleichauf liegenden stehen zur Wahl.</p>}
+      {dots && tied.size > 0 && <p className="small faint">Gleichstand – entscheidet gemeinsam, was weiterkommt.</p>}
       <ol className="word-table">
         {sorted.map((key) => (
           <li key={key}>
-            <span className="grow">{labelOf(key, view.posts, board)}</span>
+            <span className="grow">
+              {labelOf(key, view.posts, board)} <TagChips board={board} itemKey={key} />
+              {tied.has(key) && <TieMark />}
+            </span>
             <span className="tabular faint">
               {dots ? `${results?.dots[key] ?? 0} P.` : ratingText(slide.config, results?.ratings[key])}
             </span>
@@ -390,6 +403,12 @@ function TableControls({ view, op, busy }: { view: HostView; op: (o: BoardOp) =>
     kind === 'groups' ? board.groups.map((g) => groupKey(g.id)) : view.posts.filter((p) => p.status === 'visible').map((p) => cardKey(p.id))
   ).filter((k) => !used.has(k));
   const hasDots = Object.keys(board.totals).length > 0;
+  // Gleichstand an der Grenze: „Top N übernehmen“ nimmt alle gleichauf liegenden mit
+  const all =
+    kind === 'groups'
+      ? board.groups.map((g) => groupKey(g.id))
+      : view.posts.filter((p) => p.status === 'visible').map((p) => cardKey(p.id));
+  const tie = hasDots ? tieAtLimit(n, topByDots(all, board.totals, n).length) : null;
 
   return (
     <>
@@ -406,6 +425,7 @@ function TableControls({ view, op, busy }: { view: HostView; op: (o: BoardOp) =>
         </button>
       </div>
       {!hasDots && <p className="small faint">Noch keine Punkte auf dieser Wand – Zeilen einzeln hinzufügen.</p>}
+      {tie && <p className="small faint">{tie} – „Übernehmen“ nimmt alle gleichauf liegenden mit. Überzählige wieder entfernen.</p>}
       {candidates.length > 0 && (
         <select
           className="select select-small"
@@ -426,6 +446,8 @@ function TableControls({ view, op, busy }: { view: HostView; op: (o: BoardOp) =>
           <div className="row">
             <strong className="tabular">{i + 1}.</strong>
             <strong className="grow">{labelOf(r.key, view.posts, board)}</strong>
+            <TagChips board={board} itemKey={r.key} />
+            {board.tied.includes(r.key) && <TieMark />}
             {(board.totals[r.key] ?? 0) > 0 && <span className="pill tabular">{board.totals[r.key]} P.</span>}
             <button
               className="icon-btn"

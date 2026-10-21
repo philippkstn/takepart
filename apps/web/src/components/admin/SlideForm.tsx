@@ -512,7 +512,8 @@ const SCALE_PRESETS = [
   { label: 'gering / mittel / hoch', levels: ['gering', 'mittel', 'hoch'] },
 ];
 
-function TargetsField({ value, onChange }: FormProps<'board'>) {
+function TargetsField({ value, onChange, table = true }: FormProps<'board'> & { table?: boolean }) {
+  const fromTable = table && value.targets === 'table';
   return (
     <div className="form-2col">
       <label className="field">
@@ -525,19 +526,26 @@ function TargetsField({ value, onChange }: FormProps<'board'>) {
           <option value="auto">Gruppen, sonst Karten</option>
           <option value="groups">Gruppen (Cluster)</option>
           <option value="cards">Einzelne Karten</option>
+          {table && <option value="table">Zeilen der Ergebnistabelle davor</option>}
         </select>
       </label>
-      <label className="field">
-        <span>Auswahl</span>
-        <select className="select" value={value.top} onChange={(e) => onChange({ ...value, top: Number(e.target.value) })}>
-          <option value={0}>Alle Einträge</option>
-          {[3, 5, 7, 10].map((n) => (
-            <option key={n} value={n}>
-              Top {n} nach Punkten
-            </option>
-          ))}
-        </select>
-      </label>
+      {fromTable ? (
+        <p className="small faint">
+          Es zählen die Zeilen der letzten Ergebnistabelle dieser Wand vor dieser Folie – z. B. die bestätigten Top 3, in ihrer Reihenfolge.
+        </p>
+      ) : (
+        <label className="field">
+          <span>Auswahl</span>
+          <select className="select" value={value.top} onChange={(e) => onChange({ ...value, top: Number(e.target.value) })}>
+            <option value={0}>Alle Einträge</option>
+            {[3, 5, 7, 10].map((n) => (
+              <option key={n} value={n}>
+                Top {n} nach Punkten
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 }
@@ -628,6 +636,12 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
             hint="Teilnehmende können von jeder Folie aus Karten hinzufügen – z. B. Lösungsideen, die später drankommen."
             checked={value.anytime}
             onChange={(anytime) => set({ anytime })}
+          />
+          <Toggle
+            label="Karten auf dem Beamer erst nach dem Aufdecken zeigen"
+            hint="Beim Betreten der Folie sind die Ergebnisse verborgen – du deckst sie im Steuerpult auf, wenn alle fertig sind."
+            checked={value.startHidden}
+            onChange={(startHidden) => set({ startHidden })}
           />
           <Toggle
             label="Jede Gruppe sammelt für sich"
@@ -814,6 +828,27 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
         </>
       )}
 
+      {value.mode === 'choose' && (
+        <>
+          <TargetsField value={value} onChange={onChange} />
+          <OptionList
+            label="Kategorien"
+            options={value.choices}
+            min={2}
+            max={8}
+            placeholder="Kategorie"
+            onChange={(choices) => set({ choices })}
+          />
+          <Toggle
+            label="Mehrere Kategorien je Eintrag erlaubt"
+            hint="Aus: Jede Person wählt je Eintrag genau eine Kategorie."
+            checked={value.multi}
+            onChange={(multi) => set({ multi })}
+          />
+          <p className="small faint">Teilnehmende stimmen ab; im Steuerpult kannst du die Kategorie je Eintrag zusätzlich festlegen.</p>
+        </>
+      )}
+
       {value.mode === 'table' && (
         <>
           <OptionList
@@ -824,7 +859,7 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
             placeholder="Spalte"
             onChange={(columns) => set({ columns })}
           />
-          <TargetsField value={value} onChange={onChange} />
+          <TargetsField value={value} onChange={onChange} table={false} />
           <p className="small faint">
             Zeilen übernimmst du live im Steuerpult – zum Beispiel die Top 3 nach Punkten – und füllst sie gemeinsam aus.
           </p>

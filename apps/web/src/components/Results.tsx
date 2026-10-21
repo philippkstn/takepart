@@ -1,5 +1,6 @@
 import type { SlideResults, PublicSlide, WordCount } from '@slides/shared';
 import { Check, Star } from 'lucide-react';
+import type { ReactNode } from 'react';
 import './results.css';
 
 /*
@@ -18,6 +19,8 @@ interface BarItem {
   display: string;
   correct?: boolean;
   dim?: boolean;
+  /** Zusätzliche Marken hinter dem Text (z. B. Verteilung der Kennzeichnungen) */
+  extra?: ReactNode;
 }
 
 export function BarList({ items, max, inline = false }: { items: BarItem[]; max: number; inline?: boolean }) {
@@ -38,6 +41,7 @@ export function BarList({ items, max, inline = false }: { items: BarItem[]; max:
                 </span>
               )}
               <span className="bar-text">{item.label}</span>
+              {item.extra}
               {item.correct && <span className="visually-hidden">(richtig)</span>}
             </div>
             <div className="bar-track">

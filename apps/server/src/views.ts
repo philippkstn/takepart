@@ -149,7 +149,7 @@ function answerCount(snap: Snapshot): number {
   if (!snap.current) return 0;
   if (snap.current.type === 'board') {
     const mode = snap.current.config.mode;
-    if (mode === 'dots' || mode === 'rate') return snap.responses.length;
+    if (mode === 'dots' || mode === 'rate' || mode === 'choose') return snap.responses.length;
     if (mode === 'collect') return new Set(snap.posts.map((p) => p.participantId)).size;
     return snap.posts.filter((p) => p.status === 'visible').length;
   }

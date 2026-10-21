@@ -46,6 +46,7 @@ describe('Import: Verweise umschreiben', () => {
       dots: { c905: 2 },
       ratings: { g707: [3, null] },
     });
+    expect(remapPayload({ picks: { g7: [0, 2], g8: [1] } }, posts, groups)).toEqual({ picks: { g707: [0, 2] } });
     expect(remapPayload({ choice: 1 }, posts, groups)).toEqual({ choice: 1 });
   });
 });

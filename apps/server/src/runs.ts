@@ -4,6 +4,7 @@ import {
   groupKey,
   levelLabel,
   parseBoardKey,
+  tagCountText,
   type BoardSummary,
   type HandoutBoardEntry,
   assetUrl,
@@ -20,6 +21,7 @@ import {
   type HandoutSlide,
   type HostCommand,
   type PublicSlide,
+  type Slide,
   type SlideConfigs,
   type SlideResults,
   type RunState,
@@ -73,7 +75,19 @@ async function saveRunState(db: Db, runId: number, state: RunState) {
   await exec(db, 'UPDATE runs SET state = ? WHERE id = ?', [JSON.stringify(state), runId]);
 }
 
-/** Wendet einen Steuerbefehl auf den Zustand an. Reine Zustandsänderungen; Löschungen laufen separat. */
+const startsHidden = (slide: Slide | undefined) => slide?.type === 'board' && slide.config.startHidden;
+
+/**
+ * Wand-Folie mit „erst aufdecken“ betreten: Ergebnisse auf dem Beamer verbergen.
+ * Beim Verlassen einer solchen Folie werden sie wieder gezeigt – sonst bleibt
+ * die Einstellung wie bisher folienübergreifend stehen.
+ */
+export function applyStartHidden(state: RunState, slides: Slide[], previousSlideId: number | null) {
+  if (state.slideId === previousSlideId) return;
+  if (startsHidden(slides.find((s) => s.id === state.slideId))) state.resultsVisible = false;
+  else if (startsHidden(slides.find((s) => s.id === previousSlideId))) state.resultsVisible = true;
+}
+
 /**
  * Wendet einen Steuerbefehl auf den Zustand an. `buildSteps` kennt je Folie die
  * Anzahl der Aufbau-Klicks (importierte Animationen), `schedule` den Ablaufplan
@@ -279,6 +293,7 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     if (live_) return { id: live_.id };
     const slides = await loadSlides(db, id);
     const state = initialRunState(slides[0]?.id ?? null);
+    applyStartHidden(state, slides, null);
     for (let attempt = 0; attempt < 20; attempt++) {
       try {
         const result = await exec(db, 'INSERT INTO runs (presentation_id, code, display_token, state, rehearsal) VALUES (?, ?, ?, ?, ?)', [
@@ -422,12 +437,14 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           await loadSchedule(db, run.presentationId),
         );
         // Pausen-Folie erreicht: die Pause startet mit ihrer voreingestellten Dauer
-        if (next.slideId !== run.state.slideId)
+        if (next.slideId !== run.state.slideId) {
           startSlidePause(
             next,
             slides.find((s) => s.id === next.slideId),
             now,
           );
+          applyStartHidden(next, slides, run.state.slideId);
+        }
         await saveRunState(db, id, next);
       });
     } catch (err) {
@@ -496,6 +513,21 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   });
 }
 
+/** Einordnen als Text: festgelegte Kategorien, sonst alle gewählten mit Stimmen (meiste zuerst) */
+export function choiceSummary(
+  config: Pick<SlideConfigs['board'], 'choices'>,
+  counts: number[] | undefined,
+  chosen: number[] | undefined,
+): string | null {
+  if (chosen && chosen.length > 0) return `${chosen.map((i) => config.choices[i] ?? `#${i + 1}`).join(', ')} (festgelegt)`;
+  const parts = (counts ?? [])
+    .map((n, i) => ({ n, i }))
+    .filter((e) => e.n > 0)
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .map((e) => `${config.choices[e.i] ?? `#${e.i + 1}`} ${e.n}`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 /**
  * Kartenwand in der Freigabe: nur Gruppen (Überschriften) mit Zählungen, Feldern,
  * Punkten und Einschätzungen – nie die Texte einzelner Karten.
@@ -518,6 +550,11 @@ function handoutBoard(config: SlideConfigs['board'], board: BoardSummary, result
       dots: config.mode === 'dots' && results?.type === 'board' ? (results.dots[key] ?? 0) : null,
       rating: rating ? config.scales.map((sc, i) => `${sc.label} ${levelLabel(sc.levels, rating.average[i] ?? null)}`).join(' · ') : null,
       fields: [],
+      choices:
+        config.mode === 'choose'
+          ? choiceSummary(config, results?.type === 'board' ? results.picks[key] : undefined, view.chosen[key])
+          : null,
+      tags: tagCountText(view.tags, view.tagCounts[key]) || null,
     };
   };
   let keys: string[];

@@ -199,13 +199,18 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap, partici
   };
 }
 
-/** Antworten der Kartenwand (Punkte, Einschätzungen) verweisen auf Karten und Gruppen. */
+/** Antworten der Kartenwand (Punkte, Einschätzungen, Einordnungen) verweisen auf Karten und Gruppen. */
 export function remapPayload(payload: unknown, posts: IdMap, groups: IdMap): unknown {
   if (typeof payload !== 'object' || payload === null) return payload;
-  const p = payload as { dots?: Record<string, number>; ratings?: Record<string, unknown> };
-  if (!p.dots && !p.ratings) return payload;
+  const p = payload as { dots?: Record<string, number>; ratings?: Record<string, unknown>; picks?: Record<string, number[]> };
+  if (!p.dots && !p.ratings && !p.picks) return payload;
   const key = (k: string) => remapBoardKey(k, posts, groups);
-  return { ...p, ...(p.dots && { dots: remapKeys(p.dots, key) }), ...(p.ratings && { ratings: remapKeys(p.ratings, key) }) };
+  return {
+    ...p,
+    ...(p.dots && { dots: remapKeys(p.dots, key) }),
+    ...(p.ratings && { ratings: remapKeys(p.ratings, key) }),
+    ...(p.picks && { picks: remapKeys(p.picks, key) }),
+  };
 }
 
 const iso = (d: Date | null) => (d ? d.toISOString() : null);

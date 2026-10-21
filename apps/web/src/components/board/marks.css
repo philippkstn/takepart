@@ -1,0 +1,193 @@
+/* ───────────── Verteilung der Kennzeichnungen, Gleichstand, Einordnen ───────────── */
+.tag-dist {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25em;
+  font-size: 0.72em;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.tag-dist-chip {
+  color: var(--ink-2);
+  padding: 0.02em 0.4em;
+  border-radius: 0.3em;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  white-space: nowrap;
+}
+.cluster-name .tag-dist {
+  margin-left: 0.35em;
+}
+.tie-mark {
+  font-size: 0.72em;
+  font-weight: 600;
+  color: var(--ink-3);
+  padding: 0.02em 0.4em;
+  border-radius: 0.3em;
+  border: 1px dashed var(--border-strong);
+  white-space: nowrap;
+}
+.board-tie-note {
+  font-size: 0.8em;
+  color: var(--ink-3);
+  font-weight: 550;
+}
+.bar-marks {
+  display: inline-flex;
+  gap: 0.3em;
+  margin-left: 0.4em;
+  flex-shrink: 0;
+}
+
+.choose-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78em;
+  table-layout: fixed;
+}
+.choose-table th {
+  text-align: left;
+  font-size: 0.8em;
+  color: var(--ink-3);
+  font-weight: 700;
+  padding: 0.4em 0.6em;
+  border-bottom: 1px solid var(--border-strong);
+}
+.choose-table th:first-child {
+  width: 34%;
+}
+.choose-table td {
+  padding: 0.55em 0.6em;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.choose-topic {
+  font-weight: 700;
+}
+.choose-topic > .clamp {
+  --clamp: 2;
+  display: block;
+  margin-bottom: 0.2em;
+}
+.choose-cell {
+  color: var(--ink-3);
+}
+.choose-cell.is-lead {
+  color: var(--ink);
+  font-weight: 700;
+}
+.choose-cell.is-fixed {
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+  border-radius: 0.3em;
+}
+.choose-fixed {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  font-size: 0.78em;
+  font-weight: 700;
+  color: var(--ink);
+}
+.choose-fixed svg {
+  width: 1em;
+  height: 1em;
+}
+.choose-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+}
+.choose-bar {
+  flex: 1;
+  height: 0.5em;
+  border-radius: 0.25em;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+.choose-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--chart);
+  opacity: 0.45;
+  transition: width 400ms var(--ease);
+}
+.choose-cell.is-lead .choose-bar > span {
+  opacity: 1;
+}
+.choose-n {
+  min-width: 1.4em;
+  text-align: right;
+}
+
+/* Handy: Kategorien als Chips */
+.choose-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.choose-chip {
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition:
+    background 120ms var(--ease),
+    border-color 120ms var(--ease);
+}
+.choose-chip[aria-pressed='true'],
+.choose-chip[aria-checked='true'] {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.choose-chip svg {
+  width: 1em;
+  height: 1em;
+}
+.choose-chip:disabled {
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choose-bar > span,
+  .choose-chip {
+    transition: none;
+  }
+}
+.board-vote-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.board-vote-text .tag-dist {
+  font-size: 0.78rem;
+}
+.choose-item {
+  display: grid;
+  gap: 10px;
+}
+.choose-item-head {
+  display: grid;
+  gap: 4px;
+}
+.choose-chip.is-small {
+  font-size: 0.85rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.65rem;
+}
+.choose-chip.is-leading {
+  border-color: var(--ink-2);
+  font-weight: 750;
+}
+.mod-text .choose-chips {
+  margin-top: 6px;
+}

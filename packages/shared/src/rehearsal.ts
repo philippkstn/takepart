@@ -131,6 +131,16 @@ export function fakeResponse<T extends ResponseSlideType>(
         for (const key of targets) ratings[key] = c.scales.map((s) => int(0, s.levels.length - 1, random));
         return out({ ratings });
       }
+      if (c.mode === 'choose') {
+        // Je Eintrag eine oder (bei Mehrfachauswahl) bis zu zwei Kategorien
+        const picks: Record<string, number[]> = {};
+        for (const key of targets) {
+          const first = int(0, c.choices.length - 1, random);
+          const second = int(0, c.choices.length - 1, random);
+          picks[key] = c.multi && random() < 0.4 && second !== first ? [first, second] : [first];
+        }
+        return out({ picks });
+      }
       return null;
     }
   }

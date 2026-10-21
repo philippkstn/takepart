@@ -108,6 +108,19 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
     if (p.author_name) row[4] = p.author_name;
     rows.push([...row, '', p.text, details, p.created_at.toISOString()]);
   }
+  // Einordnen: Festlegungen der Moderation
+  const places = await query<{ slide_id: number; target: string; fields: string | null }>(
+    db,
+    'SELECT slide_id, target, fields FROM board_places WHERE run_id = ? AND fields IS NOT NULL ORDER BY slide_id, position, target',
+    [runId],
+  );
+  for (const pl of places) {
+    const s = bySlide.get(pl.slide_id);
+    if (s?.slide.type !== 'board' || s.slide.config.mode !== 'choose') continue;
+    const { choices } = s.slide.config;
+    const list = json<string[]>(pl.fields!).map((i) => choices[Number(i)] ?? `#${Number(i) + 1}`);
+    rows.push([...base(pl.slide_id, null), '', `${label(pl.target)}: ${list.join(', ')}`, 'Festlegung der Moderation', '']);
+  }
   // Protokollnotizen der Moderation
   const notes = await query<{ slide_id: number; text: string; updated_at: Date }>(
     db,
@@ -149,6 +162,13 @@ function describe(slide: Slide, payload: unknown, label: (key: string) => string
       return [(payload as ResponsePayloads['sentence']).word, ''];
     case 'board': {
       const p = payload as ResponsePayloads['board'];
+      if (p.picks)
+        return [
+          Object.entries(p.picks)
+            .map(([k, list]) => `${label(k)}: ${list.map((i) => slide.config.choices[i] ?? `#${i + 1}`).join(', ')}`)
+            .join(' | '),
+          'Einordnung',
+        ];
       if (p.dots)
         return [
           Object.entries(p.dots)

@@ -1,9 +1,12 @@
 import {
   boardTargets,
   cardKey,
+  groupTagCounts,
   dotTotals,
   groupKey,
   parseBoardKey,
+  targetKind,
+  tiedKeys,
   type BoardOp,
   type BoardRights,
   type BoardSummary,
@@ -60,6 +63,10 @@ export interface BoardData {
   places: BoardPlace[];
   /** Punkte aus den Punkte-Folien der Wand (ohne die aktuelle Folie) */
   totals: Record<string, number>;
+  /** Kennzeichnungen der Wand (von ihrer ersten Sammel-Folie) */
+  tags: string[];
+  /** Zeilen der letzten Ergebnistabelle der Wand vor dieser Folie (für `targets: 'table'`) */
+  tableRows: string[];
 }
 
 /** Folien derselben Wand */
@@ -132,31 +139,73 @@ export async function loadTotals(db: Conn, runId: number, slides: Slide[], board
   return dotTotals(rows.map((r) => json<ResponsePayloads['board']>(r.payload)));
 }
 
+/** Kennzeichnungen einer Wand: die der ersten Sammel-Folie (z. B. S–XL) */
+export function boardTags(slides: Slide[], board: string): string[] {
+  return boardSlides(slides, board).find((s) => s.config.mode === 'collect')?.config.tags ?? [];
+}
+
+/** Letzte Ergebnistabelle derselben Wand vor `slide` (Folienreihenfolge) */
+export function tableSlideBefore(slides: Slide[], slide: BoardSlide): BoardSlide | null {
+  const index = slides.findIndex((s) => s.id === slide.id);
+  if (index < 0) return null;
+  const before = slides.slice(0, index);
+  return boardSlides(before, slide.config.board).findLast((s) => s.config.mode === 'table') ?? null;
+}
+
+/** Zeilen der Ergebnistabelle vor dieser Folie, in Tabellenreihenfolge (nur für `targets: 'table'`) */
+async function loadTableRows(db: Conn, runId: number, slides: Slide[], slide: BoardSlide): Promise<string[]> {
+  if (slide.config.targets !== 'table' || slide.config.mode === 'table') return [];
+  const table = tableSlideBefore(slides, slide);
+  return table ? (await loadPlaces(db, runId, table.id)).map((p) => p.target) : [];
+}
+
 export async function loadBoard(db: Conn, runId: number, slides: Slide[], slide: BoardSlide): Promise<BoardData> {
-  const [cards, groups, places, totals] = await Promise.all([
+  const [cards, groups, places, totals, tableRows] = await Promise.all([
     loadCards(db, runId, cardSlideIds(slides, slide)),
     loadGroups(db, runId, slide.config.board),
     loadPlaces(db, runId, slide.id),
     loadTotals(db, runId, slides, slide.config.board, slide.id),
+    loadTableRows(db, runId, slides, slide),
   ]);
-  return { cards, groups, places, totals };
+  return { cards, groups, places, totals, tags: boardTags(slides, slide.config.board), tableRows };
 }
 
-/** Einträge der Folie – nur sichtbare Karten zählen. */
-export function targetsOf(config: SlideConfigs['board'], data: Pick<BoardData, 'cards' | 'groups' | 'totals'>): string[] {
-  return boardTargets(
-    config,
-    data.cards.filter((c) => c.status === 'visible'),
-    data.groups,
-    data.totals,
-  );
+/** Einträge der Folie – nur sichtbare Karten zählen (auch bei Tabellenzeilen). */
+export function targetsOf(
+  config: SlideConfigs['board'],
+  data: Pick<BoardData, 'cards' | 'groups' | 'totals'> & { tableRows?: string[] },
+): string[] {
+  const visible = data.cards.filter((c) => c.status === 'visible');
+  if (config.targets === 'table') {
+    const valid = new Set([...visible.map((c) => cardKey(c.id)), ...data.groups.map((g) => groupKey(g.id))]);
+    return boardTargets(
+      config,
+      visible,
+      data.groups,
+      data.totals,
+      (data.tableRows ?? []).filter((k) => valid.has(k)),
+    );
+  }
+  return boardTargets(config, visible, data.groups, data.totals);
+}
+
+/** Einordnen: festgelegte Kategorien aus `board_places.fields` (Indizes als Zeichenketten) */
+export function chosenOf(config: SlideConfigs['board'], places: BoardPlace[], allowed: Set<string>): Record<string, number[]> {
+  const chosen: Record<string, number[]> = {};
+  for (const p of places) {
+    if (!allowed.has(p.target)) continue;
+    const list = p.fields.map(Number).filter((i) => Number.isInteger(i) && i >= 0 && i < config.choices.length);
+    if (list.length > 0) chosen[p.target] = list;
+  }
+  return chosen;
 }
 
 /** Ansicht der Wand für die aktuelle Folie (für alle Rollen gleich; Karten kommen über `posts`). */
 export function buildBoardView(slide: BoardSlide, data: BoardData, rights: BoardRights): BoardView {
   const config = slide.config;
   const visible = data.cards.filter((c) => c.status === 'visible');
-  const targets = config.mode === 'place' || config.mode === 'dots' || config.mode === 'rate' ? targetsOf(config, data) : [];
+  const targets =
+    config.mode === 'place' || config.mode === 'dots' || config.mode === 'rate' || config.mode === 'choose' ? targetsOf(config, data) : [];
   const valid = new Set([...visible.map((c) => cardKey(c.id)), ...data.groups.map((g) => groupKey(g.id))]);
 
   const places: BoardView['places'] = {};
@@ -184,11 +233,18 @@ export function buildBoardView(slide: BoardSlide, data: BoardData, rights: Board
     rows,
     totals: data.totals,
     rights,
-    tags: [],
-    tagCounts: {},
-    tied: [],
-    chosen: {},
+    tags: data.tags,
+    tagCounts: groupTagCounts(visible, data.groups, data.tags.length),
+    // Auf der Punkte-Folie selbst entsteht der Gleichstand erst aus ihrem Ergebnis (im Browser, nur wenn sichtbar)
+    tied: config.mode === 'dots' ? [] : tiedKeys(tieCandidates(config, visible, data.groups, rows), data.totals),
+    chosen: config.mode === 'choose' ? chosenOf(config, data.places, new Set(targets)) : {},
   };
+}
+
+/** Einträge, unter denen ein Gleichstand nach Punkten benannt wird */
+function tieCandidates(config: SlideConfigs['board'], visible: BoardCard[], groups: BoardGroup[], rows: BoardView['rows']): string[] {
+  if (config.mode === 'table') return rows.map((r) => r.key);
+  return targetKind(config, groups.length) === 'groups' ? groups.map((g) => groupKey(g.id)) : visible.map((c) => cardKey(c.id));
 }
 
 /* ───────────── Moderation ───────────── */
@@ -320,6 +376,10 @@ export async function applyBoardOp(
     case 'place':
       if (slide.config.mode !== 'place') throw new CommandError('Auf dieser Folie wird nicht zugeordnet');
       await assertTarget(db, runId, slides, slide, op.key);
+      // Nur Top N bzw. Tabellenzeilen dürfen in ein Feld
+      if (op.lane !== null && (slide.config.targets === 'table' || slide.config.top > 0))
+        if (!targetsOf(slide.config, await loadBoard(db, runId, slides, slide)).includes(op.key))
+          throw new CommandError('Dieser Eintrag steht auf dieser Folie nicht zur Wahl');
       await placeTarget(db, runId, slide, op.key, op.lane, op.cell);
       return;
     case 'card-add': {
@@ -372,7 +432,8 @@ export async function applyBoardOp(
         loadGroups(db, runId, board),
         loadTotals(db, runId, slides, board),
       ]);
-      const top = targetsOf({ ...slide.config, top: op.n }, { cards, groups, totals });
+      const config = { ...slide.config, targets: slide.config.targets === 'table' ? ('auto' as const) : slide.config.targets, top: op.n };
+      const top = targetsOf(config, { cards, groups, totals });
       if (Object.keys(totals).length === 0) throw new CommandError('Auf dieser Wand wurden noch keine Punkte vergeben');
       const existing = await loadPlaces(db, runId, slide.id);
       await transaction(db, async (conn) => {
@@ -388,6 +449,26 @@ export async function applyBoardOp(
             [runId, slide.id, key, position],
           );
       });
+      return;
+    }
+    case 'choose-set': {
+      if (slide.config.mode !== 'choose') throw new CommandError('Auf dieser Folie wird nicht eingeordnet');
+      const choices = [...new Set(op.choices)].sort((a, b) => a - b);
+      if (choices.some((i) => i >= slide.config.choices.length)) throw new CommandError('Unbekannte Kategorie');
+      if (!slide.config.multi && choices.length > 1) throw new CommandError('Nur eine Kategorie pro Eintrag');
+      if (choices.length === 0) {
+        await exec(db, 'DELETE FROM board_places WHERE run_id = ? AND slide_id = ? AND target = ?', [runId, slide.id, op.key]);
+        return;
+      }
+      if (!targetsOf(slide.config, await loadBoard(db, runId, slides, slide)).includes(op.key))
+        throw new CommandError('Dieser Eintrag steht auf dieser Folie nicht zur Wahl');
+      await exec(
+        db,
+        `INSERT INTO board_places (run_id, slide_id, target, fields) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE fields = VALUES(fields)`,
+        // Als Zeichenketten wie die Tabellenfelder (gleiches Format in Export/Import)
+        [runId, slide.id, op.key, JSON.stringify(choices.map(String))],
+      );
       return;
     }
     case 'row-fields': {
