@@ -61,7 +61,10 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
             {BOARD_MODE_LABELS[config.mode]} · {config.board}
           </span>
           {config.prompt && <h1 className={`stage-title board-title ${headlineSize(config.prompt)}`}>{config.prompt}</h1>}
-          {config.task && <p className="stage-task">{config.task}</p>}
+          {/* Sobald die Wand Inhalte zeigt, braucht sie den Platz – die Aufgabe wird kompakt */}
+          {config.task && (
+            <p className={`stage-task ${config.mode === 'collect' && !view.resultsVisible ? '' : 'is-compact'}`}>{config.task}</p>
+          )}
           {tie && <span className="board-tie-note">{tie}</span>}
           {sourceNote && <span className="board-tie-note">{sourceNote}</span>}
         </div>

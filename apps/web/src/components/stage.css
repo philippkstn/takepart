@@ -112,6 +112,11 @@
   line-clamp: 5;
   overflow: hidden;
 }
+.stage-task.is-compact {
+  font-size: 0.7em;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
 .stage-title-xl {
   font-size: 3em;
 }
