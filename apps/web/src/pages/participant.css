@@ -110,6 +110,22 @@
   font-size: 1.45rem;
   overflow-wrap: break-word;
 }
+.p-question.is-long {
+  font-size: 1.2rem;
+}
+.p-question.is-longer {
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+/* Aufgabenbeschreibung unter der Frage */
+.p-task {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
 .p-kicker {
   font-size: 0.85rem;
   font-weight: 600;

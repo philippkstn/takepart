@@ -1,4 +1,4 @@
-import { assetUrl, type ParticipantView, type PostView, type PublicSlide, type ResponsePayloads } from '@slides/shared';
+import { assetUrl, headlineSize, slideTask, type ParticipantView, type PostView, type PublicSlide, type ResponsePayloads } from '@slides/shared';
 import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, RotateCcw, Send, Star, Trophy } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
@@ -61,11 +61,12 @@ function Info({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   );
 }
 
-function Question({ kicker, text }: { kicker: string; text: string }) {
+function Question({ kicker, text, task = '' }: { kicker: string; text: string; task?: string }) {
   return (
     <div className="stack-s anim-rise">
       <span className="p-kicker">{kicker}</span>
-      {text && <h1 className="p-question">{text}</h1>}
+      {text && <h1 className={`p-question ${headlineSize(text)}`}>{text}</h1>}
+      {task && <p className="p-task">{task}</p>}
     </div>
   );
 }
@@ -149,7 +150,7 @@ function Choice({ view, slide, token }: Props<'choice'>) {
 
   return (
     <div className="stack">
-      <Question kicker={multiple ? 'Mehrere Antworten möglich' : 'Eine Antwort wählen'} text={slide.config.question} />
+      <Question kicker={multiple ? 'Mehrere Antworten möglich' : 'Eine Antwort wählen'} text={slide.config.question} task={slideTask(slide)} />
       {own && !editing ? (
         <Done onChange={view.locked ? undefined : () => setEditing(true)}>
           <strong>Danke!</strong>
@@ -191,7 +192,7 @@ function Teams({ view, slide, token }: Props<'teams'>) {
   return (
     <NameGate view={view} token={token} reason="Damit du einer Gruppe zugeteilt werden kannst.">
       <div className="stack">
-        <Question kicker="Gruppen bilden" text={title} />
+        <Question kicker="Gruppen bilden" text={title} task={slideTask(slide)} />
         {team ? (
           <TeamCard team={team} />
         ) : (
@@ -332,7 +333,7 @@ function Ranking({ view, slide, token }: Props<'ranking'>) {
   };
   return (
     <div className="stack">
-      <Question kicker="In Reihenfolge antippen – Wichtigstes zuerst" text={slide.config.question} />
+      <Question kicker="In Reihenfolge antippen – Wichtigstes zuerst" text={slide.config.question} task={slideTask(slide)} />
       {own && !editing ? (
         <Done onChange={view.locked ? undefined : () => setEditing(true)}>
           <strong>Danke!</strong>
@@ -385,7 +386,7 @@ function Quiz({ view, slide, token }: Props<'quiz'>) {
   return (
     <NameGate view={view} token={token} reason="Für die Rangliste beim Quiz brauchen wir einen Namen.">
       <div className="stack">
-        <Question kicker="Quizfrage" text={slide.config.question} />
+        <Question kicker="Quizfrage" text={slide.config.question} task={slideTask(slide)} />
         {quiz.phase === 'ready' && <Info icon={<Hourglass size={20} />}>Gleich geht es los – die Zeit läuft ab dem Start.</Info>}
         {quiz.phase === 'open' && remaining !== null && (
           <div className="countdown" aria-live="off">
@@ -438,7 +439,7 @@ function Feedback({ view, slide, token }: Props<'feedback'>) {
   };
   return (
     <div className="stack">
-      <Question kicker="Feedback" text={slide.config.question} />
+      <Question kicker="Feedback" text={slide.config.question} task={slideTask(slide)} />
       {view.recall && view.recall.length > 0 && (
         <section className="recall-box stack-s" aria-label="Deine Erwartung vom Anfang">
           <span className="label">Deine Erwartung vom Anfang</span>
@@ -641,7 +642,7 @@ function Compose({
 function Open({ view, slide, token }: Props<'open'>) {
   return (
     <div className="stack">
-      <Question kicker="Deine Antwort" text={slide.config.question} />
+      <Question kicker="Deine Antwort" text={slide.config.question} task={slideTask(slide)} />
       {view.locked ? (
         <LockedNote />
       ) : (
@@ -664,7 +665,7 @@ function Open({ view, slide, token }: Props<'open'>) {
 function Brainstorm({ view, slide, token }: Props<'brainstorm'>) {
   return (
     <div className="stack">
-      <Question kicker="Brainstorming – so viele Ideen wie du magst" text={slide.config.question} />
+      <Question kicker="Brainstorming – so viele Ideen wie du magst" text={slide.config.question} task={slideTask(slide)} />
       {view.locked ? <LockedNote /> : <Compose slide={slide} token={token} placeholder="Deine Idee …" maxLength={280} cta="Idee teilen" />}
       {view.posts.length > 0 && (
         <ul className="post-list">
@@ -681,7 +682,7 @@ function Pinboard({ view, slide, token }: Props<'pinboard'>) {
   const { columns } = slide.config;
   return (
     <div className="stack">
-      <Question kicker="Pinnwand" text={slide.config.title} />
+      <Question kicker="Pinnwand" text={slide.config.title} task={slideTask(slide)} />
       {view.locked ? (
         <LockedNote />
       ) : (
@@ -711,7 +712,7 @@ function Qa({ view, slide, token }: Props<'qa'>) {
   return (
     <NameGate view={view} token={token} reason="Damit du gefragt werden kannst, erscheint dein Name bei deiner Frage.">
       <div className="stack">
-        <Question kicker="Fragen an die Vortragenden" text={slide.config.title} />
+        <Question kicker="Fragen an die Vortragenden" text={slide.config.title} task={slideTask(slide)} />
         {view.locked ? (
           <LockedNote />
         ) : (

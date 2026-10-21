@@ -57,6 +57,25 @@ function Text({
   );
 }
 
+/** Aufgabenbeschreibung für Folien mit Beteiligung – klein unter der Frage auf Beamer und Handys */
+function TaskField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="field">
+      <span>
+        Aufgabenbeschreibung <span className="faint">(optional)</span>
+      </span>
+      <textarea
+        className="textarea"
+        rows={3}
+        value={value}
+        maxLength={600}
+        placeholder="Was genau sollen die Teilnehmenden tun? Erscheint klein unter der Frage – auf dem Beamer und auf den Handys."
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
+  );
+}
+
 function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="switch">
@@ -163,6 +182,7 @@ function ChoiceForm({ value, onChange }: FormProps<'choice'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList
         label="Antwortmöglichkeiten"
         options={value.options}
@@ -179,6 +199,7 @@ function OpenForm({ value, onChange }: FormProps<'open'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <label className="field">
         <span>Höchstlänge pro Antwort</span>
         <select className="select" value={value.maxLength} onChange={(e) => onChange({ ...value, maxLength: Number(e.target.value) })}>
@@ -203,6 +224,7 @@ function ScaleForm({ value, onChange }: FormProps<'scale'>) {
         onChange={(question) => onChange({ ...value, question })}
         autoFocus
       />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <div className="field">
         <span>Skala</span>
         <div className="segmented" style={{ justifySelf: 'start' }}>
@@ -230,6 +252,7 @@ function WordcloudForm({ value, onChange }: FormProps<'wordcloud'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <div className="field">
         <span>Begriffe pro Person</span>
         <div className="segmented" style={{ justifySelf: 'start' }}>
@@ -248,6 +271,7 @@ function RankingForm({ value, onChange }: FormProps<'ranking'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList label="Optionen (2–8)" options={value.options} min={2} max={8} onChange={(options) => onChange({ ...value, options })} />
     </>
   );
@@ -261,6 +285,7 @@ function QuizForm({ value, onChange }: FormProps<'quiz'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList
         label="Antworten – Haken setzt die richtige(n)"
         options={value.options}
@@ -305,6 +330,7 @@ function BrainstormForm({ value, onChange }: FormProps<'brainstorm'>) {
   return (
     <>
       <Text label="Frage oder Thema" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <Toggle
         label="Publikum darf Ideen hochvoten"
         checked={value.allowVotes}
@@ -318,6 +344,7 @@ function PinboardForm({ value, onChange }: FormProps<'pinboard'>) {
   return (
     <>
       <Text label="Titel" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList
         label="Spalten (1–5)"
         options={value.columns}
@@ -334,6 +361,7 @@ function FeedbackForm({ value, onChange, boards = [] }: FormProps<'feedback'> & 
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <Toggle label="Kommentar erlauben" checked={value.withComment} onChange={(withComment) => onChange({ ...value, withComment })} />
       {value.withComment && (
         <Text
@@ -402,6 +430,7 @@ function TeamsForm({ value, onChange }: FormProps<'teams'>) {
   return (
     <>
       <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <p className="small faint">
         Alle geben auf dem Handy ihren Namen ein. Im Steuerpult wählst du Anzahl oder Größe der Gruppen; jede Person sieht dann ihre Gruppe.
       </p>
@@ -424,6 +453,7 @@ function QaForm({ value, onChange }: FormProps<'qa'>) {
   return (
     <>
       <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <Toggle
         label="Fragen erst nach Freigabe zeigen"
         hint="Neue Fragen siehst zuerst nur du im Steuerpult."
@@ -474,6 +504,7 @@ function SentenceForm({ value, onChange }: FormProps<'sentence'>) {
         onChange={(start) => onChange({ ...value, start })}
         autoFocus
       />
+      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <p className="small faint">
         Alle tippen das Wort, das am wahrscheinlichsten als Nächstes kommt. Du blendest die Antworten ein und hängst das häufigste an –
         Runde für Runde.
@@ -613,6 +644,7 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
         {BOARD_MODE_HINTS[value.mode]}. Folien mit demselben Wand-Namen arbeiten mit denselben Karten und Gruppen.
       </p>
       <Text label="Aufgabe oder Frage" value={value.prompt} max={300} onChange={(prompt) => set({ prompt })} autoFocus />
+      <TaskField value={value.task} onChange={(task) => set({ task })} />
 
       {value.mode === 'collect' && (
         <>

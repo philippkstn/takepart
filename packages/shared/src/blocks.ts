@@ -208,8 +208,8 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
         config: {
           board,
           mode: 'collect',
-          prompt:
-            'Im Zweiergespräch: Was hindert uns heute? Was hindert dich persönlich? Was noch? Was steckt dahinter? Eine Karte pro Hindernis, dann den Nutzen schätzen: Was bringt es, wenn das Hindernis weg ist (S–XL, freiwillig)?',
+          prompt: 'Was hindert uns heute?',
+          task: 'Im Zweiergespräch – A fragt, B erzählt:\n• Was hindert uns heute daran, erfolgreicher zu sein?\n• Was hindert dich persönlich in deiner täglichen Arbeit?\n• Und was noch? Was steckt dahinter?\nDanach schreibt B eigene Karten: ein Hindernis pro Karte, Nutzen S–XL wählen.',
           maxCards: 5,
           tags: ['S', 'M', 'L', 'XL'],
           startHidden: true,

@@ -1,4 +1,4 @@
-import { assetUrl, SLIDE_TYPE_LABELS, type BoardOp, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
+import { assetUrl, headlineSize, slideTask, SLIDE_TYPE_LABELS, type BoardOp, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
 import { ChevronUp, EyeOff, MessageCircleQuestion, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -256,11 +256,12 @@ function JoinPanel({ code }: { code: string }) {
   );
 }
 
-function Headline({ kicker, text }: { kicker: string; text: string }) {
+function Headline({ kicker, text, task = '' }: { kicker: string; text: string; task?: string }) {
   return (
     <div className="stage-head">
       <span className="stage-kicker">{kicker}</span>
-      {text && <h1 className="stage-title">{text}</h1>}
+      {text && <h1 className={`stage-title ${headlineSize(text)}`}>{text}</h1>}
+      {task && <p className="stage-task">{task}</p>}
     </div>
   );
 }
@@ -273,7 +274,7 @@ function TeamsStage({ view, slide }: { view: DisplayView; slide: Extract<PublicS
   return (
     <>
       <div className="row-between stage-head-row">
-        <Headline kicker="Gruppen bilden" text={slide.config.title} />
+        <Headline kicker="Gruppen bilden" text={slide.config.title} task={slideTask(slide)} />
         <span className="stage-pill">
           <span className="tabular">{named}</span> {named === 1 ? 'Person' : 'Personen'}
         </span>
@@ -383,7 +384,7 @@ function SlideStage({
       return (
         <>
           <div className="row-between">
-            <Headline kicker="Fragen & Antworten" text={slide.config.title} />
+            <Headline kicker="Fragen & Antworten" text={slide.config.title} task={slideTask(slide)} />
           </div>
           {view.posts.length === 0 ? (
             <div className="stage-waiting">
@@ -400,7 +401,7 @@ function SlideStage({
       return (
         <>
           <div className="row-between stage-head-row">
-            <Headline kicker={label} text={slide.config.question} />
+            <Headline kicker={label} text={slide.config.question} task={slideTask(slide)} />
             <AnswerCount answers={view.answers} />
           </div>
           {!view.resultsVisible ? (
@@ -415,7 +416,7 @@ function SlideStage({
       return (
         <>
           <div className="row-between stage-head-row">
-            <Headline kicker="Pinnwand" text={slide.config.title} />
+            <Headline kicker="Pinnwand" text={slide.config.title} task={slideTask(slide)} />
             <AnswerCount answers={view.answers} />
           </div>
           {!view.resultsVisible ? (
@@ -438,7 +439,7 @@ function SlideStage({
       return (
         <>
           <div className="row-between stage-head-row">
-            <Headline kicker={label} text={question} />
+            <Headline kicker={label} text={question} task={slideTask(slide)} />
             <AnswerCount answers={view.answers} />
           </div>
           <ScrollingResults key={slide.id}>
@@ -461,7 +462,7 @@ function QuizStage({ view, slide, offset }: { view: DisplayView; slide: Extract<
   return (
     <>
       <div className="row-between stage-head-row">
-        <Headline kicker="Quizfrage" text={slide.config.question} />
+        <Headline kicker="Quizfrage" text={slide.config.question} task={slideTask(slide)} />
         {quiz.phase === 'open' && remaining !== null ? (
           <div className="quiz-timer" style={{ ['--p' as string]: `${(remaining / limit) * 360}deg` }}>
             <span className="tabular">{Math.ceil(remaining / 1000)}</span>

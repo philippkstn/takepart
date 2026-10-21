@@ -67,6 +67,8 @@ export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
 };
 
 const text = (max: number) => z.string().trim().max(max);
+/** Aufgabenbeschreibung unter der Frage – klein auf Beamer und Handys (nur Folien mit Beteiligung) */
+const task = text(600).default('');
 const option = z.string().trim().min(1, 'Option darf nicht leer sein').max(120);
 
 export const contentConfig = z.object({
@@ -78,38 +80,46 @@ export const choiceConfig = z.object({
   question: text(300).default(''),
   options: z.array(option).min(2).max(10).default(['Option A', 'Option B']),
   multiple: z.boolean().default(false),
+  task,
 });
 export const openConfig = z.object({
   question: text(300).default(''),
   maxLength: z.number().int().min(20).max(500).default(280),
+  task,
 });
 export const scaleConfig = z.object({
   question: text(300).default(''),
   max: z.union([z.literal(5), z.literal(7), z.literal(10)]).default(5),
   minLabel: text(40).default('trifft nicht zu'),
   maxLabel: text(40).default('trifft voll zu'),
+  task,
 });
 export const wordcloudConfig = z.object({
   question: text(300).default(''),
   maxWords: z.number().int().min(1).max(3).default(1),
+  task,
 });
 export const rankingConfig = z.object({
   question: text(300).default(''),
   options: z.array(option).min(2).max(8).default(['Option A', 'Option B', 'Option C']),
+  task,
 });
 export const quizConfig = z.object({
   question: text(300).default(''),
   options: z.array(option).min(2).max(6).default(['Antwort A', 'Antwort B', 'Antwort C', 'Antwort D']),
   correct: z.array(z.number().int().min(0)).min(1).default([0]),
   timeLimit: z.number().int().min(5).max(180).default(20),
+  task,
 });
 export const brainstormConfig = z.object({
   question: text(300).default(''),
   allowVotes: z.boolean().default(true),
+  task,
 });
 export const pinboardConfig = z.object({
   title: text(200).default(''),
   columns: z.array(z.string().trim().min(1).max(60)).min(1).max(5).default(['Gut', 'Verbessern', 'Ideen']),
+  task,
 });
 export const feedbackConfig = z.object({
   question: text(300).default('Wie hat dir der Vortrag gefallen?'),
@@ -118,13 +128,16 @@ export const feedbackConfig = z.object({
   commentLabel: text(120).default(''),
   /** Name einer Kartenwand (z. B. „Erwartungen“): jedes Handy zeigt die eigenen Karten von dort zum Gegenlesen */
   recall: z.string().trim().max(60).default(''),
+  task,
 });
 export const qaConfig = z.object({
   title: text(200).default('Eure Fragen'),
   moderated: z.boolean().default(true),
+  task,
 });
 export const sentenceConfig = z.object({
   start: text(300).default(''),
+  task,
 });
 /**
  * Kartenwand für Workshop-Übungen. Mehrere Folien teilen sich eine Wand über
@@ -186,6 +199,7 @@ export const boardConfig = z.object({
   board: z.string().trim().min(1, 'Bitte einen Namen für die Kartenwand angeben').max(60).default('Karten'),
   mode: z.enum(BOARD_MODES).default('collect'),
   prompt: text(300).default(''),
+  task,
   /* Sammeln */
   maxCards: z.number().int().min(1).max(20).default(5),
   /** Optionale Kennzeichnung je Karte, z. B. Rollen (höchstens fünf) */
@@ -265,6 +279,7 @@ export const teamsConfig = z.object({
   /** Frage zur Kennzeichnung, z. B. „Deine Rolle“ – nur mit Kennzeichnungen */
   tagLabel: text(60).default('Deine Rolle'),
   tags: z.array(shortLabel(40)).max(8).default([]),
+  task,
 });
 
 /**
@@ -412,3 +427,15 @@ export type BrandInput = z.infer<typeof brandInput>;
 /** Erlaubte Logo-Formate und Höchstgröße */
 export const LOGO_TYPES = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp'] as const;
 export const LOGO_MAX_BYTES = 512 * 1024;
+
+/** Aufgabenbeschreibung einer Folie (leer, wenn der Typ keine hat) */
+export function slideTask(slide: { config: unknown }): string {
+  const t = (slide.config as { task?: unknown }).task;
+  return typeof t === 'string' ? t.trim() : '';
+}
+
+/** Lange Überschriften kleiner setzen, damit Aufgabe und Ergebnisse Platz haben (Klasse für Beamer und Handy) */
+export function headlineSize(text: string): '' | 'is-long' | 'is-longer' {
+  const n = text.trim().length;
+  return n > 140 ? 'is-longer' : n > 70 ? 'is-long' : '';
+}

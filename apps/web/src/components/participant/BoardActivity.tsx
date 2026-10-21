@@ -3,6 +3,7 @@ import {
   cardKey,
   finalLevels,
   hasVoteScale,
+  headlineSize,
   levelLabel,
   levelsText,
   parseBoardKey,
@@ -51,7 +52,8 @@ function Head({ config }: { config: Config }) {
       <span className="p-kicker">
         {BOARD_MODE_LABELS[config.mode]} · {config.board}
       </span>
-      {config.prompt && <h1 className="p-question">{config.prompt}</h1>}
+      {config.prompt && <h1 className={`p-question ${headlineSize(config.prompt)}`}>{config.prompt}</h1>}
+      {config.task && <p className="p-task">{config.task}</p>}
     </div>
   );
 }

@@ -7,6 +7,8 @@ import {
   ratingSourceNote,
   tagLevel,
   boardTargets,
+  headlineSize,
+  slideTask,
   fakeResponse,
   groupTagCounts,
   leadingChoices,
@@ -296,6 +298,17 @@ describe('Kartenwand', () => {
     expect(tieAtLimit(5, 6)).toBe('Gleichstand auf Platz 5 – 6 Themen');
     expect(tieAtLimit(5, 5)).toBeNull();
     expect(tieAtLimit(0, 8)).toBeNull();
+  });
+});
+
+describe('Aufgabenbeschreibung und lange Überschriften', () => {
+  it('liefert die Aufgabe nur, wo es sie gibt, und setzt lange Überschriften kleiner', () => {
+    expect(slideTask({ config: { task: '  Karten schreiben ' } })).toBe('Karten schreiben');
+    expect(slideTask({ config: { title: 'Pause' } })).toBe('');
+    expect(parseConfig('board', {}).task).toBe('');
+    expect(headlineSize('Kurz')).toBe('');
+    expect(headlineSize('x'.repeat(100))).toBe('is-long');
+    expect(headlineSize('x'.repeat(200))).toBe('is-longer');
   });
 });
 

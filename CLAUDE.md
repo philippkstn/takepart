@@ -96,6 +96,10 @@ npm run build
 - Installierbar: `apps/web/public/manifest.webmanifest`, Icons (`icon-192/512.png`, `icon-maskable-512.png` randlos mit Balken in der sicheren Mitte, `apple-touch-icon.png`), Meta-Angaben in `index.html`. PNGs sind aus `favicon.svg` bzw. `icon-maskable.svg` gerendert und eingecheckt.
 - `public/sw.js` speichert bewusst nichts zwischen (Live-Ansichten müssen frisch sein) und fängt nur Seitenaufrufe ohne Netz ab (Hinweisseite). Registriert nur im Produktions-Build (`main.tsx`). Die App startet in `/admin` (primär für Vortragende), `id` bleibt `/`, `scope` `/`.
 
+## Aufgabenbeschreibung und lange Überschriften
+
+- Folien mit Beteiligung (Abstimmungen, Q&A, Pinnwand, Wand, Gruppen, Feedback …) haben `config.task` (≤ 600 Zeichen): klein unter der Frage auf Beamer (`.stage-task`, höchstens 5 Zeilen) und Handy (`.p-task`). `slideTask(slide)` liest sie typunabhängig, `headlineSize(text)` setzt lange Überschriften kleiner (`is-long` > 70, `is-longer` > 140 Zeichen). Lange Anleitungen gehören in die Aufgabe, nicht in die Frage.
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

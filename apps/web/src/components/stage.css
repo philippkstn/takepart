@@ -90,6 +90,28 @@
   font-weight: 700;
   line-height: 1.15;
 }
+.stage-title.is-long {
+  font-size: 1.45em;
+}
+.stage-title.is-longer {
+  font-size: 1.15em;
+  line-height: 1.25;
+}
+/* Aufgabenbeschreibung unter der Frage: lesbar, aber deutlich kleiner als die Überschrift */
+.stage-task {
+  margin: 0.35em 0 0;
+  max-width: 62em;
+  font-size: 0.82em;
+  line-height: 1.4;
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+}
 .stage-title-xl {
   font-size: 3em;
 }

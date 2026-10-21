@@ -5,6 +5,13 @@
 .board-title {
   font-size: 1.55em;
 }
+.board-title.is-long {
+  font-size: 1.25em;
+}
+.board-title.is-longer {
+  font-size: 1em;
+  line-height: 1.25;
+}
 .board-body {
   flex: 1;
   min-height: 0;

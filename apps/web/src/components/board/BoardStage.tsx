@@ -4,6 +4,7 @@ import {
   finalLevels,
   groupKey,
   hasVoteScale,
+  headlineSize,
   levelLabel,
   levelOrigin,
   levelsText,
@@ -59,7 +60,8 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
           <span className="stage-kicker">
             {BOARD_MODE_LABELS[config.mode]} · {config.board}
           </span>
-          {config.prompt && <h1 className="stage-title board-title">{config.prompt}</h1>}
+          {config.prompt && <h1 className={`stage-title board-title ${headlineSize(config.prompt)}`}>{config.prompt}</h1>}
+          {config.task && <p className="stage-task">{config.task}</p>}
           {tie && <span className="board-tie-note">{tie}</span>}
           {sourceNote && <span className="board-tie-note">{sourceNote}</span>}
         </div>
