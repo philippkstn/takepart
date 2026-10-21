@@ -8,13 +8,13 @@ import './turns-stage.css';
  * hervorgehoben, erledigte gedämpft). Nur Namen, nie IDs. Liegt über der Folie,
  * unter Pause und Schwarzbild; Bewegung schaltet `MotionConfig reducedMotion="user"` ab.
  */
-export function TurnsOverlay({ turns }: { turns: TurnsDisplayView | null | undefined }) {
+export function TurnsOverlay({ turns, bar = true }: { turns: TurnsDisplayView | null | undefined; bar?: boolean }) {
   const current = turns && turns.current !== null ? turns.current : null;
   const now = current !== null ? turns!.names[current] : undefined;
   const next = current !== null ? turns!.names[current + 1] : undefined;
   const shown = !!turns?.shown;
   const names = turns?.names ?? [];
-  const columns = names.length > 24 ? 3 : names.length > 10 ? 2 : 1;
+  const columns = names.length > 18 ? 3 : names.length > 6 ? 2 : 1;
 
   return (
     <>
@@ -34,7 +34,7 @@ export function TurnsOverlay({ turns }: { turns: TurnsDisplayView | null | undef
               transition={{ duration: 0.32, ease: [0.2, 0.8, 0.2, 1] }}
             >
               <span className="spotlight-kicker">Reihenfolge</span>
-              <ol className={`turns-stage-list ${names.length > 16 ? 'is-dense' : ''}`}>
+              <ol className={`turns-stage-list ${names.length > 27 ? 'is-dense' : ''}`}>
                 {names.map((name, i) => {
                   const state = current === null ? '' : i === current ? 'is-current' : i < current ? 'is-done' : '';
                   return (
@@ -50,7 +50,7 @@ export function TurnsOverlay({ turns }: { turns: TurnsDisplayView | null | undef
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {!shown && now && (
+        {bar && !shown && now && (
           <motion.div
             className="turns-bar"
             role="status"
@@ -74,5 +74,28 @@ export function TurnsOverlay({ turns }: { turns: TurnsDisplayView | null | undef
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/** „Jetzt · Danach“ in der Statuszeile der Bühne (neben dem Countdown) – verdeckt keine Inhalte. */
+export function TurnsBadge({ turns }: { turns: TurnsDisplayView | null | undefined }) {
+  if (!turns || turns.current === null || turns.shown) return null;
+  const now = turns.names[turns.current];
+  const next = turns.names[turns.current + 1];
+  if (!now) return null;
+  return (
+    <span className="stage-turns" role="status">
+      <span className="turns-bar-label">Jetzt</span>
+      <strong className="turns-bar-name">{now}</strong>
+      {next && (
+        <>
+          <span className="turns-bar-sep" aria-hidden>
+            ·
+          </span>
+          <span className="turns-bar-label">Danach</span>
+          <span className="turns-bar-name">{next}</span>
+        </>
+      )}
+    </span>
   );
 }

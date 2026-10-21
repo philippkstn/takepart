@@ -781,6 +781,12 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
     case 'qa':
       return <Qa view={view} slide={slide} token={token} />;
     case 'board':
+      if (slide.config.mode === 'collect' && slide.config.askName)
+        return (
+          <NameGate view={view} token={token} reason="Damit wir reihum in einer festen Reihenfolge sprechen können.">
+            <BoardActivity view={view} slide={slide} token={token} />
+          </NameGate>
+        );
       return <BoardActivity view={view} slide={slide} token={token} />;
     case 'teams':
       return <Teams view={view} slide={slide} token={token} />;

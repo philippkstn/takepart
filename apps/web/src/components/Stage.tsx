@@ -11,7 +11,7 @@ import { BuildLayer } from './BuildLayer.tsx';
 import { CountdownBadge } from './Countdown.tsx';
 import { PauseScreen } from './PauseScreen.tsx';
 import { PickOverlay } from './PickOverlay.tsx';
-import { TurnsOverlay } from './TurnsOverlay.tsx';
+import { TurnsBadge, TurnsOverlay } from './TurnsOverlay.tsx';
 import { SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
@@ -59,6 +59,7 @@ export function Stage({
               <header className="stage-top">
                 {view.run.brand?.logoUrl && <img className="stage-logo" src={view.run.brand.logoUrl} alt={view.run.brand.name} />}
                 <span className="stage-stats">
+                  <TurnsBadge turns={view.turns} />
                   <CountdownBadge countdown={view.countdown} offset={offset} className="stage-countdown" />
                   <span title="Verbunden">
                     <Users /> <span className="tabular">{view.participants}</span>
@@ -123,7 +124,8 @@ export function Stage({
             )}
           </AnimatePresence>
 
-          <TurnsOverlay turns={view.turns} />
+          {/* Auf Bildfolien gibt es keine Statuszeile – dort schwebt die Leiste unten links */}
+          <TurnsOverlay turns={view.turns} bar={!!image} />
           <PickOverlay name={view.picked} />
 
           <AnimatePresence>

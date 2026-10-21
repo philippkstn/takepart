@@ -23,6 +23,12 @@ describe('Steuerbefehle', () => {
     expect(s.leaderboard).toBe(false);
   });
 
+  it('beendet die Runde reihum beim Folienwechsel, behält aber die Reihenfolge', () => {
+    let s: RunState = { ...initialRunState(10), turns: { order: [3, 1, 2], current: 1, shown: true } };
+    s = applyCommand(s, { action: 'goto', slideId: 20 }, slides);
+    expect(s.turns).toEqual({ order: [3, 1, 2], current: null, shown: false });
+  });
+
   it('lehnt fremde Folien ab', () => {
     expect(() => applyCommand(initialRunState(10), { action: 'goto', slideId: 99 }, slides)).toThrow(CommandError);
   });

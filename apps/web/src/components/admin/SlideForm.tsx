@@ -638,6 +638,12 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
             onChange={(anytime) => set({ anytime })}
           />
           <Toggle
+            label="Namen abfragen"
+            hint="Vor der ersten Karte fragt das Handy nach dem Namen – nötig für eine Runde reihum (Reihenfolge im Steuerpult unter „Moderation“)."
+            checked={value.askName}
+            onChange={(askName) => set({ askName })}
+          />
+          <Toggle
             label="Karten auf dem Beamer erst nach dem Aufdecken zeigen"
             hint="Beim Betreten der Folie sind die Ergebnisse verborgen – du deckst sie im Steuerpult auf, wenn alle fertig sind."
             checked={value.startHidden}

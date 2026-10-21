@@ -22,7 +22,7 @@
   padding: 0;
   columns: 1;
   column-gap: 2em;
-  font-size: 1.35em;
+  font-size: 1.15em;
 }
 .cols-2 .turns-stage-list {
   columns: 2;
@@ -31,7 +31,7 @@
   columns: 3;
 }
 .turns-stage-list.is-dense {
-  font-size: 1em;
+  font-size: 0.85em;
 }
 .turns-stage-list li {
   display: flex;
@@ -98,4 +98,24 @@ strong.turns-bar-name {
 }
 .turns-bar-sep {
   color: var(--ink-3);
+}
+
+/* In der Statuszeile neben dem Countdown */
+.stage-turns {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.45em;
+  min-width: 0;
+  max-width: 28em;
+  padding: 0.2em 0.7em;
+  border-radius: 0.4em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-size: 1.15em;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.stage-turns strong.turns-bar-name {
+  font-size: 1em;
 }

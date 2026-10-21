@@ -143,6 +143,7 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
           mode: 'collect',
           prompt: 'Was muss heute passieren, damit sich der Workshop für dich gelohnt hat?',
           maxCards: 2,
+          askName: true,
         },
         notes:
           'Reihum: Jede Person nennt ihre Erwartung und tippt sie selbst ein. Wer kein Gerät dabei hat, dem legt die Moderation die Karte im Steuerpult an („Karte ergänzen“). Festhalten, worauf der Workshop eingehen wird – und worauf nicht. Die Feedbackrunde am Ende zeigt jeder Person ihre eigenen Karten wieder.',

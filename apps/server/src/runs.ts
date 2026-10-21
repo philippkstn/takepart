@@ -111,6 +111,8 @@ export function applyCommand(
       s.spotlight = null;
       s.leaderboard = false;
       if (s.picker?.shown) s.picker = { ...s.picker, shown: false };
+      // Reihum: Folienwechsel beendet die Runde, die Reihenfolge bleibt (Feedback am Ende in derselben)
+      if (s.turns && (s.turns.current !== null || s.turns.shown)) s.turns = { ...s.turns, current: null, shown: false };
       // Countdown beim Betreten neu starten; beim Verlassen läuft er weiter
       const plan = schedule.get(slideId);
       if (plan?.autoCountdown) {

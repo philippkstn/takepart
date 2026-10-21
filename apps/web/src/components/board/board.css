@@ -309,6 +309,8 @@
 }
 .place-lane-title {
   align-self: center;
+  /* Lange Wörter („Bestandskundenvertrieb“) an Silbengrenzen trennen statt mitten im Wort */
+  hyphens: auto;
   overflow-wrap: break-word;
   min-width: 0;
   font-size: 0.8em;
@@ -329,6 +331,8 @@
 .place-cell-title {
   font-size: 0.78em;
   font-weight: 700;
+  hyphens: auto;
+  overflow-wrap: break-word;
 }
 
 /* Ergebnisse */
@@ -463,9 +467,14 @@
 /* Kompakter: Gruppen-Marken einzeilig, Felder mit mehreren Spalten, flache Ablage */
 .board-card.is-group {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5em;
+  gap: 0.3em 0.5em;
+}
+/* Der Name hat eine eigene Zeile, Zähler und Kennzeichnungen folgen darunter – sonst quetschen sie ihn in schmalen Feldern */
+.board-card.is-group .board-card-text {
+  flex: 1 0 100%;
+  hyphens: auto;
 }
 .board-card.is-group .board-tag {
   flex-shrink: 0;

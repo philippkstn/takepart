@@ -181,6 +181,8 @@ export const boardConfig = z.object({
   anytime: z.boolean().default(false),
   /** Jede Gruppe (aus „Gruppen bilden“) sammelt für sich und sieht die Karten der eigenen Gruppe */
   perTeam: z.boolean().default(false),
+  /** Vor dem Schreiben den Namen abfragen – z. B. für eine Runde reihum */
+  askName: z.boolean().default(false),
   /** Beim Betreten der Folie sind die Ergebnisse auf dem Beamer verborgen (Moderation deckt auf) */
   startHidden: z.boolean().default(false),
   /* Clustern */
