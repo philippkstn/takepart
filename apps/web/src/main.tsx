@@ -66,3 +66,12 @@ createRoot(document.getElementById('root')!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// Installierbar als App (PWA); im Entwicklungsmodus ohne Service Worker, damit Vite frei neu lädt
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* ohne Service Worker läuft TakePart genauso – nur nicht installierbar */
+    });
+  });
+}

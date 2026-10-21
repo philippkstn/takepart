@@ -84,6 +84,11 @@ npm run build
 - **Folgetermin** (`followup.ts`, `POST /api/runs/:id/followup`): neue Präsentation im eigenen Konto mit Branding; Inhalt aus der reinen Funktion `followupSlides` (Titel, Rückblick, je Top-Thema der Ergebnistabellen Textfolie + Skala, höchstens 10, am Ende Q&A).
 - **Vergleich** (`compare.ts`, `/admin/p/:id/vergleich`): nur beendete Durchführungen; ähnliche Gruppen/lose Karten gruppiert der Browser mit `groupSimilar` (`packages/shared/src/similar.ts`: Normalisierung, Stoppwörter, grobe Endungen, Token-Jaccard ≥ 0,5, Union-Find, mindestens zwei Durchführungen).
 
+## PWA
+
+- Installierbar: `apps/web/public/manifest.webmanifest`, Icons (`icon-192/512.png`, `icon-maskable-512.png` randlos mit Balken in der sicheren Mitte, `apple-touch-icon.png`), Meta-Angaben in `index.html`. PNGs sind aus `favicon.svg` bzw. `icon-maskable.svg` gerendert und eingecheckt.
+- `public/sw.js` speichert bewusst nichts zwischen (Live-Ansichten müssen frisch sein) und fängt nur Seitenaufrufe ohne Netz ab (Hinweisseite). Registriert nur im Produktions-Build (`main.tsx`).
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.
