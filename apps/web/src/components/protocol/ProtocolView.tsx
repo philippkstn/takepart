@@ -7,6 +7,7 @@ import {
   type PublicSlide,
   type SlideResults,
   type SlideType,
+  tagCountText,
   teamLabel,
 } from '@slides/shared';
 import { useEffect, type ReactNode } from 'react';
@@ -14,6 +15,7 @@ import { BarList, SlideResultsView } from '../Results.tsx';
 import { BrandMark } from '../ui.tsx';
 import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
 import { cardsByTeam } from '../board/Breakout.tsx';
+import { ChooseProtocol } from '../board/BoardProtocol.tsx';
 import { brandStyle } from '../../lib/brand.ts';
 import '../../pages/admin/protocol.css';
 import './protocol-extra.css';
@@ -67,6 +69,8 @@ export function hasContent(s: ProtocolSlide): boolean {
       case 'dots':
       case 'rate':
         return (s.results?.voters ?? 0) > 0;
+      case 'choose':
+        return (s.results?.voters ?? 0) > 0 || Object.keys(view.chosen ?? {}).length > 0;
       case 'table':
         return view.rows.length > 0;
     }
@@ -255,7 +259,9 @@ function Board({ config, summary, results }: { config: BoardConfig; summary: Boa
   const { view, cards } = summary;
   const board = results?.type === 'board' ? (results as BoardResults) : null;
   const label = (key: string) => labelOf(key, cards, view);
-  const tag = (c: PostView) => (c.column !== null ? config.tags[c.column] : undefined);
+  // Auf späteren Folien der Wand gelten die Kennzeichnungen der Sammel-Folie
+  const tag = (c: PostView) => (c.column !== null ? (config.tags[c.column] ?? view.tags?.[c.column]) : undefined);
+  const dist = (key: string) => tagCountText(view.tags ?? [], view.tagCounts?.[key]);
   const note = (c: PostView) => ({ id: c.id, text: c.text, meta: tag(c) });
 
   switch (config.mode) {
@@ -296,6 +302,7 @@ function Board({ config, summary, results }: { config: BoardConfig; summary: Boa
             <div key={g.id} className="protocol-column">
               <h3>
                 {g.name} <span className="faint tabular">{g.cards}</span>
+                {dist(`g${g.id}`) && <span className="faint tabular"> · {dist(`g${g.id}`)}</span>}
               </h3>
               <Notes items={(byGroup.get(g.id) ?? []).map(note)} />
             </div>
@@ -381,6 +388,8 @@ function Board({ config, summary, results }: { config: BoardConfig; summary: Boa
         </table>
       );
     }
+    case 'choose':
+      return <ChooseProtocol config={config} view={view} results={board} label={label} />;
     case 'table':
       return (
         <table className="protocol-table">

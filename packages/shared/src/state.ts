@@ -706,6 +706,10 @@ export interface HandoutBoardEntry {
   dots: number | null;
   rating: string | null;
   fields: string[];
+  /** Einordnen: gewählte bzw. festgelegte Kategorien mit Stimmen, z. B. „Zeit (festgelegt) · Umsatz 4“ */
+  choices?: string | null;
+  /** Verteilung der Kennzeichnungen, z. B. „XL 3 · L 2“ */
+  tags?: string | null;
 }
 
 export interface HandoutData {

@@ -89,6 +89,59 @@ export function tagCounts(cards: { column: number | null }[], tagCount: number):
   return counts;
 }
 
+/** Verteilung der Kennzeichnungen je Gruppe (`g<id>`); Gruppen ohne gekennzeichnete Karten fehlen. */
+export function groupTagCounts(
+  cards: { column: number | null; group?: number | null }[],
+  groups: { id: number }[],
+  tagCount: number,
+): Record<string, number[]> {
+  const out: Record<string, number[]> = {};
+  if (tagCount === 0) return out;
+  for (const g of groups) {
+    const counts = tagCounts(
+      cards.filter((c) => c.group === g.id),
+      tagCount,
+    );
+    if (counts.some((n) => n > 0)) out[groupKey(g.id)] = counts;
+  }
+  return out;
+}
+
+/**
+ * Kurzform einer Verteilung, große Stufen zuerst (Kennzeichnungen sind meist
+ * aufsteigend angelegt, z. B. S, M, L, XL) – nur Werte über null: „XL 3 · L 2 · M 1“.
+ */
+export function tagCountParts(tags: string[], counts: number[] | undefined): { tag: string; n: number }[] {
+  if (!counts) return [];
+  return tags
+    .map((tag, i) => ({ tag, n: counts[i] ?? 0 }))
+    .filter((e) => e.n > 0)
+    .reverse();
+}
+
+export function tagCountText(tags: string[], counts: number[] | undefined): string {
+  return tagCountParts(tags, counts)
+    .map((e) => `${e.tag} ${e.n}`)
+    .join(' · ');
+}
+
+/**
+ * Gleichstand an der Grenze einer Top-N-Auswahl: liefert die Platzzahl, wenn
+ * `topByDots` wegen Gleichstands mehr als N Einträge mitnimmt, sonst null.
+ */
+export function tieAtLimit(n: number, shown: number): string | null {
+  if (n <= 0 || shown <= n) return null;
+  return `Gleichstand auf Platz ${n} – ${shown} Themen`;
+}
+
+/** Einordnen: gewählte Kategorien eines Eintrags – Festlegung der Moderation, sonst die meistgewählten. */
+export function leadingChoices(counts: number[] | undefined, chosen: number[] | undefined): { indices: number[]; fixed: boolean } {
+  if (chosen && chosen.length > 0) return { indices: chosen, fixed: true };
+  const max = Math.max(0, ...(counts ?? []));
+  if (max === 0) return { indices: [], fixed: false };
+  return { indices: (counts ?? []).flatMap((n, i) => (n === max ? [i] : [])), fixed: false };
+}
+
 /** Durchschnitt (0-basierter Stufenindex) als Stufenname, z. B. 2,4 → „L“. */
 export function levelLabel(levels: string[], average: number | null): string {
   if (average === null || levels.length === 0) return '–';

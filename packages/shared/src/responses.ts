@@ -125,6 +125,17 @@ export function validateResponse<T extends ResponseSlideType>(
         if (Object.keys(ratings).length === 0) return { ok: false, error: 'Bitte mindestens einen Eintrag einschätzen' };
         return { ok: true, value: { ratings } as ResponsePayloads[T] };
       }
+      if (c.mode === 'choose') {
+        const picks: Record<string, number[]> = {};
+        for (const [key, values] of Object.entries(v.picks ?? {})) {
+          const unique = [...new Set(values)].sort((a, b) => a - b);
+          if (unique.some((x) => x >= c.choices.length)) return { ok: false, error: 'Unbekannte Kategorie' };
+          if (!c.multi && unique.length > 1) return { ok: false, error: 'Nur eine Kategorie pro Eintrag' };
+          if (unique.length > 0) picks[key] = unique;
+        }
+        if (Object.keys(picks).length === 0) return { ok: false, error: 'Bitte mindestens einen Eintrag einordnen' };
+        return { ok: true, value: { picks } as ResponsePayloads[T] };
+      }
       return { ok: false, error: 'Auf dieser Folie wird nicht abgestimmt' };
     }
     case 'teams': {

@@ -17,11 +17,13 @@ import { cardsByGroup, labelOf, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { useToast } from '../ui.tsx';
 import { TeamBar } from './Breakout.tsx';
+import { ChooseActivity } from './BoardChoose.tsx';
+import { TagChips } from '../board/BoardMarks.tsx';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
 type Config = BoardSlide['config'];
 
-function useSend(token: string) {
+export function useSend(token: string) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const send = async (path: string, body: unknown, method?: string): Promise<boolean> => {
@@ -50,7 +52,7 @@ function Head({ config }: { config: Config }) {
   );
 }
 
-function Note({ icon, children }: { icon: ReactNode; children: ReactNode }) {
+export function Note({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
     <div className="info-box">
       {icon}
@@ -69,6 +71,7 @@ export function BoardActivity({ view, slide, token }: { view: ParticipantView; s
       {(config.mode === 'cluster' || config.mode === 'place') && <Arrange view={view} slide={slide} token={token} />}
       {config.mode === 'dots' && <Dots view={view} slide={slide} token={token} />}
       {config.mode === 'rate' && <Rate view={view} slide={slide} token={token} />}
+      {config.mode === 'choose' && <ChooseActivity view={view} slide={slide} token={token} />}
       {config.mode === 'table' && <TableView view={view} slide={slide} />}
     </div>
   );
@@ -641,7 +644,7 @@ function ClusterEditor({
 }
 
 /** Gekürzter Text, der sich beim Antippen aufklappt (und wieder zu) */
-function Expandable({ text, as: Tag = 'span', className = '' }: { text: string; as?: 'span' | 'strong'; className?: string }) {
+export function Expandable({ text, as: Tag = 'span', className = '' }: { text: string; as?: 'span' | 'strong'; className?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <Tag
@@ -758,7 +761,10 @@ function Dots({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
           const n = dots[key] ?? 0;
           return (
             <li key={key} className={n > 0 ? 'is-on' : ''}>
-              <Expandable text={labelOf(key, view.posts, board)} className="grow" />
+              <span className="grow board-vote-text">
+                <Expandable text={labelOf(key, view.posts, board)} />
+                <TagChips board={board} itemKey={key} />
+              </span>
               <span className="board-stepper">
                 <button className="icon-btn" aria-label="Punkt entfernen" disabled={n === 0} onClick={() => change(key, -1)}>
                   <Minus />

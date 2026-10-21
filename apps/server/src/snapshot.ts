@@ -148,7 +148,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   if (current?.type === 'board') {
     board = await loadBoard(db, runId, slides, current);
     posts = board.cards.map(cardToPost);
-    if (current.config.mode === 'dots' || current.config.mode === 'rate') {
+    if (current.config.mode === 'dots' || current.config.mode === 'rate' || current.config.mode === 'choose') {
       const rows = await query<{ participant_id: number; payload: string }>(
         db,
         'SELECT participant_id, payload FROM responses WHERE run_id = ? AND slide_id = ? AND round = 1 ORDER BY id',
@@ -329,7 +329,7 @@ export function computeResults(slide: Slide, payloads: unknown[]): SlideResults 
     case 'sentence':
       return sentenceResults(payloads as ResponsePayloads['sentence'][]);
     case 'board':
-      if (slide.config.mode !== 'dots' && slide.config.mode !== 'rate') return null;
+      if (slide.config.mode !== 'dots' && slide.config.mode !== 'rate' && slide.config.mode !== 'choose') return null;
       return boardResults(slide.config, payloads as ResponsePayloads['board'][]);
     default:
       return null;

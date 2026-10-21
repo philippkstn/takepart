@@ -83,6 +83,8 @@ export default function HandoutPage() {
                       {s.entries.some((e) => e.place) && <th>Feld</th>}
                       {s.entries.some((e) => e.dots !== null) && <th>Punkte</th>}
                       {s.entries.some((e) => e.rating) && <th>Einschätzung</th>}
+                      {s.entries.some((e) => e.choices) && <th>Kategorie</th>}
+                      {s.entries.some((e) => e.tags) && <th>Kennzeichnung</th>}
                       {s.columns.map((c, j) => (
                         <th key={j}>{c}</th>
                       ))}
@@ -96,6 +98,8 @@ export default function HandoutPage() {
                         {s.entries.some((x) => x.place) && <td>{e.place ?? '–'}</td>}
                         {s.entries.some((x) => x.dots !== null) && <td className="tabular">{e.dots ?? '–'}</td>}
                         {s.entries.some((x) => x.rating) && <td>{e.rating ?? '–'}</td>}
+                        {s.entries.some((x) => x.choices) && <td>{e.choices ?? '–'}</td>}
+                        {s.entries.some((x) => x.tags) && <td>{e.tags ?? '–'}</td>}
                         {s.columns.map((_, k) => (
                           <td key={k}>{e.fields[k] || '–'}</td>
                         ))}

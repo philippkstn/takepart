@@ -47,6 +47,9 @@ function publicBoard(board: BoardSummary, results: SlideResults | null): { board
           return k ? [{ ...r, key: k }] : [];
         }),
         totals: remapRecord(view.totals, key),
+        tagCounts: remapRecord(view.tagCounts, key),
+        tied: view.tied.flatMap((k) => key(k) ?? []),
+        chosen: remapRecord(view.chosen, key),
       },
       cards: cards.map((c) => ({
         ...c,
@@ -57,7 +60,12 @@ function publicBoard(board: BoardSummary, results: SlideResults | null): { board
     },
     results:
       results?.type === 'board'
-        ? { ...results, dots: remapRecord(results.dots, key), ratings: remapRecord(results.ratings, key) }
+        ? {
+            ...results,
+            dots: remapRecord(results.dots, key),
+            ratings: remapRecord(results.ratings, key),
+            picks: remapRecord(results.picks, key),
+          }
         : results,
   };
 }

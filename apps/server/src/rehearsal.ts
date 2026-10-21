@@ -57,7 +57,7 @@ export async function fakeAnswers(
     let round = 1;
     const now = Date.now();
     if (slide.type === 'board') {
-      if (slide.config.mode !== 'dots' && slide.config.mode !== 'rate')
+      if (slide.config.mode !== 'dots' && slide.config.mode !== 'rate' && slide.config.mode !== 'choose')
         return { answered: 0, note: 'Auf dieser Folie ordnet die Moderation – hier gibt es nichts zu beantworten' };
       targets = targetsOf(slide.config, await loadBoard(db, runId, slides, slide));
       if (targets.length === 0) return { answered: 0, note: 'Auf der Wand liegen noch keine Einträge' };

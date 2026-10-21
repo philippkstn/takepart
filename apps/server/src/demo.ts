@@ -119,8 +119,9 @@ export const DEMO_SLIDES: { type: SlideType; config: unknown; notes?: string }[]
       prompt: 'Was hindert uns heute daran, erfolgreicher zu sein?',
       maxCards: 5,
       tags: ['Vertrieb', 'Marketing', 'Leitung'],
+      startHidden: true,
     },
-    notes: 'Höchstens 5 Karten pro Person, jede mit Rolle. Ergebnisse verbergen, solange geschrieben wird.',
+    notes: 'Höchstens 5 Karten pro Person, jede mit Rolle. Die Karten erscheinen auf dem Beamer erst, wenn du die Ergebnisse zeigst.',
   },
   {
     type: 'board',
@@ -162,6 +163,18 @@ export const DEMO_SLIDES: { type: SlideType; config: unknown; notes?: string }[]
       ],
     },
     notes: 'Zwei Kriterien ergeben die Matrix aus den Durchschnitten. Nur die Top 5 nach Punkten.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: 'Hindernisse',
+      mode: 'choose',
+      prompt: 'Welche Art von Nutzen bringt es, wenn das Hindernis weg ist?',
+      top: 5,
+      choices: ['Zeit', 'Qualität', 'Umsatz', 'Kunde'],
+      multi: true,
+    },
+    notes: 'Alle ordnen die Top 5 ein, mehrere Arten je Thema möglich. Im Steuerpult kannst du die Art je Thema festlegen.',
   },
   {
     type: 'board',

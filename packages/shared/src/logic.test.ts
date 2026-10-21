@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   boardResults,
   boardTargets,
+  fakeResponse,
+  groupTagCounts,
+  leadingChoices,
+  tagCountText,
+  tieAtLimit,
   tagCounts,
   tiedKeys,
   dotTotals,
@@ -160,6 +165,63 @@ describe('Kartenwand', () => {
     expect(dotTotals([{ dots: { g1: 2 } }, { dots: { g1: 1, g2: 3 } }, {}])).toEqual({ g1: 3, g2: 3 });
     expect(parseBoardKey('g12')).toEqual({ kind: 'group', id: 12 });
     expect(parseBoardKey('g0')).toBeNull();
+  });
+
+  it('prüft Einordnungen gegen die Kategorien und zählt Stimmen', () => {
+    const config = board({ mode: 'choose', choices: ['Zeit', 'Qualität', 'Umsatz', 'Kunde'] });
+    // Duplikate entfernt, sortiert, leere Einträge fallen weg
+    expect(validateResponse('board', config, { picks: { g1: [2, 0, 2], g2: [] } })).toEqual({ ok: true, value: { picks: { g1: [0, 2] } } });
+    expect(validateResponse('board', config, { picks: { g1: [4] } }).ok).toBe(false);
+    expect(validateResponse('board', config, { picks: { g1: [] } }).ok).toBe(false);
+    expect(validateResponse('board', config, { picks: {} }).ok).toBe(false);
+    expect(validateResponse('board', config, { picks: { x1: [0] } }).ok).toBe(false);
+    const single = board({ mode: 'choose', multi: false });
+    expect(validateResponse('board', single, { picks: { g1: [0, 1] } }).ok).toBe(false);
+    expect(validateResponse('board', single, { picks: { g1: [1, 1] } })).toEqual({ ok: true, value: { picks: { g1: [1] } } });
+    // Punkte auf einer Einordnen-Folie zählen nicht
+    expect(validateResponse('board', config, { dots: { g1: 1 } }).ok).toBe(false);
+
+    const r = boardResults(config, [{ picks: { g1: [0, 2] } }, { picks: { g1: [2], g2: [3] } }]);
+    expect(r.picks).toEqual({ g1: [1, 0, 2, 0], g2: [0, 0, 0, 1] });
+    expect(r.voters).toBe(2);
+    expect(leadingChoices(r.picks.g1, undefined)).toEqual({ indices: [2], fixed: false });
+    expect(leadingChoices([1, 1, 0, 0], undefined)).toEqual({ indices: [0, 1], fixed: false });
+    expect(leadingChoices(r.picks.g1, [1])).toEqual({ indices: [1], fixed: true });
+    expect(leadingChoices(undefined, [])).toEqual({ indices: [], fixed: false });
+  });
+
+  it('erzeugt gültige Testantworten fürs Einordnen', () => {
+    let seed = 1;
+    const random = () => ((seed = (seed * 16807) % 2147483647) - 1) / 2147483646;
+    for (const multi of [true, false]) {
+      const config = board({ mode: 'choose', multi });
+      for (let i = 0; i < 20; i++) {
+        const raw = fakeResponse('board', config, random, ['g1', 'g2']);
+        expect(validateResponse('board', config, raw).ok).toBe(true);
+      }
+    }
+  });
+
+  it('zeigt die Verteilung der Kennzeichnungen je Gruppe, große zuerst', () => {
+    const cards = [
+      { column: 3, group: 1 },
+      { column: 3, group: 1 },
+      { column: 1, group: 1 },
+      { column: 0, group: 2 },
+      { column: null, group: 2 },
+      { column: 2, group: null },
+    ];
+    const counts = groupTagCounts(cards, [{ id: 1 }, { id: 2 }, { id: 3 }], 4);
+    expect(counts).toEqual({ g1: [0, 1, 0, 2], g2: [1, 0, 0, 0] });
+    expect(tagCountText(['S', 'M', 'L', 'XL'], counts.g1)).toBe('XL 2 · M 1');
+    expect(tagCountText(['S', 'M', 'L', 'XL'], undefined)).toBe('');
+    expect(groupTagCounts(cards, [{ id: 1 }], 0)).toEqual({});
+  });
+
+  it('benennt Gleichstand an der Grenze einer Top-N-Auswahl', () => {
+    expect(tieAtLimit(5, 6)).toBe('Gleichstand auf Platz 5 – 6 Themen');
+    expect(tieAtLimit(5, 5)).toBeNull();
+    expect(tieAtLimit(0, 8)).toBeNull();
   });
 });
 

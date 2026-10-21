@@ -49,6 +49,9 @@ npm run build
 - `anytime` auf Sammel-Folien = Parkplatz: Karten von jeder Folie aus. `RunState.countdown` = Timer auf Beamer und Handys.
 - Freigabe enthält nur Gruppen mit Zählungen, Feldern, Punkten, Einschätzungen und Tabellenfeldern – nie Kartentexte (die nur im Archiv/CSV/Fotoprotokoll).
 - Bei „eigene Karten“ dürfen Teilnehmende ihre Karten ändern und selbst angelegte Gruppen umbenennen (`board_groups.participant_id`, `BoardView.ownGroups`).
+- **Einordnen** (`mode: 'choose'`, `choices`, `multi`): Stimmen sind `responses` (`picks`), Festlegungen der Moderation `board_places.fields` (Indizes als Zeichenketten, BoardOp `choose-set`, leer = aufheben) → `BoardView.chosen`. UI: `board/Choose.tsx`, `participant/BoardChoose.tsx`, `admin/ChooseControls.tsx`.
+- `targets: 'table'` = Zeilen der letzten Ergebnistabelle derselben Wand vor der Folie (`tableSlideBefore`, `BoardData.tableRows`). `startHidden` verbirgt beim Betreten die Ergebnisse, Verlassen zeigt sie wieder (`applyStartHidden` in `runs.ts`).
+- Kennzeichnungs-Verteilung je Gruppe (`BoardView.tags`/`tagCounts`, Kennzeichnungen der ersten Sammel-Folie) und Gleichstand (`tied`; auf der Punkte-Folie selbst erst im Browser aus dem sichtbaren Ergebnis) – `board/BoardMarks.tsx`. Gleichstand wird nur benannt, `topByDots` nimmt an der Grenze alle Gleichauf-Einträge mit.
 
 ## Gruppen bilden & Fotoprotokoll
 
