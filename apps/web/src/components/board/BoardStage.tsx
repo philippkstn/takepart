@@ -654,8 +654,8 @@ function RatingMatrix({ ctx, levels }: { ctx: Pick<Ctx, 'config' | 'board' | 'vi
             {points.map((p) => (
               <li key={p.key}>
                 <span className="rating-point is-static tabular">{p.number}</span>
+                {/* Ohne Größen-Chips: die Werte stehen daneben, der Themenname braucht den Platz */}
                 <span className="grow clamp">{labelOf(p.key, view.posts, board)}</span>
-                <TagChips board={board} itemKey={p.key} />
                 <span className="faint">{p.text}</span>
               </li>
             ))}
@@ -671,7 +671,6 @@ function RatingMatrix({ ctx, levels }: { ctx: Pick<Ctx, 'config' | 'board' | 'vi
                 return (
                   <li key={key}>
                     <span className="grow clamp">{labelOf(key, view.posts, board)}</span>
-                    <TagChips board={board} itemKey={key} />
                     {known.length > 0 && <span className="faint">{known.join(' · ')}</span>}
                   </li>
                 );
