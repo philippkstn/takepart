@@ -132,7 +132,8 @@ describe('Reihum', () => {
 
   it('Weiter/Zurück: startet bei der ersten Person, bleibt am Ende stehen', () => {
     expect(stepTurn(turns([1, 2, 3]), 1).current).toBe(0);
-    expect(stepTurn(turns([1, 2, 3], 2), 1).current).toBe(2);
+    // Nach der letzten Person endet die Runde
+    expect(stepTurn(turns([1, 2, 3], 2), 1).current).toBeNull();
     expect(stepTurn(turns([1, 2, 3], 0), -1).current).toBe(0);
     expect(stepTurn(turns([]), 1).current).toBeNull();
   });

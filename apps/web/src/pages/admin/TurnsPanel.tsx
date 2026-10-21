@@ -97,9 +97,9 @@ export function TurnsPanel({ view, command, busy }: { view: HostView; command: C
             <button
               className="btn btn-small btn-ink"
               onClick={() => command({ action: 'turns-step', delta: 1 })}
-              disabled={busy || current === turns.order.length - 1}
+              disabled={busy}
             >
-              {current === null ? 'Runde starten' : 'Weiter'} <ChevronRight />
+              {current === null ? 'Runde starten' : current === turns.order.length - 1 ? 'Runde beenden' : 'Weiter'} <ChevronRight />
             </button>
             {current !== null && (
               <button className="btn btn-small" onClick={() => command({ action: 'turns-go', index: null })} disabled={busy}>

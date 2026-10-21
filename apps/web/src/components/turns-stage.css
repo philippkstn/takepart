@@ -64,25 +64,7 @@
   background: var(--surface-2);
 }
 
-/* Leiste „Jetzt · Danach“ unten links – oben sitzt der Sammelruf, unten mittig der Countdown-Hinweis */
-.turns-bar {
-  position: absolute;
-  left: 1.6em;
-  bottom: 0.9em;
-  z-index: 7;
-  max-width: 40%;
-  display: flex;
-  align-items: baseline;
-  gap: 0.45em;
-  padding: 0.45em 0.9em;
-  border-radius: 0.5em;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow-1);
-  font-size: 0.85em;
-  color: var(--ink);
-  white-space: nowrap;
-}
+/* „Jetzt · Danach“ (in der Statuszeile, siehe .stage-turns) */
 .turns-bar-label {
   font-size: 0.82em;
   font-weight: 600;

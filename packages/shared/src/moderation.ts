@@ -189,9 +189,10 @@ export const emptyTurns = (): TurnsState => ({ order: [], current: null, shown: 
 export const TURN_SOURCES = ['joined', 'random', 'board'] as const;
 export type TurnSource = (typeof TURN_SOURCES)[number];
 
-/** Weiter/zurück; am Ende bleibt die letzte Person, vor dem Anfang endet die Runde nicht */
+/** Weiter/zurück; „Weiter“ nach der letzten Person beendet die Runde, vor dem Anfang endet sie nicht */
 export function stepTurn(turns: TurnsState, delta: number): TurnsState {
   if (turns.order.length === 0) return turns;
+  if (delta > 0 && turns.current === turns.order.length - 1) return { ...turns, current: null };
   const from = turns.current ?? -1;
   const next = Math.min(turns.order.length - 1, Math.max(0, from + delta));
   return { ...turns, current: next };

@@ -124,8 +124,8 @@ export function Stage({
             )}
           </AnimatePresence>
 
-          {/* Auf Bildfolien gibt es keine Statuszeile – dort schwebt die Leiste unten links */}
-          <TurnsOverlay turns={view.turns} bar={!!image} />
+          {/* „Jetzt · Danach“ steht in der Statuszeile; Bildfolien haben keine – dort bewusst nichts, damit die Folie frei bleibt */}
+          <TurnsOverlay turns={view.turns} />
           <PickOverlay name={view.picked} />
 
           <AnimatePresence>

@@ -3,15 +3,13 @@ import { AnimatePresence, motion } from 'motion/react';
 import './turns-stage.css';
 
 /**
- * Reihum auf der Bühne: eine dezente Leiste „Jetzt: Anna · Danach: Ben“, solange
- * jemand dran ist; auf Wunsch die ganze Reihenfolge als Liste (aktuelle Person
- * hervorgehoben, erledigte gedämpft). Nur Namen, nie IDs. Liegt über der Folie,
- * unter Pause und Schwarzbild; Bewegung schaltet `MotionConfig reducedMotion="user"` ab.
+ * Reihum auf der Bühne: auf Wunsch die ganze Reihenfolge als Liste (aktuelle Person
+ * hervorgehoben, erledigte gedämpft); „Jetzt · Danach“ zeigt `TurnsBadge` in der
+ * Statuszeile. Nur Namen, nie IDs. Liegt über der Folie, unter Pause und
+ * Schwarzbild; Bewegung schaltet `MotionConfig reducedMotion="user"` ab.
  */
-export function TurnsOverlay({ turns, bar = true }: { turns: TurnsDisplayView | null | undefined; bar?: boolean }) {
+export function TurnsOverlay({ turns }: { turns: TurnsDisplayView | null | undefined }) {
   const current = turns && turns.current !== null ? turns.current : null;
-  const now = current !== null ? turns!.names[current] : undefined;
-  const next = current !== null ? turns!.names[current + 1] : undefined;
   const shown = !!turns?.shown;
   const names = turns?.names ?? [];
   const columns = names.length > 18 ? 3 : names.length > 6 ? 2 : 1;
@@ -46,30 +44,6 @@ export function TurnsOverlay({ turns, bar = true }: { turns: TurnsDisplayView | 
                 })}
               </ol>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {bar && !shown && now && (
-          <motion.div
-            className="turns-bar"
-            role="status"
-            initial={{ opacity: 0, y: '40%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: [0.2, 0.8, 0.2, 1] }}
-          >
-            <span className="turns-bar-label">Jetzt</span>
-            <strong className="turns-bar-name">{now}</strong>
-            {next && (
-              <>
-                <span className="turns-bar-sep" aria-hidden>
-                  ·
-                </span>
-                <span className="turns-bar-label">Danach</span>
-                <span className="turns-bar-name">{next}</span>
-              </>
-            )}
           </motion.div>
         )}
       </AnimatePresence>
