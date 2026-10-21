@@ -277,9 +277,14 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     const { id } = idParam.parse(request.params);
     const body = z.object({ afterId: z.number().int().nullable().default(null), slides: batchSlides }).safeParse(request.body);
     if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Ungültige Eingabe' });
-    let parsed: { type: SlideType; config: unknown; notes: string }[];
+    let parsed: { type: SlideType; config: unknown; notes: string; schedule?: SlideSchedule }[];
     try {
-      parsed = body.data.slides.map((s) => ({ type: s.type, config: parseConfig(s.type, s.config ?? {}), notes: s.notes }));
+      parsed = body.data.slides.map((s) => ({
+        type: s.type,
+        config: parseConfig(s.type, s.config ?? {}),
+        notes: s.notes,
+        schedule: s.schedule,
+      }));
     } catch (err) {
       const message = err instanceof ZodError ? err.issues[0]?.message : err instanceof Error ? err.message : null;
       return reply.code(400).send({ error: message || 'Ungültige Folie' });
@@ -291,7 +296,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
       let at = body.data.afterId === null ? ids.length : ids.indexOf(body.data.afterId) + 1 || ids.length;
       const newIds: number[] = [];
       for (const s of parsed) {
-        const result = await insertSlide(conn, id, 0, s.type, s.config, s.notes);
+        const result = await insertSlide(conn, id, 0, s.type, s.config, s.notes, s.schedule);
         ids.splice(at++, 0, result.insertId);
         newIds.push(result.insertId);
       }

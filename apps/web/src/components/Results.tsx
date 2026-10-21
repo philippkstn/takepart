@@ -236,6 +236,9 @@ export function SlideResultsView({
       return (
         <div className="stack">
           <FeedbackResults results={results} />
+          {showComments && results.comments.length > 0 && slide.type === 'feedback' && slide.config.commentLabel && (
+            <span className="label">{slide.config.commentLabel}</span>
+          )}
           {showComments && results.comments.length > 0 && (
             <ul className="comment-list">
               {results.comments.slice(-maxComments).map((c, i) => (

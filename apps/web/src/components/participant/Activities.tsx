@@ -439,6 +439,16 @@ function Feedback({ view, slide, token }: Props<'feedback'>) {
   return (
     <div className="stack">
       <Question kicker="Feedback" text={slide.config.question} />
+      {view.recall && view.recall.length > 0 && (
+        <section className="recall-box stack-s" aria-label="Deine Erwartung vom Anfang">
+          <span className="label">Deine Erwartung vom Anfang</span>
+          <ul>
+            {view.recall.map((text, i) => (
+              <li key={i}>{text}</li>
+            ))}
+          </ul>
+        </section>
+      )}
       {own && !editing ? (
         <Done onChange={view.locked ? undefined : () => setEditing(true)}>
           <strong>Danke für dein Feedback!</strong>
@@ -461,15 +471,27 @@ function Feedback({ view, slide, token }: Props<'feedback'>) {
               </button>
             ))}
           </div>
-          {slide.config.withComment && (
-            <textarea
-              className="textarea"
-              placeholder="Was möchtest du noch loswerden? (optional)"
-              value={comment}
-              maxLength={500}
-              onChange={(e) => setComment(e.target.value)}
-            />
-          )}
+          {slide.config.withComment &&
+            (slide.config.commentLabel ? (
+              <label className="field">
+                <span>{slide.config.commentLabel}</span>
+                <textarea
+                  className="textarea"
+                  placeholder="(optional)"
+                  value={comment}
+                  maxLength={500}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+              </label>
+            ) : (
+              <textarea
+                className="textarea"
+                placeholder="Was möchtest du noch loswerden? (optional)"
+                value={comment}
+                maxLength={500}
+                onChange={(e) => setComment(e.target.value)}
+              />
+            ))}
           <button className="btn btn-primary btn-large" onClick={submit} disabled={busy || rating === 0}>
             Abschicken <Send />
           </button>

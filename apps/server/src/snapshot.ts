@@ -26,7 +26,7 @@ import {
   type SlideType,
   type SlideSchedule,
 } from '@slides/shared';
-import { loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
+import { boardSlides, loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { json, one, query, type Conn } from './db.ts';
 import { loadTeamTags } from './teams.ts';
@@ -69,6 +69,11 @@ export interface Snapshot {
   board: BoardData | null;
   /** Sammel-Folien, die jederzeit Karten annehmen (Parkplatz), mit ihren Karten */
   parking: { slide: BoardSlide; posts: SnapshotPost[] }[];
+  /**
+   * Feedback mit Rückblick: Karten der genannten Wand (nicht ausgeblendet), nur
+   * geladen, wenn die aktuelle Folie es braucht. Jede Person sieht nur ihre eigenen.
+   */
+  recall: { participantId: number | null; text: string }[] | null;
   /** participantId → hochgevotete Post-IDs der aktuellen Folie */
   votes: Map<number, Set<number>>;
   names: Map<number, string>;
@@ -256,6 +261,14 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     posts: parkingCards.filter((c) => c.slideId === slide.id).map(cardToPost),
   }));
 
+  let recall: Snapshot['recall'] = null;
+  if (current?.type === 'feedback' && current.config.recall) {
+    const ids = boardSlides(slides, current.config.recall).map((s) => s.id);
+    recall = (await loadCards(db, runId, ids))
+      .filter((c) => c.status !== 'hidden' && c.participantId !== null)
+      .map((c) => ({ participantId: c.participantId, text: c.text }));
+  }
+
   const notes = current
     ? ((await one<{ notes: string | null }>(db, 'SELECT notes FROM slides WHERE id = ?', [current.id]))?.notes ?? '')
     : '';
@@ -286,6 +299,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     posts,
     board,
     parking,
+    recall,
     votes,
     names,
     participantTotal: Number(total?.n ?? 0),

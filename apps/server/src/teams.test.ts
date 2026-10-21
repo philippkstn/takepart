@@ -77,6 +77,38 @@ describe('Gruppen nach Töpfen', () => {
     expect(teams.flat()).toHaveLength(12);
   });
 
+  it('Paare bei ungerader Zahl: immer ein Dreierteam, nie jemand allein (mit und ohne Mischen und Töpfe)', () => {
+    const variants: { mix: boolean; pools?: Record<string, number> }[] = [
+      { mix: false },
+      { mix: true },
+      { mix: false, pools: { '0': 0, '1': 1 } },
+      { mix: true, pools: { '0': 0, '1': 0, none: 0 } },
+    ];
+    for (const n of [3, 5, 7, 9, 11, 13]) {
+      for (const [v, extra] of variants.entries()) {
+        for (let seed = 1; seed <= 20; seed++) {
+          const list = people(n, [0, 1, 0, null]);
+          const teams = makeTeams(list, { mode: 'size', n: 2, ...extra }, seeded(seed * 31 + v));
+          const sizes = teams.map((t) => t.length);
+          expect(teams.flat().sort((a, b) => a - b)).toEqual(list.map((p) => p.id));
+          expect(Math.min(...sizes), `${n} Personen, Variante ${v}`).toBeGreaterThanOrEqual(2);
+          if (!extra.pools) expect(sizes.filter((s) => s === 3)).toHaveLength(1);
+        }
+      }
+    }
+  });
+
+  it('ein Topf mit nur einer Person: die Person kommt in die kleinste andere Gruppe', () => {
+    // Vier Personen Rolle 0, eine Person Rolle 1 – getrennte Töpfe
+    const list = people(5, [0, 0, 0, 0, 1]);
+    const teams = makeTeams(list, { mode: 'size', n: 2, mix: false, pools: { '0': 0, '1': 1 } }, seeded(9));
+    expect(teams.map((t) => t.length).sort()).toEqual([2, 3]);
+    expect(teams.find((t) => t.length === 3)).toContain(5);
+    // Zwei Töpfe mit je einer Person bilden zusammen ein Paar
+    const two = makeTeams(people(2, [0, 1]), { mode: 'size', n: 2, mix: false, pools: { '0': 0, '1': 1 } }, seeded(10));
+    expect(two).toEqual([expect.arrayContaining([1, 2])]);
+  });
+
   it('Nachzügler kommen in eine Gruppe ihres Topfes', () => {
     const pools = { '0': 0, '1': 1 };
     const tags = new Map<number, number | null>([

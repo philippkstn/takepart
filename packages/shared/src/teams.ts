@@ -44,6 +44,24 @@ function splitCount(sizes: number[], n: number): number[] {
 
 type Random = () => number;
 
+/**
+ * Bei Gruppengröße bleibt niemand allein – auch nicht, wenn ein Topf nur eine
+ * Person hat: Solche Einzelnen kommen in die kleinste übrige Gruppe (dann
+ * topfübergreifend, weil es im eigenen Topf niemanden gibt).
+ */
+function joinSingles(teams: number[][], size: number): number[][] {
+  if (size < 2 || teams.length < 2) return teams;
+  const result = teams.map((t) => [...t]);
+  for (let i = result.length - 1; i >= 0 && result.length > 1; i--) {
+    if (result[i]!.length !== 1) continue;
+    const [single] = result.splice(i, 1)[0]!;
+    let best = 0;
+    for (let k = 1; k < result.length; k++) if (result[k]!.length < result[best]!.length) best = k;
+    result[best]!.push(single!);
+  }
+  return result;
+}
+
 function shuffle<T>(items: T[], random: Random): T[] {
   const a = [...items];
   for (let i = a.length - 1; i > 0; i--) {
@@ -74,7 +92,11 @@ export function makeTeams(people: TeamPerson[], options: TeamOptions, random: Ra
     }
     const lists = [...byPool.entries()].sort((a, b) => a[0] - b[0]).map(([, list]) => list);
     const single = { ...options, pools: undefined };
-    if (options.mode === 'size') return lists.flatMap((list) => makeTeams(list, single, random));
+    if (options.mode === 'size')
+      return joinSingles(
+        lists.flatMap((list) => makeTeams(list, single, random)),
+        options.n,
+      );
     const counts = splitCount(
       lists.map((l) => l.length),
       Math.max(options.n, lists.length),

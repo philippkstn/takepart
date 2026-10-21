@@ -232,6 +232,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     pause: participantPause(state, participantId),
     ...participantModeration(snap, participantId),
     callback: activeCallback(state.callback, snap.now),
+    recall: snap.recall ? snap.recall.filter((c) => c.participantId === participantId).map((c) => c.text) : null,
   };
 }
 
