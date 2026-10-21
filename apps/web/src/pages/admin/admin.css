@@ -290,6 +290,8 @@
 }
 .preview-frame {
   aspect-ratio: 16 / 9;
+  /* Ebenen der Bühne (Animationen, Pause, Schwarzbild) bleiben in der Vorschau */
+  isolation: isolate;
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
@@ -335,32 +337,6 @@
   gap: 18px;
   padding: 18px;
   align-items: start;
-}
-@media (max-width: 1200px) {
-  .control-grid {
-    grid-template-columns: 220px minmax(0, 1fr);
-  }
-  .control-panel {
-    grid-column: 1 / -1;
-  }
-}
-@media (max-width: 760px) {
-  .control-grid {
-    grid-template-columns: 1fr;
-    padding: 12px;
-  }
-  .control-slides {
-    order: 2;
-  }
-  .control-panel {
-    order: 1;
-  }
-  .control-center {
-    order: 0;
-  }
-  .control-head-actions .btn span {
-    display: none;
-  }
 }
 .control-slides {
   min-width: 0;
@@ -409,7 +385,10 @@
 }
 .control-center {
   display: grid;
+  /* Sonst wird die Spalte so breit wie ihre breiteste Steuerzeile */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
+  min-width: 0;
   position: sticky;
   top: 76px;
 }
@@ -1057,4 +1036,147 @@
   height: 7px;
   border-radius: 50%;
   background: var(--accent);
+}
+
+/* ───────────── Steuerpult auf iPad und Handy (am Ende, damit es die Grundregeln überschreibt) ───────────── */
+
+/* Desktop: Folienübersicht eingeklappt – die Bühne bekommt den Platz */
+@media (min-width: 1200px) {
+  .control-grid.is-slides-collapsed {
+    grid-template-columns: minmax(0, 1fr) min(var(--panel-w, 380px), calc(100vw - 480px));
+  }
+  .control-grid.is-slides-collapsed .control-slides {
+    display: none;
+  }
+}
+/* iPad quer: Folienübersicht als Schublade, Bühne und schmale Leiste nebeneinander */
+@media (max-width: 1199px) {
+  .control-grid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+    gap: 14px;
+    padding: 14px;
+  }
+  .control-slides {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 40;
+    width: min(320px, 85vw);
+    padding: 16px 10px calc(16px + env(safe-area-inset-bottom));
+    overflow: auto;
+    background: var(--bg);
+    border-right: 1px solid var(--border);
+    box-shadow: var(--shadow-2);
+    transform: translateX(-102%);
+    transition: transform 200ms var(--ease);
+  }
+  .control-grid.is-drawer-open .control-slides {
+    transform: none;
+  }
+  .control-drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 39;
+    background: rgb(0 0 0 / 30%);
+  }
+  /* Die Kopfzeile bricht hier oft um – Bühne nicht kleben lassen, sonst rutscht sie darunter */
+  .control-center {
+    position: static;
+  }
+  /* Zweizeilige Kopfzeile: etwas mehr Abstand, damit die Steuerung ohne Scrollen sichtbar bleibt */
+  .control-center > .preview-frame {
+    width: min(100%, max(360px, calc((100dvh - 400px) * 16 / 9)));
+  }
+  .control-panel {
+    padding: 14px;
+    top: 12px;
+  }
+}
+/* iPad hochkant und Handy: Leiste unter der Bühne, „Als Nächstes“ klein neben den Notizen */
+@media (max-width: 999px) {
+  .control-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .control-panel {
+    position: static;
+    max-height: none;
+    display: grid;
+    grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+    gap: 0 18px;
+    align-items: start;
+  }
+  .control-panel > * {
+    grid-column: 1 / -1;
+  }
+  .control-panel > .next-slide {
+    grid-column: 1;
+    margin: 0;
+    padding: 0;
+    border-bottom: 0;
+  }
+  .control-panel > .next-slide ~ .notes-box {
+    grid-column: 2;
+  }
+  .control-panel .notes-text {
+    max-height: 30vh;
+  }
+}
+/* Handy: große Zurück/Weiter-Leiste unten, Kopfzeile kompakt */
+@media (max-width: 760px) {
+  .control-grid {
+    padding: 10px 10px calc(84px + env(safe-area-inset-bottom));
+  }
+  .control-head {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .control-head-actions .btn span {
+    display: none;
+  }
+  /* Selten am Handy gebraucht: Plan-Abgleich und Anzeige-Link erneuern */
+  .control-head .plan-status,
+  .control-head-actions .icon-btn {
+    display: none;
+  }
+  .control-title strong {
+    font-size: 1rem;
+  }
+  .control-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .control-panel > .next-slide {
+    max-width: 260px;
+    margin-bottom: 12px;
+  }
+  .control-panel > .next-slide ~ .notes-box {
+    grid-column: 1;
+  }
+  .control-center > .preview-frame {
+    width: 100%;
+  }
+  .control-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 35;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: var(--bg);
+    border-top: 1px solid var(--border);
+  }
+  .control-nav .btn-large {
+    flex: 1;
+    min-height: 52px;
+  }
+  .control-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .control-group-items {
+    flex-wrap: wrap;
+  }
+  .control-groups > .control-group {
+    flex-basis: 100%;
+  }
 }

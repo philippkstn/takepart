@@ -1,6 +1,8 @@
 import { buildSteps, topWords, type HostCommand, type HostView, type PostView } from '@slides/shared';
 import {
   ArrowLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -28,7 +30,7 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router';
 import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
@@ -37,7 +39,8 @@ import { Stage } from '../../components/Stage.tsx';
 import { ConnectionBadge, formatCode, FullScreenSpinner, joinHost, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useLive } from '../../lib/live.ts';
-import { isNumber, usePref } from '../../lib/prefs.ts';
+import { isBoolean, isNumber, usePref } from '../../lib/prefs.ts';
+import { useMediaQuery } from '../../lib/useMediaQuery.ts';
 import { usePresenterKeys } from '../../lib/presenterKeys.ts';
 import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
@@ -61,6 +64,11 @@ export default function ControlPage() {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [endingRehearsal, setEndingRehearsal] = useState(false);
+  // Folienübersicht: am Desktop ein-/ausklappbar (gemerkt), auf iPad/Handy eine Schublade
+  const [slidesOpen, setSlidesOpen] = usePref('control-slides', true, isBoolean);
+  const [drawer, setDrawer] = useState(false);
+  const narrow = useMediaQuery('(max-width: 1199px)');
+  const swipe = useRef<{ x: number; y: number } | null>(null);
   const [tab, setTab] = usePref<ControlTab>('control-tab', 'beamer', (v): v is ControlTab => CONTROL_TABS.some((t) => t.id === v));
   const [panelWidth, setPanelWidth] = usePref('panel-width', 380, (v): v is number => isNumber(v) && v >= PANEL_MIN && v <= PANEL_MAX);
 
@@ -152,6 +160,15 @@ export default function ControlPage() {
         <Link to={`/admin/p/${view.presentationId}`} className="icon-btn" aria-label="Zur Präsentation">
           <ArrowLeft />
         </Link>
+        <button
+          className="icon-btn"
+          onClick={() => (narrow ? setDrawer(!drawer) : setSlidesOpen(!slidesOpen))}
+          aria-pressed={narrow ? drawer : slidesOpen}
+          aria-label="Folienübersicht ein- oder ausblenden"
+          title="Folienübersicht"
+        >
+          {(narrow ? drawer : slidesOpen) ? <PanelLeftClose /> : <PanelLeftOpen />}
+        </button>
         <div className="grow control-title">
           <strong>{view.run.title}</strong>
           <span className="small muted">
@@ -167,10 +184,10 @@ export default function ControlPage() {
         <div className="row control-head-actions">
           {!ended && <InviteButton code={view.run.code} />}
           <a className="btn btn-small" href={displayUrl} target="slides-display" rel="noopener">
-            <Maximize2 /> Beamer öffnen
+            <Maximize2 /> <span>Beamer öffnen</span>
           </a>
           <button className="btn btn-small" onClick={() => copy(displayUrl, 'Anzeige-Link')} title="Anzeige-Link kopieren">
-            <Copy /> Link
+            <Copy /> <span>Link</span>
           </button>
           <button
             className="icon-btn"
@@ -186,20 +203,27 @@ export default function ControlPage() {
           </button>
           {!ended && (
             <button className="btn btn-small btn-danger" onClick={end}>
-              <Square /> Beenden
+              <Square /> <span>Beenden</span>
             </button>
           )}
         </div>
       </header>
 
-      <div className="control-grid" style={{ '--panel-w': `${panelWidth}px` } as CSSProperties}>
+      <div
+        className={`control-grid ${!narrow && !slidesOpen ? 'is-slides-collapsed' : ''} ${narrow && drawer ? 'is-drawer-open' : ''}`}
+        style={{ '--panel-w': `${panelWidth}px` } as CSSProperties}
+      >
+        {narrow && drawer && <div className="control-drawer-backdrop" onClick={() => setDrawer(false)} />}
         <aside className="control-slides">
           <ol>
             {view.slides.map((s, i) => (
               <li key={s.id}>
                 <button
                   className={`control-slide ${s.id === slide?.id ? 'is-current' : ''}`}
-                  onClick={() => command({ action: 'goto', slideId: s.id })}
+                  onClick={() => {
+                    void command({ action: 'goto', slideId: s.id });
+                    if (narrow) setDrawer(false);
+                  }}
                   disabled={busy || ended}
                 >
                   <span className="slide-num tabular">{i + 1}</span>
@@ -213,7 +237,22 @@ export default function ControlPage() {
         </aside>
 
         <section className="control-center">
-          <div className="preview-frame">
+          <div
+            className="preview-frame"
+            // Auf Touch-Geräten: über die Vorschau wischen blättert (nicht beim Zeigen/Zeichnen oder Ordnen der Wand)
+            onTouchStart={(e) => {
+              const t = e.touches[0];
+              swipe.current = t && e.touches.length === 1 ? { x: t.clientX, y: t.clientY } : null;
+            }}
+            onTouchEnd={(e) => {
+              const start = swipe.current;
+              const t = e.changedTouches[0];
+              swipe.current = null;
+              if (!start || !t || tool !== 'none' || slide?.type === 'board' || busy || ended) return;
+              const dx = t.clientX - start.x;
+              if (Math.abs(dx) > 60 && Math.abs(t.clientY - start.y) < 40) void command({ action: 'step', delta: dx < 0 ? 1 : -1 });
+            }}
+          >
             <Stage
               // Du siehst die Folie weiter – nur der Beamer ist dunkel (Hinweis unten)
               view={blank ? { ...view.display, blank: null } : view.display}
@@ -385,7 +424,7 @@ export default function ControlPage() {
           </div>
         </section>
 
-        <PanelResizer width={panelWidth} onWidth={setPanelWidth} />
+        {!narrow && <PanelResizer width={panelWidth} onWidth={setPanelWidth} />}
         <PresenterSidebar view={view} build={build} builds={builds}>
           {slide && <LiveRunNote runId={runId} slideId={slide.id} />}
           {slide ? <Panel view={view} command={command} busy={busy} /> : <p className="muted">Keine Folie ausgewählt.</p>}
