@@ -40,10 +40,15 @@ export function rankByDots(keys: string[], totals: Record<string, number>): stri
     .map((e) => e.key);
 }
 
+/** Höchstens so viele zusätzliche Einträge holt ein Gleichstand an der Grenze mit in die Auswahl */
+export const MAX_TIE_EXTRA = 2;
+
 /**
- * Die N Einträge mit den meisten Punkten. Liegt die Grenze in einem Gleichstand,
- * kommen alle gleichauf liegenden mit – entschieden wird nichts automatisch,
- * der Gleichstand wird nur benannt (`tiedKeys`).
+ * Die N Einträge mit den meisten Punkten. Liegt die Grenze in einem kleinen
+ * Gleichstand (höchstens `MAX_TIE_EXTRA` mehr), kommen alle gleichauf liegenden
+ * mit. Bei größerem Gleichstand (z. B. viele Karten mit je einem Punkt) bleibt
+ * es bei N – entschieden wird nichts automatisch, der Gleichstand wird nur
+ * benannt (`tiedKeys`, `tieAtLimit`).
  */
 export function topByDots(keys: string[], totals: Record<string, number>, n: number): string[] {
   const ranked = rankByDots(keys, totals);
@@ -52,7 +57,7 @@ export function topByDots(keys: string[], totals: Record<string, number>, n: num
   if (limit === 0) return ranked.slice(0, n);
   let end = n;
   while (end < ranked.length && (totals[ranked[end]!] ?? 0) === limit) end++;
-  return ranked.slice(0, end);
+  return ranked.slice(0, end - n > MAX_TIE_EXTRA ? n : end);
 }
 
 /** Einträge mit Punkten, die sich ihre Punktzahl mit mindestens einem anderen teilen. */
@@ -131,9 +136,10 @@ export function tagCountText(tags: string[], counts: number[] | undefined): stri
  * Gleichstand an der Grenze einer Top-N-Auswahl: liefert die Platzzahl, wenn
  * `topByDots` wegen Gleichstands mehr als N Einträge mitnimmt, sonst null.
  */
-export function tieAtLimit(n: number, shown: number): string | null {
-  if (n <= 0 || shown <= n) return null;
-  return `Gleichstand auf Platz ${n} – ${shown} Themen`;
+export function tieAtLimit(n: number, shown: number, moreTied = false): string | null {
+  if (n <= 0) return null;
+  if (shown > n) return `Gleichstand auf Platz ${n} – ${shown} Einträge`;
+  return moreTied ? `Gleichstand auf Platz ${n} – weitere liegen gleichauf` : null;
 }
 
 /** Einordnen: gewählte Kategorien eines Eintrags – Festlegung der Moderation, sonst die meistgewählten. */

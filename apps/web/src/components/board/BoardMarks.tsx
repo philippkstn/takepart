@@ -50,5 +50,7 @@ export function tiedSet(board: BoardView, results: BoardResults | null | undefin
 /** Satz zum Gleichstand an der Grenze der Top-N-Auswahl, z. B. „Gleichstand auf Platz 5 – 6 Themen“ */
 export function topTieText(board: BoardView, top: number, targets: string): string | null {
   if (targets === 'table') return null;
-  return tieAtLimit(top, board.targets.length);
+  // Großer Gleichstand: es bleibt bei N, der letzte Eintrag teilt seine Punkte mit nicht gezeigten
+  const last = board.targets[board.targets.length - 1];
+  return tieAtLimit(top, board.targets.length, board.targets.length === top && !!last && board.tied.includes(last));
 }

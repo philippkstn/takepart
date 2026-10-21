@@ -14,6 +14,7 @@ import {
   leadingChoices,
   tagCountText,
   tieAtLimit,
+  topByDots,
   tagCounts,
   tiedKeys,
   dotTotals,
@@ -295,7 +296,13 @@ describe('Kartenwand', () => {
   });
 
   it('benennt Gleichstand an der Grenze einer Top-N-Auswahl', () => {
-    expect(tieAtLimit(5, 6)).toBe('Gleichstand auf Platz 5 – 6 Themen');
+    expect(tieAtLimit(5, 6)).toBe('Gleichstand auf Platz 5 – 6 Einträge');
+    expect(tieAtLimit(5, 5, true)).toBe('Gleichstand auf Platz 5 – weitere liegen gleichauf');
+    expect(tieAtLimit(5, 5)).toBeNull();
+    // Großer Gleichstand an der Grenze: es bleibt bei N
+    const many = Object.fromEntries(['c1', 'c2', 'c3', 'c4', 'c5', 'c6'].map((k, i) => [k, i === 0 ? 3 : 1]));
+    expect(topByDots(Object.keys(many), many, 2)).toEqual(['c1', 'c2']);
+    expect(topByDots(['c1', 'c2', 'c3'], { c1: 3, c2: 1, c3: 1 }, 2)).toEqual(['c1', 'c2', 'c3']);
     expect(tieAtLimit(5, 5)).toBeNull();
     expect(tieAtLimit(0, 8)).toBeNull();
   });
