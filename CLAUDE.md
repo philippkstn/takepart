@@ -87,7 +87,7 @@ npm run build
 ## PWA
 
 - Installierbar: `apps/web/public/manifest.webmanifest`, Icons (`icon-192/512.png`, `icon-maskable-512.png` randlos mit Balken in der sicheren Mitte, `apple-touch-icon.png`), Meta-Angaben in `index.html`. PNGs sind aus `favicon.svg` bzw. `icon-maskable.svg` gerendert und eingecheckt.
-- `public/sw.js` speichert bewusst nichts zwischen (Live-Ansichten müssen frisch sein) und fängt nur Seitenaufrufe ohne Netz ab (Hinweisseite). Registriert nur im Produktions-Build (`main.tsx`).
+- `public/sw.js` speichert bewusst nichts zwischen (Live-Ansichten müssen frisch sein) und fängt nur Seitenaufrufe ohne Netz ab (Hinweisseite). Registriert nur im Produktions-Build (`main.tsx`). Die App startet in `/admin` (primär für Vortragende), `id` bleibt `/`, `scope` `/`.
 
 ## Design
 
