@@ -621,7 +621,8 @@ function RatingMatrix({ ctx, levels }: { ctx: Pick<Ctx, 'config' | 'board' | 'vi
     seen.set(id, k + 1);
     p.x += k * 0.035;
   }
-  const pad = (v: number) => 6 + Math.min(1, Math.max(0, v)) * 88;
+  // Innen halten (20–80 %): an den Rändern stehen die Feldnamen; die Mitte bleibt die Feldgrenze
+  const pad = (v: number) => 20 + Math.min(1, Math.max(0, v)) * 60;
   // Fehlt allen dasselbe Kriterium, heißt die Liste „Noch ohne Aufwand“
   const lacking = config.scales.filter((_, i) => missing.every((key) => (levels.get(key)?.[i] ?? null) === null));
   const missingTitle = lacking.length === 1 ? `Noch ohne ${lacking[0]!.label}` : 'Noch nicht eingeschätzt';
