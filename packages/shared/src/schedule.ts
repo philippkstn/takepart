@@ -126,6 +126,18 @@ export function extendCountdown(countdown: Countdown, seconds: number, now: numb
   return next;
 }
 
+/**
+ * Zur nächsten Phase springen: die ganze Zeitleiste rückt um die Restzeit der
+ * aktuellen Phase vor (Phasen bleiben gleich, abgeleitet wird wie immer aus
+ * Startzeit und Dauern). In der letzten Phase endet der Countdown jetzt.
+ */
+export function skipPhase(countdown: Countdown, now: number): Countdown {
+  const info = currentPhase(countdown, now);
+  if (!info || info.done) return { ...countdown, endsAt: Math.min(countdown.endsAt, now) };
+  const remaining = Math.max(0, info.endsAt - now);
+  return { ...countdown, endsAt: countdown.endsAt - remaining };
+}
+
 /* ───────────── Ablaufplan: Soll/Ist ───────────── */
 
 export interface PlanStatus {

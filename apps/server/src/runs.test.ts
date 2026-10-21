@@ -155,6 +155,17 @@ describe('Ablaufplan', () => {
     }
   });
 
+  it('startet nichts von selbst, wenn der Autostart für die Durchführung aus ist', () => {
+    let s = applyCommand(initialRunState(10), { action: 'countdown-auto', enabled: false }, slides);
+    expect(s.autoCountdownOff).toBe(true);
+    s = applyCommand(s, { action: 'goto', slideId: 20 }, slides, 1000, noBuilds, schedule);
+    expect(s.countdown).toBeUndefined();
+    s = applyCommand(s, { action: 'countdown-auto', enabled: true }, slides);
+    s = applyCommand(s, { action: 'goto', slideId: 10 }, slides, 1000, noBuilds, schedule);
+    s = applyCommand(s, { action: 'goto', slideId: 20 }, slides, 2000, noBuilds, schedule);
+    expect(s.countdown?.endsAt).toBe(2000 + 30 * 60_000);
+  });
+
   it('startet nicht neu, wenn die Folie schon aktiv ist, und stoppt beim Verlassen nicht', () => {
     let s = applyCommand(initialRunState(10), { action: 'goto', slideId: 20 }, slides, 1000, noBuilds, schedule);
     const running = s.countdown;

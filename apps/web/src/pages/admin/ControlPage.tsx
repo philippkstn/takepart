@@ -1,4 +1,4 @@
-import { buildSteps, topWords, type HostCommand, type HostView, type PostView } from '@slides/shared';
+import { buildSteps, currentPhase, topWords, type HostCommand, type HostView, type PostView } from '@slides/shared';
 import {
   ArrowLeft,
   PanelLeftClose,
@@ -24,6 +24,7 @@ import {
   RefreshCw,
   RotateCcw,
   Share2,
+  SkipForward,
   Square,
   Timer,
   Trophy,
@@ -391,6 +392,7 @@ export default function ControlPage() {
               <>
                 <ControlGroup label="Timer">
                   <CountdownControl view={view} offset={offset} command={command} />
+                  <AutoCountdownToggle view={view} command={command} />
                 </ControlGroup>
                 <ControlGroup label="Pause">
                   <PauseControl view={view} offset={offset} command={command} />
@@ -894,14 +896,46 @@ function ControlGroup({ label, children }: { label: string; children: React.Reac
   );
 }
 
+/**
+ * Automatischer Start von Phasen/Soll-Dauer beim Öffnen einer Folie – nur sichtbar,
+ * wenn die Präsentation solche Folien hat. Gilt für diese Durchführung; je Folie
+ * stellt man es im Editor ein.
+ */
+function AutoCountdownToggle({ view, command }: { view: HostView; command: Cmd }) {
+  const autoSlides = view.slides.filter((s) => s.autoCountdown).length;
+  if (autoSlides === 0) return null;
+  const enabled = !view.state.autoCountdownOff;
+  return (
+    <label
+      className="row small countdown-auto"
+      title={`${autoSlides} ${autoSlides === 1 ? 'Folie startet' : 'Folien starten'} ihren Countdown beim Öffnen von selbst (Einstellung im Editor)`}
+    >
+      <input type="checkbox" checked={enabled} onChange={(e) => void command({ action: 'countdown-auto', enabled: e.target.checked })} />
+      Phasen automatisch starten
+    </label>
+  );
+}
+
 /** Countdown für Arbeitsphasen und Pausen – erscheint auf Beamer und Handys. */
 function CountdownControl({ view, offset, command }: { view: HostView; offset: number; command: Cmd }) {
   const running = view.countdown;
   const start = (seconds: number) => void command({ action: 'countdown', seconds });
+  const phase = currentPhase(running, Date.now() + offset);
+  const phases = !!phase && !phase.done;
+  const lastPhase = !!phase && phase.index === phase.count - 1;
   if (running) {
     return (
       <span className="row countdown-control">
         <CountdownBadge countdown={running} offset={offset} className="pill" />
+        {phases && (
+          <button
+            className="btn btn-small"
+            onClick={() => void command({ action: 'countdown-skip' })}
+            title="Aktuelle Phase beenden und mit der nächsten weitermachen – auf Beamer und Handys"
+          >
+            <SkipForward /> {lastPhase ? 'Phase beenden' : 'Nächste Phase'}
+          </button>
+        )}
         <button
           className="btn btn-small"
           onClick={() => void command({ action: 'countdown-extend', seconds: 60 })}

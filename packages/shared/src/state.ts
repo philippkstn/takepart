@@ -93,6 +93,8 @@ export interface RunState {
   callback?: Callback | null;
   /** Reihum: feste Redereihenfolge für die ganze Durchführung */
   turns?: TurnsState | null;
+  /** Automatischen Start von Countdown/Phasen beim Öffnen einer Folie für diese Durchführung abgeschaltet */
+  autoCountdownOff?: boolean;
 }
 
 /** Laufende Pause – gleiche Form wie der Countdown (für Restzeit, Hinweise und Töne) */
@@ -257,6 +259,10 @@ export const hostCommand = z.discriminatedUnion('action', [
   z.object({ action: z.literal('pause-end') }),
   /** Countdown der Folie starten: ihre Phasen, sonst ihre Soll-Dauer */
   z.object({ action: z.literal('countdown-slide'), slideId: z.number().int() }),
+  /** Phasen-Countdown: aktuelle Phase beenden und mit der nächsten weitermachen (letzte Phase: Countdown endet) */
+  z.object({ action: z.literal('countdown-skip') }),
+  /** Phasen beim Öffnen einer Folie automatisch starten – für diese Durchführung an/aus */
+  z.object({ action: z.literal('countdown-auto'), enabled: z.boolean() }),
   /** Laufenden Countdown verlängern (bei Phasen: die aktuelle Phase) */
   z.object({ action: z.literal('countdown-extend'), seconds: z.number().int().min(1).max(3600) }),
   z.object({ action: z.literal('board'), slideId: z.number().int(), op: boardOp }),
@@ -617,6 +623,8 @@ export interface HostSlideSummary {
   plannedMinutes?: number | null;
   /** Phasenfolge für den Countdown (leer: keine) */
   phases?: { label: string; minutes: number }[];
+  /** Countdown startet beim Öffnen der Folie von selbst (Einstellung der Folie) */
+  autoCountdown?: boolean;
 }
 
 export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderboard'> {

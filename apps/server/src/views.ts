@@ -361,6 +361,7 @@ export function hostView(
       thumb: s.type === 'image' ? assetThumbUrl(s.config.asset) : null,
       plannedMinutes: slidePlannedMinutes(snap.schedule.get(s.id)),
       phases: snap.schedule.get(s.id)?.phases ?? [],
+      autoCountdown: snap.schedule.get(s.id)?.autoCountdown ?? false,
     })),
   };
 }

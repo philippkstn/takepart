@@ -26,6 +26,7 @@ import {
   type SlideResults,
   type RunState,
   extendCountdown,
+  skipPhase,
   scheduleCountdown,
   type SlideSchedule,
 } from '@slides/shared';
@@ -115,7 +116,7 @@ export function applyCommand(
       if (s.turns?.shown) s.turns = { ...s.turns, shown: false };
       // Countdown beim Betreten neu starten; beim Verlassen läuft er weiter
       const plan = schedule.get(slideId);
-      if (plan?.autoCountdown) {
+      if (plan?.autoCountdown && !s.autoCountdownOff) {
         const countdown = scheduleCountdown(plan, now);
         if (countdown) s.countdown = countdown;
       }
@@ -252,6 +253,13 @@ export function applyCommand(
       s.countdown = countdown;
       break;
     }
+    case 'countdown-skip':
+      if (!s.countdown) throw new CommandError('Es läuft kein Countdown');
+      s.countdown = skipPhase(s.countdown, now);
+      break;
+    case 'countdown-auto':
+      s.autoCountdownOff = !cmd.enabled;
+      break;
     case 'countdown-extend':
       if (!s.countdown) throw new CommandError('Es läuft kein Countdown');
       s.countdown = extendCountdown(s.countdown, cmd.seconds, now);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   currentPhase,
   extendCountdown,
+  skipPhase,
   formatPlanDelta,
   planStatus,
   scheduleCountdown,
@@ -57,6 +58,17 @@ describe('Phasen-Countdown', () => {
     expect(longer.phases!.map((p) => p.seconds)).toEqual([900, 960, 600]);
     expect(currentPhase(longer, start + 30 * MIN)!.index).toBe(1);
     expect(currentPhase(longer, start + 31 * MIN)!.index).toBe(2);
+  });
+
+  it('springt zur nächsten Phase und beendet in der letzten den Countdown', () => {
+    // 5 Minuten in Phase 1 (15 Min.): 10 Minuten Rest werden übersprungen
+    const skipped = skipPhase(cd, start + 5 * MIN);
+    expect(skipped.phases).toEqual(cd.phases);
+    expect(skipped.endsAt).toBe(cd.endsAt - 10 * MIN);
+    expect(currentPhase(skipped, start + 5 * MIN)).toMatchObject({ index: 1, endsAt: start + 20 * MIN });
+    const last = skipPhase(skipPhase(skipped, start + 5 * MIN), start + 5 * MIN);
+    expect(currentPhase(last, start + 5 * MIN)).toMatchObject({ index: 2, done: true });
+    expect(last.endsAt).toBe(start + 5 * MIN);
   });
 
   it('verlängert einen abgelaufenen Countdown ab jetzt', () => {
