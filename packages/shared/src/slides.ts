@@ -114,6 +114,8 @@ export const pinboardConfig = z.object({
 export const feedbackConfig = z.object({
   question: text(300).default('Wie hat dir der Vortrag gefallen?'),
   withComment: z.boolean().default(true),
+  /** Eigene Frage für den Kommentar (z. B. „Was nimmst du mit?“); leer = allgemeiner Hinweis */
+  commentLabel: text(120).default(''),
   /** Name einer Kartenwand (z. B. „Erwartungen“): jedes Handy zeigt die eigenen Karten von dort zum Gegenlesen */
   recall: z.string().trim().max(60).default(''),
 });

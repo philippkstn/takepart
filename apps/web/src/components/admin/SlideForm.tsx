@@ -327,11 +327,40 @@ function PinboardForm({ value, onChange }: FormProps<'pinboard'>) {
   );
 }
 
-function FeedbackForm({ value, onChange }: FormProps<'feedback'>) {
+function FeedbackForm({ value, onChange, boards = [] }: FormProps<'feedback'> & { boards?: string[] }) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
       <Toggle label="Kommentar erlauben" checked={value.withComment} onChange={(withComment) => onChange({ ...value, withComment })} />
+      {value.withComment && (
+        <Text
+          label="Frage zum Kommentar"
+          value={value.commentLabel}
+          max={120}
+          placeholder="z. B. Was nimmst du mit?"
+          onChange={(commentLabel) => onChange({ ...value, commentLabel })}
+        />
+      )}
+      <label className="field">
+        <span>Rückblick auf Kartenwand</span>
+        <input
+          className="input"
+          list="feedback-recall-boards"
+          value={value.recall}
+          maxLength={60}
+          placeholder="leer = kein Rückblick"
+          onChange={(e) => onChange({ ...value, recall: e.target.value })}
+        />
+        <datalist id="feedback-recall-boards">
+          {[...new Set(boards)].map((b) => (
+            <option key={b} value={b} />
+          ))}
+        </datalist>
+      </label>
+      <p className="small faint">
+        Jede Person sieht über dem Formular ihre eigenen Karten dieser Wand, z. B. die Erwartungen vom Anfang. Beamer und Steuerpult zeigen
+        nichts davon.
+      </p>
     </>
   );
 }
@@ -839,7 +868,7 @@ export function SlideForm({
     case 'pinboard':
       return <PinboardForm value={v} onChange={onChange} />;
     case 'feedback':
-      return <FeedbackForm value={v} onChange={onChange} />;
+      return <FeedbackForm value={v} onChange={onChange} boards={boards} />;
     case 'qa':
       return <QaForm value={v} onChange={onChange} />;
     case 'sentence':

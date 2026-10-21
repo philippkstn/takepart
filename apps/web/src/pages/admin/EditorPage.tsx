@@ -487,7 +487,13 @@ export default function EditorPage() {
         </div>
       )}
       {savingBlock !== null && (
-        <SaveBlockDialog slides={slides} notes={pres.data.notes} startId={savingBlock} onClose={() => setSavingBlock(null)} />
+        <SaveBlockDialog
+          slides={slides}
+          notes={pres.data.notes}
+          schedule={pres.data.schedule}
+          startId={savingBlock}
+          onClose={() => setSavingBlock(null)}
+        />
       )}
       {importing && (
         <ImportDialog

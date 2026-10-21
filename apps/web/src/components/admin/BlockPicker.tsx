@@ -1,6 +1,7 @@
 import {
   blockSlides,
   BUILTIN_BLOCKS,
+  isEmptySchedule,
   MAX_BATCH_SLIDES,
   SLIDE_TYPE_LABELS,
   uniqueBoardName,
@@ -8,6 +9,7 @@ import {
   type CustomBlock,
   type Slide,
   type SlideBlock,
+  type SlideSchedule,
 } from '@slides/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Blocks, Trash2, X } from 'lucide-react';
@@ -18,7 +20,8 @@ import { useToast } from '../ui.tsx';
 /**
  * Übungsbausteine im Editor: vordefinierte Folienfolgen (aus `blocks.ts`) und
  * eigene, gespeicherte Bausteine. Eingefügt wird alles auf einmal über
- * `POST /api/presentations/:id/slides/batch`.
+ * `POST /api/presentations/:id/slides/batch` – samt Ablaufplan (Phasen, Soll-Dauer)
+ * der Folien, falls der Baustein einen mitbringt.
  */
 
 const boardsOf = (slides: Slide[]) => slides.flatMap((s) => (s.type === 'board' ? [s.config.board] : []));
@@ -66,7 +69,7 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
 
   const pickBuiltin = (block: SlideBlock) => {
     if (block.board) setAsking({ block, board: uniqueBoardName(block.board, taken) });
-    else onInsert(blockSlides(block).map((s) => ({ ...s, notes: s.notes ?? '' })));
+    else onInsert(toBatch(blockSlides(block, undefined, { boards: taken })));
   };
 
   /** Eigene Bausteine: jede Wand bekommt einen freien Namen, damit nichts mit vorhandenen Karten zusammenfällt. */
@@ -82,11 +85,14 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
       used.push(unique);
     }
     onInsert(
-      block.slides.map((s) =>
-        s.type === 'board'
-          ? { ...s, config: { ...(s.config as object), board: rename.get((s.config as { board?: string }).board ?? 'Karten') } }
-          : s,
-      ),
+      block.slides.map((s) => {
+        if (s.type === 'board')
+          return { ...s, config: { ...(s.config as object), board: rename.get((s.config as { board?: string }).board ?? 'Karten') } };
+        // Rückblick einer Feedback-Folie folgt einer mitgebrachten, umbenannten Wand
+        const recall = s.type === 'feedback' ? (s.config as { recall?: string }).recall : undefined;
+        if (recall && rename.has(recall)) return { ...s, config: { ...(s.config as object), recall: rename.get(recall) } };
+        return s;
+      }),
     );
   };
 
@@ -100,7 +106,7 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
             onSubmit={(e) => {
               e.preventDefault();
               const board = asking.board.trim();
-              if (board) onInsert(blockSlides(block, board).map((s) => ({ ...s, notes: s.notes ?? '' })));
+              if (board) onInsert(toBatch(blockSlides(block, board, { boards: taken })));
             }}
           >
             <strong>{block.name}</strong>
@@ -171,17 +177,37 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
   );
 }
 
+/** Baustein-Folien für die Batch-Route: fehlende Angaben im Ablaufplan auffüllen */
+function toBatch(slides: ReturnType<typeof blockSlides>): BatchSlide[] {
+  return slides.map(({ schedule, ...s }) => ({
+    ...s,
+    notes: s.notes ?? '',
+    ...(schedule
+      ? {
+          schedule: {
+            plannedMinutes: schedule.plannedMinutes ?? null,
+            phases: schedule.phases ?? [],
+            autoCountdown: !!schedule.autoCountdown,
+          },
+        }
+      : {}),
+  }));
+}
+
 const countLabel = (n: number) => `${n} ${n === 1 ? 'Folie' : 'Folien'}`;
 
 /** Folien ab der gewählten als eigenen Baustein speichern (ohne importierte Bild-Folien). */
 export function SaveBlockDialog({
   slides,
   notes,
+  schedule = {},
   startId,
   onClose,
 }: {
   slides: Slide[];
   notes: Record<string, string>;
+  /** Ablaufplan je Folie – wird mitgespeichert */
+  schedule?: Record<string, SlideSchedule>;
   startId: number;
   onClose: () => void;
 }) {
@@ -203,7 +229,15 @@ export function SaveBlockDialog({
       api('/api/blocks', {
         body: {
           name,
-          slides: usable.map((s): BatchSlide => ({ type: s.type, config: s.config, notes: notes[s.id] ?? '' })),
+          slides: usable.map((s): BatchSlide => {
+            const plan = schedule[s.id];
+            return {
+              type: s.type,
+              config: s.config,
+              notes: notes[s.id] ?? '',
+              ...(plan && !isEmptySchedule(plan) ? { schedule: plan } : {}),
+            };
+          }),
         },
       }),
     onSuccess: async () => {
@@ -265,7 +299,7 @@ export function SaveBlockDialog({
           </label>
         </div>
         <p className="small muted">
-          {countLabel(usable.length)} mit Einstellungen und Sprechernotizen
+          {countLabel(usable.length)} mit Einstellungen, Sprechernotizen und Ablaufplan
           {skipped > 0 && ` – ${skipped} importierte ${skipped === 1 ? 'Folie wird' : 'Folien werden'} übersprungen`}
           {usable.length > MAX_BATCH_SLIDES && ` – höchstens ${MAX_BATCH_SLIDES} Folien`}. Antworten und Ergebnisse werden nicht
           gespeichert.

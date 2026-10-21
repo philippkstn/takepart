@@ -1,4 +1,4 @@
-import { customBlockInput, parseConfig, type BatchSlide, type CustomBlock } from '@slides/shared';
+import { customBlockInput, isEmptySchedule, parseConfig, type BatchSlide, type CustomBlock } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z, ZodError } from 'zod';
 import { accountOf, requireHost } from './auth.ts';
@@ -8,6 +8,8 @@ import { exec, json, one, query, type Db } from './db.ts';
  * Eigene Übungsbausteine je Konto: gespeicherte Folienfolgen (Typ, Konfiguration,
  * Notizen), die der Editor wie die eingebauten Bausteine einfügt. Die Folien
  * werden beim Speichern mit `parseConfig` geprüft – Bild-Folien sind nicht erlaubt.
+ * Der Ablaufplan je Folie (Soll-Dauer, Phasen, Auto-Start) liegt optional mit im
+ * JSON der Spalte `slides` – ältere Bausteine haben ihn einfach nicht.
  */
 const MAX_BLOCKS_PER_ACCOUNT = 100;
 
@@ -28,7 +30,12 @@ export function blockRoutes(app: FastifyInstance, db: Db) {
     if (!body.success) return reply.code(400).send({ error: body.error.issues[0]?.message ?? 'Ungültige Eingabe' });
     let slides: BatchSlide[];
     try {
-      slides = body.data.slides.map((s) => ({ type: s.type, config: parseConfig(s.type, s.config ?? {}), notes: s.notes }));
+      slides = body.data.slides.map((s) => ({
+        type: s.type,
+        config: parseConfig(s.type, s.config ?? {}),
+        notes: s.notes,
+        ...(s.schedule && !isEmptySchedule(s.schedule) ? { schedule: s.schedule } : {}),
+      }));
     } catch (err) {
       const message = err instanceof ZodError ? err.issues[0]?.message : err instanceof Error ? err.message : null;
       return reply.code(400).send({ error: message || 'Ungültige Folie' });

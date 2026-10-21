@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { batchSlides, blockSlides, BUILTIN_BLOCKS, MAX_BATCH_SLIDES, uniqueBoardName } from './blocks.ts';
+import {
+  batchSlides,
+  blockSlides,
+  BUILTIN_BLOCKS,
+  expectationsBoard,
+  MAX_BATCH_SLIDES,
+  PAIR_INTERVIEW_PHASES,
+  uniqueBoardName,
+} from './blocks.ts';
+import { schedulePhases } from './schedule.ts';
 import { fakePostText, fakeResponse } from './rehearsal.ts';
 import { isResponseType, validateResponse } from './responses.ts';
 import { CREATABLE_SLIDE_TYPES, defaultConfig, parseConfig, slideConfigSchemas, type SlideConfigs, type SlideType } from './slides.ts';
@@ -28,14 +37,73 @@ describe('Übungsbausteine', () => {
     }
   });
 
-  it('Kartenwand-Bausteine nutzen durchgehend den gewählten Wand-Namen', () => {
+  it('Kartenwand-Bausteine nutzen durchgehend den gewählten Wand-Namen (Parkplatz als eigene Wand)', () => {
     for (const block of BUILTIN_BLOCKS.filter((b) => b.board)) {
-      const boards = blockSlides(block, 'Mein Workshop')
+      const configs = blockSlides(block, 'Mein Workshop')
         .filter((s) => s.type === 'board')
-        .map((s) => parseConfig('board', s.config).board);
-      expect(boards.length).toBeGreaterThan(0);
-      expect(new Set(boards)).toEqual(new Set(['Mein Workshop']));
+        .map((s) => parseConfig('board', s.config));
+      const main = configs.filter((c) => !c.anytime);
+      expect(main.length).toBeGreaterThan(0);
+      expect(new Set(main.map((c) => c.board))).toEqual(new Set(['Mein Workshop']));
+      for (const c of configs.filter((c) => c.anytime)) expect(c.board).not.toBe('Mein Workshop');
     }
+  });
+
+  it('Zusatzwände werden gegen vorhandene Wände eindeutig gemacht', () => {
+    const block = BUILTIN_BLOCKS.find((b) => b.id === 'obstacles-v3')!;
+    const parking = blockSlides(block, 'Parkplatz', { boards: ['Parkplatz 2'] })
+      .map((s) => (s.type === 'board' ? parseConfig('board', s.config) : null))
+      .find((c) => c?.anytime)!;
+    expect(parking.board).toBe('Parkplatz 3');
+  });
+
+  it('„Hindernisse v3“: Paare mit Phasen, Sammeln S–XL, Parkplatz, Clustern, Punkte, Einordnen, Tabelle', () => {
+    const block = BUILTIN_BLOCKS.find((b) => b.id === 'obstacles-v3')!;
+    const slides = blockSlides(block);
+    expect(slides.map((s) => s.type)).toEqual(['teams', 'board', 'board', 'board', 'board', 'board', 'board']);
+    const teams = slides[0]!;
+    expect(teams.schedule?.autoCountdown).toBe(true);
+    expect(teams.schedule?.phases?.map((p) => p.minutes)).toEqual([5, 12, 5, 3, 12, 5, 3]);
+    expect(schedulePhases.safeParse(PAIR_INTERVIEW_PHASES).success).toBe(true);
+    expect(parseConfig('teams', teams.config).tags.length).toBeGreaterThan(1);
+    const [collect, parking, cluster, dots, choose, table] = slides.slice(1).map((s) => parseConfig('board', s.config));
+    expect(collect).toMatchObject({ mode: 'collect', maxCards: 5, tags: ['S', 'M', 'L', 'XL'], startHidden: true, anytime: false });
+    expect(parking).toMatchObject({ mode: 'collect', anytime: true, board: 'Parkplatz' });
+    expect(cluster).toMatchObject({ mode: 'cluster', rights: 'host', showUnsorted: true });
+    expect(dots).toMatchObject({ mode: 'dots', dots: 3, targets: 'groups' });
+    expect(choose).toMatchObject({
+      mode: 'choose',
+      top: 5,
+      targets: 'groups',
+      multi: true,
+      choices: ['Zeit', 'Qualität', 'Umsatz', 'Kunde'],
+    });
+    expect(table).toMatchObject({ mode: 'table', columns: ['Lösungsrichtung', 'Verantwortlich', 'Nächster Schritt', 'Bis'] });
+  });
+
+  it('Feedbackrunde blickt auf die (ggf. umbenannte) Erwartungswand zurück', () => {
+    expect(expectationsBoard([])).toBe('Erwartungen');
+    expect(expectationsBoard(['Hindernisse', 'erwartungen', 'Erwartungen 2', 'Parkplatz'])).toBe('Erwartungen 2');
+    expect(expectationsBoard(['Erwartungshaltung'])).toBe('Erwartungen');
+    const block = BUILTIN_BLOCKS.find((b) => b.id === 'feedback')!;
+    const [feedback, open] = blockSlides(block, undefined, { boards: ['Erwartungen 2'] });
+    expect(parseConfig('feedback', feedback!.config)).toMatchObject({
+      recall: 'Erwartungen 2',
+      withComment: true,
+      commentLabel: 'Was nimmst du mit?',
+    });
+    expect(open!.type).toBe('open');
+    // Die Erwartungsrunde legt genau diese Wand an
+    const expectations = BUILTIN_BLOCKS.find((b) => b.id === 'expectations')!;
+    expect(expectations.board).toBe('Erwartungen');
+    expect(parseConfig('board', blockSlides(expectations)[0]!.config)).toMatchObject({ mode: 'collect', board: 'Erwartungen' });
+  });
+
+  it('das Batch-Schema nimmt einen optionalen Ablaufplan an', () => {
+    const parsed = batchSlides.parse([{ type: 'content', schedule: { phases: [{ label: 'A', minutes: 5 }], autoCountdown: true } }]);
+    expect(parsed[0]!.schedule).toEqual({ plannedMinutes: null, phases: [{ label: 'A', minutes: 5 }], autoCountdown: true });
+    expect(batchSlides.parse([{ type: 'content' }])[0]!.schedule).toBeUndefined();
+    expect(batchSlides.safeParse([{ type: 'content', schedule: { phases: [{ label: 'A', minutes: 0 }] } }]).success).toBe(false);
   });
 
   it('„Hindernisse → Themen → Top 3“ deckt Sammeln, Clustern, Punkte, Bewerten und Tabelle ab', () => {
