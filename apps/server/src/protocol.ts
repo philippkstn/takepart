@@ -50,6 +50,8 @@ function publicBoard(board: BoardSummary, results: SlideResults | null): { board
         tagCounts: remapRecord(view.tagCounts, key),
         tied: view.tied.flatMap((k) => key(k) ?? []),
         chosen: remapRecord(view.chosen, key),
+        rated: remapRecord(view.rated ?? {}, key),
+        ratedFixed: remapRecord(view.ratedFixed ?? {}, key),
       },
       cards: cards.map((c) => ({
         ...c,

@@ -191,3 +191,18 @@
 .mod-text .choose-chips {
   margin-top: 6px;
 }
+
+/* Bewerten im Steuerpult: je Kriterium eine Zeile mit Stufen-Chips */
+.rate-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.6rem;
+  margin-top: 6px;
+}
+.rate-control-label {
+  min-width: 4.5rem;
+}
+.rate-control-row .choose-chips {
+  margin-top: 0;
+}

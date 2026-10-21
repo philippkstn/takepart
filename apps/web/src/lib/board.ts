@@ -1,10 +1,12 @@
 import {
   cardKey,
+  finalLevels,
   groupKey,
   levelLabel,
+  levelOrigin,
   parseBoardKey,
   type BoardConfig,
-  type BoardRating,
+  type BoardResults,
   type BoardView,
   type PostView,
 } from '@slides/shared';
@@ -46,10 +48,43 @@ export function itemsByCell(board: BoardView): { cells: Map<string, string[]>; u
   return { cells, unplaced };
 }
 
-/** Kurzform einer Einschätzung, z. B. „Nutzen L · Aufwand M“ */
-export function ratingText(config: Pick<BoardConfig, 'scales'>, rating: BoardRating | undefined): string {
-  if (!rating) return '–';
-  return config.scales.map((s, i) => `${s.label} ${levelLabel(s.levels, rating.average[i] ?? null)}`).join(' · ');
+/**
+ * Kurzform der endgültigen Einschätzung, z. B. „Nutzen L · Aufwand M (festgelegt)“ –
+ * Festlegung der Moderation, Kennzeichnungen der Karten oder Durchschnitt der Stimmen.
+ */
+export function finalRatingText(
+  config: Pick<BoardConfig, 'scales'>,
+  view: Pick<BoardView, 'rated' | 'ratedFixed'>,
+  results: Pick<BoardResults, 'ratings'> | null | undefined,
+  key: string,
+): string {
+  const levels = finalLevels(config, view, results, key);
+  return config.scales
+    .map((s, i) => {
+      const v = levels[i] ?? null;
+      return `${s.label} ${levelLabel(s.levels, v)}${v !== null && levelOrigin(config, view, key, i) === 'fixed' ? ' (festgelegt)' : ''}`;
+    })
+    .join(' · ');
+}
+
+/** Summe der endgültigen Stufen – zum Sortieren (ohne Werte ganz unten) */
+export function finalRatingScore(
+  config: Pick<BoardConfig, 'scales'>,
+  view: Pick<BoardView, 'rated'>,
+  results: Pick<BoardResults, 'ratings'> | null | undefined,
+  key: string,
+): number {
+  const levels = finalLevels(config, view, results, key);
+  return levels.every((v) => v === null) ? -1 : levels.reduce<number>((a, b) => a + (b ?? 0), 0);
+}
+
+/** Anzahl Stimmen je Kriterium, das alle schätzen, z. B. „5 / 4“ */
+export function voteCounts(
+  config: Pick<BoardConfig, 'scales'>,
+  results: Pick<BoardResults, 'ratings'> | null | undefined,
+  key: string,
+): string {
+  return config.scales.flatMap((s, i) => (s.source === 'votes' ? [String(results?.ratings[key]?.n[i] ?? 0)] : [])).join(' / ');
 }
 
 /** Position eines Durchschnitts auf der Achse (0…1) */

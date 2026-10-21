@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   boardResults,
+  entryTagColumns,
+  finalLevels,
+  levelOrigin,
+  ratingSourceNote,
+  tagLevel,
   boardTargets,
   fakeResponse,
   groupTagCounts,
@@ -148,6 +153,75 @@ describe('Kartenwand', () => {
       ],
     });
     expect(levelLabel(['S', 'M', 'L', 'XL'], 2.4)).toBe('L');
+  });
+
+  it('Bewerten: Quelle je Kriterium – Standard „alle“, nur Stimmen-Kriterien nehmen Antworten an', () => {
+    expect(board({ mode: 'rate' }).scales[0]!.source).toBe('votes');
+    const legacy = board({ mode: 'rate', scales: [{ label: 'Nutzen', levels: ['S', 'M'] }] });
+    expect(legacy.scales[0]).toEqual({ label: 'Nutzen', levels: ['S', 'M'], source: 'votes' });
+
+    const mixed = board({
+      mode: 'rate',
+      scales: [
+        { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'tags' },
+        { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'], source: 'votes' },
+      ],
+    });
+    // Werte für das Kennzeichnungs-Kriterium werden verworfen
+    expect(validateResponse('board', mixed, { ratings: { g1: [3, 1], g2: [2, null] } })).toEqual({
+      ok: true,
+      value: { ratings: { g1: [null, 1] } },
+    });
+    // … und zählen in der Auswertung nicht (z. B. nach einer Umstellung der Quelle)
+    expect(boardResults(mixed, [{ ratings: { g1: [3, 1] } }]).ratings.g1!.n).toEqual([0, 1]);
+
+    const hostOnly = board({
+      mode: 'rate',
+      scales: [
+        { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'tags' },
+        { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'], source: 'host' },
+      ],
+    });
+    expect(validateResponse('board', hostOnly, { ratings: { g1: [null, 1] } })).toEqual({
+      ok: false,
+      error: 'Auf dieser Folie bewertet die Moderation',
+    });
+    expect(fakeResponse('board', hostOnly, () => 0.5, ['g1'])).toBeNull();
+    const fake = fakeResponse('board', mixed, () => 0.5, ['g1']) as { ratings: Record<string, (number | null)[]> };
+    expect(fake.ratings.g1![0]).toBeNull();
+    expect(ratingSourceNote(hostOnly)).toBe('Nutzen aus den Karten · Aufwand von der Moderation');
+    expect(ratingSourceNote(board({ mode: 'rate' }))).toBeNull();
+  });
+
+  it('Bewerten: Stufe aus Kennzeichnungen und endgültige Werte', () => {
+    // S, L, XL → (0 + 2 + 3) / 3; Kennzeichnungen über die Stufen hinaus zählen als höchste Stufe
+    expect(tagLevel([0, 2, 3, null], 4)).toBe(1.67);
+    expect(tagLevel([4, 1], 3)).toBe(1.5);
+    expect(tagLevel([null], 4)).toBeNull();
+    const cards = [
+      { id: 1, column: 3, group: 7, status: 'visible' },
+      { id: 2, column: 1, group: 7, status: 'visible' },
+      { id: 3, column: 0, group: 7, status: 'hidden' },
+      { id: 4, column: 2, group: null, status: 'visible' },
+    ];
+    expect(entryTagColumns('g7', cards)).toEqual([3, 1]);
+    expect(entryTagColumns('c4', cards)).toEqual([2]);
+
+    const config = board({
+      mode: 'rate',
+      scales: [
+        { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'votes' },
+        { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'], source: 'host' },
+      ],
+    });
+    const results = { ratings: { g1: { n: [2, 0], average: [2.5, null], distribution: [] } } };
+    const view = { rated: { g1: [null, 1], g2: [3, null] }, ratedFixed: { g1: [false, true], g2: [true, false] } };
+    // Festlegung schlägt Stimmen, sonst Durchschnitt; Moderation ohne Festlegung bleibt leer
+    expect(finalLevels(config, view, results, 'g1')).toEqual([2.5, 1]);
+    expect(finalLevels(config, view, results, 'g2')).toEqual([3, null]);
+    expect(finalLevels(config, view, null, 'g1')).toEqual([null, 1]);
+    expect(levelOrigin(config, view, 'g2', 0)).toBe('fixed');
+    expect(levelOrigin(config, view, 'g1', 0)).toBe('votes');
   });
 
   it('wählt Gruppen, sobald es welche gibt, und filtert die Top N nach Punkten', () => {

@@ -1,5 +1,13 @@
-import { leadingChoices, tagCountText, type BoardConfig, type BoardResults, type BoardSummary, type SlideResults } from '@slides/shared';
-import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import {
+  hasVoteScale,
+  leadingChoices,
+  tagCountText,
+  type BoardConfig,
+  type BoardResults,
+  type BoardSummary,
+  type SlideResults,
+} from '@slides/shared';
+import { cardsByGroup, finalRatingScore, finalRatingText, itemsByCell, labelOf, voteCounts } from '../../lib/board.ts';
 
 /**
  * Protokoll einer Kartenwand fürs Archiv: Gruppen mit ihren Karten, Felder,
@@ -86,8 +94,8 @@ export function BoardProtocol({ config, summary, results }: { config: BoardConfi
     }
     case 'dots':
     case 'rate': {
-      const score = (key: string) =>
-        config.mode === 'dots' ? (board?.dots[key] ?? 0) : (board?.ratings[key]?.average.reduce<number>((a, b) => a + (b ?? 0), 0) ?? -1);
+      const score = (key: string) => (config.mode === 'dots' ? (board?.dots[key] ?? 0) : finalRatingScore(config, view, board, key));
+      const votes = config.mode === 'rate' && hasVoteScale(config);
       const keys = [...view.targets].sort((a, b) => score(b) - score(a));
       return (
         <table className="protocol-table">
@@ -95,7 +103,7 @@ export function BoardProtocol({ config, summary, results }: { config: BoardConfi
             <tr>
               <th>Eintrag</th>
               <th>{config.mode === 'dots' ? 'Punkte' : 'Einschätzung'}</th>
-              {config.mode === 'rate' && <th>Stimmen</th>}
+              {votes && <th>Stimmen</th>}
             </tr>
           </thead>
           <tbody>
@@ -106,8 +114,8 @@ export function BoardProtocol({ config, summary, results }: { config: BoardConfi
                   {dist(k) && <span className="faint tabular"> · {dist(k)}</span>}
                   {view.tied.includes(k) && <span className="faint"> · gleichauf</span>}
                 </td>
-                <td className="tabular">{config.mode === 'dots' ? (board?.dots[k] ?? 0) : ratingText(config, board?.ratings[k])}</td>
-                {config.mode === 'rate' && <td className="tabular">{board?.ratings[k]?.n.join(' / ') ?? 0}</td>}
+                <td className="tabular">{config.mode === 'dots' ? (board?.dots[k] ?? 0) : finalRatingText(config, view, board, k)}</td>
+                {votes && <td className="tabular">{voteCounts(config, board, k)}</td>}
               </tr>
             ))}
           </tbody>

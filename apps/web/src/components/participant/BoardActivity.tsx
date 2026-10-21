@@ -1,6 +1,10 @@
 import {
   BOARD_MODE_LABELS,
   cardKey,
+  finalLevels,
+  hasVoteScale,
+  levelLabel,
+  levelsText,
   parseBoardKey,
   teamShort,
   type BoardOp,
@@ -808,7 +812,32 @@ function Rate({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
   const submit = async () => {
     if (await send('/api/p/respond', { slideId: slide.id, payload: { ratings } })) setEditing(false);
   };
+  /** Werte, die nicht von den Handys kommen (aus den Karten oder von der Moderation) – nur lesend */
+  const fixedText = (key: string) => {
+    const levels = finalLevels(slide.config, board, null, key);
+    return scales
+      .flatMap((sc, i) => (sc.source === 'votes' || levels[i] === null ? [] : [`${sc.label} ${levelLabel(sc.levels, levels[i]!)}`]))
+      .join(' · ');
+  };
   if (board.targets.length === 0) return <Note icon={<Hourglass size={20} />}>Noch gibt es nichts einzuschätzen.</Note>;
+  if (!hasVoteScale(slide.config)) {
+    return (
+      <>
+        <Note icon={<Hourglass size={20} />}>Die Moderation ordnet die Themen ein.</Note>
+        <ul className="board-rate-list">
+          {board.targets.map((key) => {
+            const levels = finalLevels(slide.config, board, null, key);
+            return (
+              <li key={key} className="card card-pad stack-s">
+                <Expandable as="strong" text={labelOf(key, view.posts, board)} />
+                <span className="small muted">{levels.some((v) => v !== null) ? levelsText(slide.config, levels) : 'noch offen'}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </>
+    );
+  }
   if (own && !editing) {
     return (
       <div className="done-box">
@@ -837,24 +866,27 @@ function Rate({ view, slide, token }: { view: ParticipantView; slide: BoardSlide
         {board.targets.map((key) => (
           <li key={key} className="card card-pad stack-s">
             <Expandable as="strong" text={labelOf(key, view.posts, board)} />
-            {scales.map((scale, s) => (
-              <div key={s} className="board-rate-row">
-                <span className="small muted">{scale.label}</span>
-                <div className="segmented" role="radiogroup" aria-label={scale.label}>
-                  {scale.levels.map((level, l) => (
-                    <button
-                      key={l}
-                      role="radio"
-                      aria-checked={ratings[key]?.[s] === l}
-                      aria-pressed={ratings[key]?.[s] === l}
-                      onClick={() => set(key, s, l)}
-                    >
-                      {level}
-                    </button>
-                  ))}
+            {fixedText(key) && <span className="small muted">{fixedText(key)}</span>}
+            {scales.map((scale, s) =>
+              scale.source !== 'votes' ? null : (
+                <div key={s} className="board-rate-row">
+                  <span className="small muted">{scale.label}</span>
+                  <div className="segmented" role="radiogroup" aria-label={scale.label}>
+                    {scale.levels.map((level, l) => (
+                      <button
+                        key={l}
+                        role="radio"
+                        aria-checked={ratings[key]?.[s] === l}
+                        aria-pressed={ratings[key]?.[s] === l}
+                        onClick={() => set(key, s, l)}
+                      >
+                        {level}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ),
+            )}
           </li>
         ))}
       </ul>

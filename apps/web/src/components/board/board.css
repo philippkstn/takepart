@@ -430,6 +430,29 @@
   white-space: nowrap;
 }
 
+/* Rechts neben der Matrix: Legende und Einträge, denen noch ein Wert fehlt */
+.rating-side {
+  display: grid;
+  gap: 1em;
+  align-content: start;
+  min-height: 0;
+  overflow: hidden;
+}
+.rating-missing {
+  display: grid;
+  gap: 0.4em;
+  padding-top: 0.8em;
+  border-top: 1px solid var(--border);
+}
+.rating-missing-title {
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--ink-3);
+}
+.rating-missing .rating-legend li {
+  color: var(--ink-2);
+}
+
 /* Tabelle */
 .board-table {
   width: 100%;

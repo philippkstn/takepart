@@ -205,6 +205,8 @@ export const boardOp = z.discriminatedUnion('op', [
   z.object({ op: z.literal('row-fields'), key: boardKey, fields: z.array(z.string().trim().max(300)).max(5) }),
   /** Einordnen: Kategorien eines Eintrags festlegen (leer = Festlegung aufheben, es zählen die Stimmen) */
   z.object({ op: z.literal('choose-set'), key: boardKey, choices: z.array(z.number().int().min(0).max(7)).max(8) }),
+  /** Bewerten: Stufen eines Eintrags je Kriterium festlegen (null = keine Festlegung, es gilt die Quelle) */
+  z.object({ op: z.literal('rate-set'), key: boardKey, values: z.array(z.number().int().min(0).max(6).nullable()).min(1).max(2) }),
 ]);
 export type BoardOp = z.infer<typeof boardOp>;
 
@@ -407,6 +409,14 @@ export interface BoardView {
   tied: string[];
   /** Einordnen: von der Moderation festgelegte Kategorien je Eintrag */
   chosen: Record<string, number[]>;
+  /**
+   * Bewerten: Wert je Eintrag und Kriterium, der nicht aus Stimmen kommt – Festlegung
+   * der Moderation, sonst bei Kennzeichnungs-Kriterien der Durchschnitt der Karten,
+   * sonst null (Stimmen stehen im Ergebnis). Nur Einträge mit mindestens einem Wert.
+   */
+  rated: Record<string, (number | null)[]>;
+  /** Bewerten: welche Werte die Moderation festgelegt hat (je Kriterium) */
+  ratedFixed: Record<string, boolean[]>;
 }
 
 /** Arbeitsgruppe beim gruppenweisen Sammeln */

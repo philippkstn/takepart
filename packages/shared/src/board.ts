@@ -1,4 +1,6 @@
+import type { BoardResults } from './results.ts';
 import type { BoardConfig } from './slides.ts';
+import type { BoardView } from './state.ts';
 
 /**
  * Kartenwand: Hilfsfunktionen für Einträge. Ein Eintrag ist eine Karte
@@ -148,3 +150,71 @@ export function levelLabel(levels: string[], average: number | null): string {
   const i = Math.min(levels.length - 1, Math.max(0, Math.round(average)));
   return levels[i]!;
 }
+
+/**
+ * Bewerten aus Kennzeichnungen: Durchschnitt der Stufen-Indizes der gekennzeichneten
+ * Karten (Kennzeichnung i ↔ Stufe i, auf die vorhandenen Stufen begrenzt), z. B.
+ * S, L, XL bei S–XL → 1,67. Ohne gekennzeichnete Karte null.
+ */
+export function tagLevel(columns: (number | null | undefined)[], levelCount: number): number | null {
+  const used = columns.filter((c): c is number => typeof c === 'number' && c >= 0);
+  if (used.length === 0 || levelCount < 1) return null;
+  const sum = used.reduce((a, c) => a + Math.min(c, levelCount - 1), 0);
+  return Math.round((sum / used.length) * 100) / 100;
+}
+
+/** Kennzeichnungen (Spalten) der sichtbaren Karten eines Eintrags: bei einer Gruppe alle ihre Karten, sonst die Karte selbst */
+export function entryTagColumns(
+  key: string,
+  cards: { id: number; column?: number | null; group?: number | null; status?: string }[],
+): (number | null)[] {
+  const parsed = parseBoardKey(key);
+  if (!parsed) return [];
+  const visible = cards.filter((c) => c.status === undefined || c.status === 'visible');
+  const own = parsed.kind === 'group' ? visible.filter((c) => c.group === parsed.id) : visible.filter((c) => c.id === parsed.id);
+  return own.map((c) => c.column ?? null);
+}
+
+/**
+ * Bewerten: endgültige Stufe (0-basierter Durchschnitt) je Kriterium. Festlegungen der
+ * Moderation und Werte aus Kennzeichnungen liefert die Ansicht (`rated`), Stimmen
+ * kommen aus dem Ergebnis – das gibt es nur, solange es sichtbar ist.
+ */
+export function finalLevels(
+  config: Pick<BoardConfig, 'scales'>,
+  view: Pick<BoardView, 'rated'>,
+  results: Pick<BoardResults, 'ratings'> | null | undefined,
+  key: string,
+): (number | null)[] {
+  return config.scales.map((scale, i) => {
+    const own = view.rated?.[key]?.[i];
+    if (own !== null && own !== undefined) return own;
+    return scale.source === 'votes' ? (results?.ratings[key]?.average[i] ?? null) : null;
+  });
+}
+
+/** Woher der endgültige Wert eines Kriteriums kommt: Festlegung der Moderation oder die eingestellte Quelle */
+export function levelOrigin(
+  config: Pick<BoardConfig, 'scales'>,
+  view: Pick<BoardView, 'ratedFixed'>,
+  key: string,
+  i: number,
+): 'fixed' | 'votes' | 'tags' | 'host' {
+  if (view.ratedFixed?.[key]?.[i]) return 'fixed';
+  return config.scales[i]?.source ?? 'votes';
+}
+
+/** Kurzform endgültiger Stufen, z. B. „Nutzen L · Aufwand M“ (ohne Wert: „–“) */
+export function levelsText(config: Pick<BoardConfig, 'scales'>, values: (number | null)[]): string {
+  return config.scales.map((s, i) => `${s.label} ${levelLabel(s.levels, values[i] ?? null)}`).join(' · ');
+}
+
+/** Hinweis unter dem Titel, woher die Werte kommen – nur wenn nicht alle von den Handys kommen */
+export function ratingSourceNote(config: Pick<BoardConfig, 'scales'>): string | null {
+  if (config.scales.every((s) => s.source === 'votes')) return null;
+  const from = { votes: 'von allen', tags: 'aus den Karten', host: 'von der Moderation' } as const;
+  return config.scales.map((s) => `${s.label} ${from[s.source]}`).join(' · ');
+}
+
+/** Gibt es auf der Folie überhaupt etwas abzustimmen? (sonst ordnet allein die Moderation bzw. die Kennzeichnung ein) */
+export const hasVoteScale = (config: Pick<BoardConfig, 'scales'>) => config.scales.some((s) => s.source === 'votes');

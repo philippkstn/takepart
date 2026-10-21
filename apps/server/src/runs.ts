@@ -2,7 +2,8 @@ import { randomBytes, randomInt } from 'node:crypto';
 import {
   boardRights,
   groupKey,
-  levelLabel,
+  finalLevels,
+  levelsText,
   parseBoardKey,
   tagCountText,
   type BoardSummary,
@@ -552,13 +553,14 @@ function handoutBoard(config: SlideConfigs['board'], board: BoardSummary, result
     const g = groupName(key);
     if (!g) return null;
     const place = view.places[key];
-    const rating = results?.type === 'board' ? results.ratings[key] : undefined;
+    // Endgültige Stufen: Festlegung der Moderation, Kennzeichnungen oder Durchschnitt der Stimmen
+    const levels = config.mode === 'rate' ? finalLevels(config, view, results?.type === 'board' ? results : null, key) : [];
     return {
       label: g.name,
       cards: g.cards,
       place: place ? [config.lanes[place.lane]?.title, config.lanes[place.lane]?.cells[place.cell]].filter(Boolean).join(' · ') : null,
       dots: config.mode === 'dots' && results?.type === 'board' ? (results.dots[key] ?? 0) : null,
-      rating: rating ? config.scales.map((sc, i) => `${sc.label} ${levelLabel(sc.levels, rating.average[i] ?? null)}`).join(' · ') : null,
+      rating: levels.some((v) => v !== null) ? levelsText(config, levels) : null,
       fields: [],
       choices:
         config.mode === 'choose'

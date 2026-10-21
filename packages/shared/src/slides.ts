@@ -164,9 +164,22 @@ export const boardLane = z.object({
   title: text(60).default(''),
   cells: z.array(shortLabel(60)).min(1).max(8),
 });
+/**
+ * Wer ein Kriterium einschätzt: alle auf ihren Handys (`votes`), die Kennzeichnungen
+ * der Karten (`tags`, z. B. S–XL beim Sammeln – Kennzeichnung i ↔ Stufe i) oder die
+ * Moderation im Steuerpult (`host`). Festlegen darf die Moderation jeden Wert.
+ */
+export const RATING_SOURCES = ['votes', 'tags', 'host'] as const;
+export type RatingSource = (typeof RATING_SOURCES)[number];
+export const RATING_SOURCE_LABELS: Record<RatingSource, string> = {
+  votes: 'Alle (Handys)',
+  tags: 'Aus den Kennzeichnungen der Karten',
+  host: 'Moderation',
+};
 export const boardScale = z.object({
   label: shortLabel(40),
   levels: z.array(shortLabel(20)).min(2).max(7),
+  source: z.enum(RATING_SOURCES).default('votes'),
 });
 export const boardConfig = z.object({
   /** Name der Wand – Folien mit gleichem Namen arbeiten mit denselben Karten */
@@ -218,7 +231,7 @@ export const boardConfig = z.object({
     .array(boardScale)
     .min(1)
     .max(2)
-    .default([{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] }]),
+    .default([{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'votes' }]),
   /** Felder der Matrix bei zwei Kriterien: oben links, oben rechts, unten links, unten rechts */
   quadrants: z.array(text(40)).length(4).default(['Quick Wins', 'Strategisch', 'Mitnehmen', 'Zurückstellen']),
   /* Einordnen: Kategorien je Eintrag (Teilnehmende stimmen ab, die Moderation kann festlegen) */

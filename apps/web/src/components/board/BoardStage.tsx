@@ -1,8 +1,13 @@
 import {
   BOARD_MODE_LABELS,
   cardKey,
+  finalLevels,
   groupKey,
+  hasVoteScale,
   levelLabel,
+  levelOrigin,
+  levelsText,
+  ratingSourceNote,
   parseBoardKey,
   teamShort,
   type BoardOp,
@@ -14,7 +19,7 @@ import {
 } from '@slides/shared';
 import { EyeOff, Plus } from 'lucide-react';
 import { useLayoutEffect, useRef, type ReactNode } from 'react';
-import { axisPosition, cardsByGroup, itemsByCell, labelOf, ratingText, shortName } from '../../lib/board.ts';
+import { axisPosition, cardsByGroup, itemsByCell, labelOf, shortName } from '../../lib/board.ts';
 import { startDrag, useDropZone } from '../../lib/dnd.ts';
 import { ScrollingResults } from '../../lib/autoScroll.tsx';
 import { BarList } from '../Results.tsx';
@@ -45,6 +50,8 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
     config.top > 0 && config.mode !== 'collect' && config.mode !== 'cluster' && config.mode !== 'table'
       ? topTieText(board, config.top, config.targets)
       : null;
+  // Bewerten: dezent benennen, woher die Werte kommen (nur wenn nicht alle von den Handys)
+  const sourceNote = config.mode === 'rate' ? ratingSourceNote(config) : null;
   return (
     <>
       <div className="row-between stage-head-row">
@@ -54,6 +61,7 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
           </span>
           {config.prompt && <h1 className="stage-title board-title">{config.prompt}</h1>}
           {tie && <span className="board-tie-note">{tie}</span>}
+          {sourceNote && <span className="board-tie-note">{sourceNote}</span>}
         </div>
         <Count ctx={ctx} />
       </div>
@@ -88,6 +96,8 @@ export function emptyBoard(config: Config): BoardView {
     tagCounts: {},
     tied: [],
     chosen: {},
+    rated: {},
+    ratedFixed: {},
   };
 }
 
@@ -96,7 +106,12 @@ function Count({ ctx }: { ctx: Ctx }) {
   const n = view.answers;
   let text: string;
   if (config.mode === 'collect') text = `${n} ${n === 1 ? 'Person' : 'Personen'}`;
-  else if (config.mode === 'dots' || config.mode === 'rate' || config.mode === 'choose') text = `${n} ${n === 1 ? 'Antwort' : 'Antworten'}`;
+  else if (config.mode === 'rate' && !hasVoteScale(config)) {
+    // Ohne Stimmen: wie viele Einträge schon vollständig eingeordnet sind
+    const done = ctx.board.targets.filter((k) => finalLevels(config, ctx.board, null, k).every((v) => v !== null)).length;
+    text = `${done} von ${ctx.board.targets.length} eingeordnet`;
+  } else if (config.mode === 'dots' || config.mode === 'rate' || config.mode === 'choose')
+    text = `${n} ${n === 1 ? 'Antwort' : 'Antworten'}`;
   else if (config.mode === 'table') text = `${ctx.board.rows.length} ${ctx.board.rows.length === 1 ? 'Thema' : 'Themen'}`;
   else text = `${n} ${n === 1 ? 'Karte' : 'Karten'}`;
   return (
@@ -538,15 +553,30 @@ function BarMarks({ ctx, itemKey }: { ctx: Ctx; itemKey: string }) {
 
 /* ───────────── Bewerten ───────────── */
 
+/**
+ * Endgültige Stufen je Eintrag: Festlegung der Moderation, Kennzeichnungen der
+ * Karten oder – solange das Ergebnis sichtbar ist – der Durchschnitt der Stimmen.
+ */
+function ratingLevels(ctx: Pick<Ctx, 'config' | 'board' | 'view'>): Map<string, (number | null)[]> {
+  const results = ctx.view.results?.type === 'board' ? (ctx.view.results as BoardResults) : null;
+  return new Map(ctx.board.targets.map((key) => [key, finalLevels(ctx.config, ctx.board, results, key)]));
+}
+
 function Rate({ ctx }: { ctx: Ctx }) {
   const { config, board, view } = ctx;
-  const results = view.results as BoardResults | null;
-  if (!results || results.type !== 'board' || results.voters === 0) return <TargetList ctx={ctx} />;
-  if (config.scales.length === 2) return <RatingMatrix ctx={ctx} results={results} />;
+  const levels = ratingLevels(ctx);
+  if (![...levels.values()].some((v) => v.some((x) => x !== null))) return <TargetList ctx={ctx} />;
+  if (config.scales.length === 2) return <RatingMatrix ctx={ctx} levels={levels} />;
   const scale = config.scales[0]!;
+  const results = view.results?.type === 'board' ? (view.results as BoardResults) : null;
   const items = board.targets
-    .map((key, i) => ({ key, i, avg: results.ratings[key]?.average[0] ?? null, n: results.ratings[key]?.n[0] ?? 0 }))
+    .map((key, i) => ({ key, i, avg: levels.get(key)?.[0] ?? null }))
     .sort((a, b) => (b.avg ?? -1) - (a.avg ?? -1) || a.i - b.i);
+  const detail = (key: string) => {
+    const origin = levelOrigin(config, board, key, 0);
+    if (origin === 'votes') return ` · ${results?.ratings[key]?.n[0] ?? 0}×`;
+    return origin === 'fixed' ? ' · festgelegt' : '';
+  };
   return (
     <ScrollingResults key={ctx.view.slide?.id} className="stage-results board-results">
       <BarList
@@ -555,7 +585,7 @@ function Rate({ ctx }: { ctx: Ctx }) {
           key: e.key,
           label: labelOf(e.key, view.posts, board),
           value: e.avg === null ? 0 : e.avg + 1,
-          display: e.avg === null ? '–' : `${levelLabel(scale.levels, e.avg)} · ${e.n}×`,
+          display: e.avg === null ? '–' : `${levelLabel(scale.levels, e.avg)}${detail(e.key)}`,
           extra: <BarMarks ctx={ctx} itemKey={e.key} />,
         }))}
       />
@@ -563,20 +593,26 @@ function Rate({ ctx }: { ctx: Ctx }) {
   );
 }
 
-/** Zwei Kriterien: Durchschnitt je Eintrag als Punkt, erstes Kriterium senkrecht, zweites waagerecht */
-export function RatingMatrix({ ctx, results }: { ctx: Pick<Ctx, 'config' | 'board' | 'view'>; results: BoardResults }) {
+/**
+ * Zwei Kriterien: endgültige Stufen je Eintrag als Punkt, erstes Kriterium senkrecht,
+ * zweites waagerecht. Einträge, denen auf einem Kriterium noch ein Wert fehlt
+ * (z. B. Aufwand noch nicht von der Moderation eingetragen), stehen daneben.
+ */
+function RatingMatrix({ ctx, levels }: { ctx: Pick<Ctx, 'config' | 'board' | 'view'>; levels: Map<string, (number | null)[]> }) {
   const { config, board, view } = ctx;
   const [yScale, xScale] = config.scales as [(typeof config.scales)[0], (typeof config.scales)[0]];
-  const points = board.targets
-    .map((key) => ({ key, rating: results.ratings[key] }))
-    .filter((p) => p.rating && p.rating.average[0] !== null && p.rating.average[1] !== null)
-    .map((p, i) => ({
-      key: p.key,
+  const complete = board.targets.filter((key) => levels.get(key)?.every((v) => v !== null));
+  const missing = board.targets.filter((key) => !complete.includes(key));
+  const points = complete.map((key, i) => {
+    const v = levels.get(key)!;
+    return {
+      key,
       number: i + 1,
-      x: axisPosition(xScale.levels.length, p.rating!.average[1]!),
-      y: 1 - axisPosition(yScale.levels.length, p.rating!.average[0]!),
-      text: ratingText(config, p.rating),
-    }));
+      x: axisPosition(xScale.levels.length, v[1]!),
+      y: 1 - axisPosition(yScale.levels.length, v[0]!),
+      text: levelsText(config, v),
+    };
+  });
   // Gleiche Positionen leicht auseinanderziehen
   const seen = new Map<string, number>();
   for (const p of points) {
@@ -586,6 +622,9 @@ export function RatingMatrix({ ctx, results }: { ctx: Pick<Ctx, 'config' | 'boar
     p.x += k * 0.035;
   }
   const pad = (v: number) => 6 + Math.min(1, Math.max(0, v)) * 88;
+  // Fehlt allen dasselbe Kriterium, heißt die Liste „Noch ohne Aufwand“
+  const lacking = config.scales.filter((_, i) => missing.every((key) => (levels.get(key)?.[i] ?? null) === null));
+  const missingTitle = lacking.length === 1 ? `Noch ohne ${lacking[0]!.label}` : 'Noch nicht eingeschätzt';
   return (
     <div className="rating-matrix">
       <div className="rating-plot-wrap">
@@ -609,16 +648,38 @@ export function RatingMatrix({ ctx, results }: { ctx: Pick<Ctx, 'config' | 'boar
         </div>
         <span className="place-axis-x">{xScale.label} →</span>
       </div>
-      <ol className="rating-legend">
-        {points.map((p) => (
-          <li key={p.key}>
-            <span className="rating-point is-static tabular">{p.number}</span>
-            <span className="grow clamp">{labelOf(p.key, view.posts, board)}</span>
-            <TagChips board={board} itemKey={p.key} />
-            <span className="faint">{p.text}</span>
-          </li>
-        ))}
-      </ol>
+      <div className="rating-side">
+        {points.length > 0 && (
+          <ol className="rating-legend">
+            {points.map((p) => (
+              <li key={p.key}>
+                <span className="rating-point is-static tabular">{p.number}</span>
+                <span className="grow clamp">{labelOf(p.key, view.posts, board)}</span>
+                <TagChips board={board} itemKey={p.key} />
+                <span className="faint">{p.text}</span>
+              </li>
+            ))}
+          </ol>
+        )}
+        {missing.length > 0 && (
+          <div className="rating-missing">
+            <span className="rating-missing-title">{missingTitle}</span>
+            <ul className="rating-legend">
+              {missing.map((key) => {
+                const v = levels.get(key)!;
+                const known = config.scales.flatMap((s, i) => (v[i] === null ? [] : [`${s.label} ${levelLabel(s.levels, v[i]!)}`]));
+                return (
+                  <li key={key}>
+                    <span className="grow clamp">{labelOf(key, view.posts, board)}</span>
+                    <TagChips board={board} itemKey={key} />
+                    {known.length > 0 && <span className="faint">{known.join(' · ')}</span>}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

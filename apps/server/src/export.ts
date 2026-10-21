@@ -1,4 +1,7 @@
 import {
+  finalLevels,
+  levelLabel,
+  levelOrigin,
   parseBoardKey,
   SLIDE_TYPE_LABELS,
   slideHeadline,
@@ -9,7 +12,8 @@ import {
   type Slide,
 } from '@slides/shared';
 import { json, one, query, type Db } from './db.ts';
-import { loadSlides } from './snapshot.ts';
+import { boardSummary } from './board.ts';
+import { computeResults, loadSlides } from './snapshot.ts';
 
 /**
  * CSV-Export einer Durchführung: eine Zeile pro Antwort bzw. Beitrag.
@@ -120,6 +124,28 @@ export async function exportCsv(db: Db, runId: number): Promise<string | null> {
     const { choices } = s.slide.config;
     const list = json<string[]>(pl.fields!).map((i) => choices[Number(i)] ?? `#${Number(i) + 1}`);
     rows.push([...base(pl.slide_id, null), '', `${label(pl.target)}: ${list.join(', ')}`, 'Festlegung der Moderation', '']);
+  }
+  // Bewerten: endgültige Stufen je Eintrag mit Herkunft (Stimmen, Karten, Moderation, festgelegt)
+  const origin = { fixed: 'festgelegt', votes: 'Stimmen', tags: 'Karten', host: 'Moderation' } as const;
+  for (const slide of slides) {
+    if (slide.type !== 'board' || slide.config.mode !== 'rate') continue;
+    const config = slide.config;
+    const { view } = await boardSummary(db, runId, slides, slide, config.rights);
+    const results = computeResults(
+      slide,
+      responses.filter((r) => r.slide_id === slide.id && r.round === 1).map((r) => json(r.payload)),
+    );
+    for (const key of view.targets) {
+      const levels = finalLevels(config, view, results?.type === 'board' ? results : null, key);
+      if (levels.every((v) => v === null)) continue;
+      const text = config.scales
+        .map((sc, i) => {
+          const v = levels[i] ?? null;
+          return `${sc.label} ${levelLabel(sc.levels, v)}${v === null ? '' : ` (${origin[levelOrigin(config, view, key, i)]})`}`;
+        })
+        .join(', ');
+      rows.push([...base(slide.id, null), '', `${label(key)}: ${text}`, 'Einschätzung (endgültig)', '']);
+    }
   }
   // Protokollnotizen der Moderation
   const notes = await query<{ slide_id: number; text: string; updated_at: Date }>(

@@ -113,7 +113,7 @@ describe('Übungsbausteine', () => {
     expect(configs[1]!.rights).toBe('own');
     expect(configs[2]!.dots).toBe(3);
     expect(configs[3]!.top).toBe(5);
-    expect(configs[3]!.scales).toEqual([{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] }]);
+    expect(configs[3]!.scales).toEqual([{ label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'votes' }]);
   });
 
   it('Wand-Namen werden eindeutig gemacht', () => {
@@ -151,6 +151,16 @@ describe('Probelauf: Zufallsantworten', () => {
         scales: [
           { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'] },
           { label: 'Aufwand', levels: ['gering', 'hoch'] },
+        ],
+      },
+    },
+    {
+      type: 'board',
+      config: {
+        mode: 'rate',
+        scales: [
+          { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'tags' },
+          { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'], source: 'votes' },
         ],
       },
     },

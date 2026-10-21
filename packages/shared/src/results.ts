@@ -129,7 +129,8 @@ export function boardResults(config: SlideConfigs['board'], rows: ResponsePayloa
         distribution: scales.map((s) => s.levels.map(() => 0)),
       });
       values.forEach((v, i) => {
-        if (v === null || i >= scales.length || v >= scales[i]!.levels.length) return;
+        // Stimmen zählen nur bei Kriterien, die alle schätzen (z. B. nach einer Umstellung der Quelle)
+        if (v === null || i >= scales.length || scales[i]!.source !== 'votes' || v >= scales[i]!.levels.length) return;
         entry.n[i]!++;
         entry.distribution[i]![v]!++;
       });

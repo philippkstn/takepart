@@ -116,9 +116,12 @@ export function validateResponse<T extends ResponseSlideType>(
         return { ok: true, value: { dots } as ResponsePayloads[T] };
       }
       if (c.mode === 'rate') {
+        // Nur Kriterien, die alle schätzen – die übrigen kommen aus den Karten bzw. von der Moderation
+        if (!c.scales.some((s) => s.source === 'votes')) return { ok: false, error: 'Auf dieser Folie bewertet die Moderation' };
         const ratings: Record<string, (number | null)[]> = {};
-        for (const [key, values] of Object.entries(v.ratings ?? {})) {
-          if (values.length !== c.scales.length) return { ok: false, error: 'Ungültige Bewertung' };
+        for (const [key, raw] of Object.entries(v.ratings ?? {})) {
+          if (raw.length !== c.scales.length) return { ok: false, error: 'Ungültige Bewertung' };
+          const values = raw.map((x, i) => (c.scales[i]!.source === 'votes' ? x : null));
           if (values.some((x, i) => x !== null && x >= c.scales[i]!.levels.length)) return { ok: false, error: 'Unbekannte Stufe' };
           if (values.some((x) => x !== null)) ratings[key] = values;
         }

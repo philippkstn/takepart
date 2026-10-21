@@ -3,7 +3,9 @@ import {
   cardKey,
   groupTagCounts,
   dotTotals,
+  entryTagColumns,
   groupKey,
+  tagLevel,
   parseBoardKey,
   targetKind,
   tiedKeys,
@@ -200,6 +202,53 @@ export function chosenOf(config: SlideConfigs['board'], places: BoardPlace[], al
   return chosen;
 }
 
+/** Bewerten: Festlegungen der Moderation aus `board_places.fields` ("" = keine Festlegung) */
+export function ratingFixesOf(
+  config: SlideConfigs['board'],
+  places: BoardPlace[],
+  allowed: Set<string>,
+): Record<string, (number | null)[]> {
+  const fixed: Record<string, (number | null)[]> = {};
+  for (const p of places) {
+    if (!allowed.has(p.target)) continue;
+    const values = config.scales.map((s, i) => {
+      const raw = p.fields[i];
+      if (raw === undefined || raw === '') return null;
+      const n = Number(raw);
+      return Number.isInteger(n) && n >= 0 && n < s.levels.length ? n : null;
+    });
+    if (values.some((v) => v !== null)) fixed[p.target] = values;
+  }
+  return fixed;
+}
+
+/**
+ * Bewerten: Werte, die nicht aus Stimmen kommen – Festlegung, sonst bei
+ * Kennzeichnungs-Kriterien der Durchschnitt der sichtbaren Karten des Eintrags.
+ */
+export function ratedOf(
+  config: SlideConfigs['board'],
+  targets: string[],
+  visible: BoardCard[],
+  places: BoardPlace[],
+): Pick<BoardView, 'rated' | 'ratedFixed'> {
+  const fixes = ratingFixesOf(config, places, new Set(targets));
+  const rated: BoardView['rated'] = {};
+  const ratedFixed: BoardView['ratedFixed'] = {};
+  for (const key of targets) {
+    const fix = fixes[key];
+    const columns = config.scales.some((s) => s.source === 'tags') ? entryTagColumns(key, visible) : [];
+    const values = config.scales.map((s, i) => {
+      const f = fix?.[i];
+      if (f !== null && f !== undefined) return f;
+      return s.source === 'tags' ? tagLevel(columns, s.levels.length) : null;
+    });
+    if (values.some((v) => v !== null)) rated[key] = values;
+    if (fix) ratedFixed[key] = fix.map((v) => v !== null);
+  }
+  return { rated, ratedFixed };
+}
+
 /** Ansicht der Wand für die aktuelle Folie (für alle Rollen gleich; Karten kommen über `posts`). */
 export function buildBoardView(slide: BoardSlide, data: BoardData, rights: BoardRights): BoardView {
   const config = slide.config;
@@ -238,6 +287,7 @@ export function buildBoardView(slide: BoardSlide, data: BoardData, rights: Board
     // Auf der Punkte-Folie selbst entsteht der Gleichstand erst aus ihrem Ergebnis (im Browser, nur wenn sichtbar)
     tied: config.mode === 'dots' ? [] : tiedKeys(tieCandidates(config, visible, data.groups, rows), data.totals),
     chosen: config.mode === 'choose' ? chosenOf(config, data.places, new Set(targets)) : {},
+    ...(config.mode === 'rate' ? ratedOf(config, targets, visible, data.places) : { rated: {}, ratedFixed: {} }),
   };
 }
 
@@ -468,6 +518,26 @@ export async function applyBoardOp(
          ON DUPLICATE KEY UPDATE fields = VALUES(fields)`,
         // Als Zeichenketten wie die Tabellenfelder (gleiches Format in Export/Import)
         [runId, slide.id, op.key, JSON.stringify(choices.map(String))],
+      );
+      return;
+    }
+    case 'rate-set': {
+      if (slide.config.mode !== 'rate') throw new CommandError('Auf dieser Folie wird nicht bewertet');
+      const { scales } = slide.config;
+      if (op.values.length !== scales.length) throw new CommandError('Ungültige Bewertung');
+      if (op.values.some((v, i) => v !== null && v >= scales[i]!.levels.length)) throw new CommandError('Unbekannte Stufe');
+      if (op.values.every((v) => v === null)) {
+        await exec(db, 'DELETE FROM board_places WHERE run_id = ? AND slide_id = ? AND target = ?', [runId, slide.id, op.key]);
+        return;
+      }
+      if (!targetsOf(slide.config, await loadBoard(db, runId, slides, slide)).includes(op.key))
+        throw new CommandError('Dieser Eintrag steht auf dieser Folie nicht zur Wahl');
+      await exec(
+        db,
+        `INSERT INTO board_places (run_id, slide_id, target, fields) VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE fields = VALUES(fields)`,
+        // Stufen als Zeichenketten, "" = keine Festlegung (gleiches Format wie Tabellenfelder in Export/Import)
+        [runId, slide.id, op.key, JSON.stringify(op.values.map((v) => (v === null ? '' : String(v))))],
       );
       return;
     }

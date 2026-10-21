@@ -128,7 +128,9 @@ export function fakeResponse<T extends ResponseSlideType>(
       }
       if (c.mode === 'rate') {
         const ratings: Record<string, (number | null)[]> = {};
-        for (const key of targets) ratings[key] = c.scales.map((s) => int(0, s.levels.length - 1, random));
+        // Nur Kriterien, die alle schätzen; ohne solche nimmt die Folie keine Antworten an
+        if (!c.scales.some((s) => s.source === 'votes')) return null;
+        for (const key of targets) ratings[key] = c.scales.map((s) => (s.source === 'votes' ? int(0, s.levels.length - 1, random) : null));
         return out({ ratings });
       }
       if (c.mode === 'choose') {

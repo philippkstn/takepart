@@ -16,12 +16,13 @@ import {
 } from '@slides/shared';
 import { ArrowDown, ArrowUp, Check, Eye, EyeOff, ListPlus, Maximize2, MessageSquareOff, Pencil, Plus, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import { cardsByGroup, itemsByCell, labelOf } from '../../lib/board.ts';
 import { BreakoutPanel } from '../../components/board/Breakout.tsx';
 import { CardsByPerson } from './TurnsCards.tsx';
 import './turns.css';
 import { TagChips, TieMark, tiedSet, topTieText } from '../../components/board/BoardMarks.tsx';
 import { ChooseControls } from './ChooseControls.tsx';
+import { RateControls } from './RateControls.tsx';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type BoardHostSlide = Extract<NonNullable<HostView['slide']>, { type: 'board' }>;
@@ -68,7 +69,8 @@ export function BoardPanel({ view, command, busy, onClear }: { view: HostView; c
       {config.mode === 'collect' && board.breakout && <BreakoutPanel view={view} breakout={board.breakout} command={command} />}
       {config.mode === 'cluster' && <ClusterControls view={view} op={op} command={command} />}
       {config.mode === 'place' && <PlaceControls view={view} op={op} />}
-      {(config.mode === 'dots' || config.mode === 'rate') && <VoteSummary view={view} />}
+      {config.mode === 'dots' && <VoteSummary view={view} />}
+      {config.mode === 'rate' && <RateControls view={view} op={op} busy={busy} />}
       {config.mode === 'choose' && <ChooseControls view={view} op={op} busy={busy} />}
       {config.mode === 'table' && <TableControls view={view} op={op} busy={busy} />}
 
@@ -353,16 +355,14 @@ function PlaceControls({ view, op }: { view: HostView; op: (o: BoardOp) => void 
   );
 }
 
-/* ───────────── Punkte & Bewerten ───────────── */
+/* ───────────── Punkte ───────────── */
 
 function VoteSummary({ view }: { view: HostView }) {
   const board = view.board!;
   const slide = view.slide as BoardHostSlide;
   const results = view.results as BoardResults | null;
   if (board.targets.length === 0) return <p className="muted small">Auf dieser Wand gibt es noch keine Einträge.</p>;
-  const dots = slide.config.mode === 'dots';
-  const score = (key: string) =>
-    dots ? (results?.dots[key] ?? 0) : (results?.ratings[key]?.average.reduce<number>((a, b) => a + (b ?? 0), 0) ?? -1);
+  const score = (key: string) => results?.dots[key] ?? 0;
   const sorted = [...board.targets].sort((a, b) => score(b) - score(a));
   const tied = tiedSet(board, results);
   const tie = topTieText(board, slide.config.top, slide.config.targets);
@@ -373,7 +373,7 @@ function VoteSummary({ view }: { view: HostView }) {
         {!view.resultsVisible && ' · Ergebnisse auf dem Beamer verborgen'}
       </span>
       {tie && <p className="small faint">{tie} – alle gleichauf liegenden stehen zur Wahl.</p>}
-      {dots && tied.size > 0 && <p className="small faint">Gleichstand – entscheidet gemeinsam, was weiterkommt.</p>}
+      {tied.size > 0 && <p className="small faint">Gleichstand – entscheidet gemeinsam, was weiterkommt.</p>}
       <ol className="word-table">
         {sorted.map((key) => (
           <li key={key}>
@@ -381,9 +381,7 @@ function VoteSummary({ view }: { view: HostView }) {
               {labelOf(key, view.posts, board)} <TagChips board={board} itemKey={key} />
               {tied.has(key) && <TieMark />}
             </span>
-            <span className="tabular faint">
-              {dots ? `${results?.dots[key] ?? 0} P.` : ratingText(slide.config, results?.ratings[key])}
-            </span>
+            <span className="tabular faint">{results?.dots[key] ?? 0} P.</span>
           </li>
         ))}
       </ol>

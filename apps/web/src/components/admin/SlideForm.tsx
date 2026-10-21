@@ -4,6 +4,9 @@ import {
   BOARD_MODES,
   BOARD_RIGHTS,
   BOARD_RIGHTS_LABELS,
+  RATING_SOURCES,
+  RATING_SOURCE_LABELS,
+  type RatingSource,
   type BoardMode,
   type Slide,
   type SlideConfigs,
@@ -781,6 +784,29 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
                   <X />
                 </button>
               </div>
+              <label className="field">
+                <span>Wer schätzt?</span>
+                <select
+                  className="select"
+                  value={scale.source}
+                  onChange={(e) =>
+                    set({ scales: value.scales.map((x, j) => (j === i ? { ...x, source: e.target.value as RatingSource } : x)) })
+                  }
+                >
+                  {RATING_SOURCES.map((src) => (
+                    <option key={src} value={src}>
+                      {RATING_SOURCE_LABELS[src]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {scale.source === 'tags' && (
+                <p className="small faint">
+                  Die Stufen sollten den Kennzeichnungen der Sammel-Folie entsprechen (erste Kennzeichnung = erste Stufe, z. B. S bis XL).
+                  Bei Gruppen zählt der Durchschnitt ihrer Karten.
+                </p>
+              )}
+              {scale.source === 'host' && <p className="small faint">Die Moderation trägt die Stufe je Eintrag im Steuerpult ein.</p>}
               <div className="row">
                 {SCALE_PRESETS.map((p) => (
                   <button
@@ -808,7 +834,7 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
               type="button"
               className="btn btn-small btn-ghost"
               style={{ justifySelf: 'start' }}
-              onClick={() => set({ scales: [...value.scales, { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'] }] })}
+              onClick={() => set({ scales: [...value.scales, { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'], source: 'votes' }] })}
             >
               <Plus /> Zweites Kriterium (ergibt eine Matrix)
             </button>

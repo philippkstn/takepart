@@ -69,6 +69,36 @@ describe('Kartenwand: Ansicht', () => {
     expect(view.chosen).toEqual({ g7: [0, 2] });
   });
 
+  it('Bewerten: Nutzen aus den Kennzeichnungen, Aufwand von der Moderation, Festlegungen', () => {
+    const slide = boardSlide(5, {
+      mode: 'rate',
+      scales: [
+        { label: 'Nutzen', levels: ['S', 'M', 'L', 'XL'], source: 'tags' },
+        { label: 'Aufwand', levels: ['S', 'M', 'L', 'XL'], source: 'host' },
+      ],
+    });
+    const view = buildBoardView(
+      slide,
+      data({
+        places: [
+          // Aufwand für Prozesse festgelegt, Nutzen nicht
+          { target: 'g7', lane: null, cell: null, position: 0, fields: ['', '2'] },
+          // Nutzen der Kunden von der Moderation korrigiert
+          { target: 'g9', lane: null, cell: null, position: 0, fields: ['0', ''] },
+          // ungültige Stufe fällt weg
+          { target: 'g8', lane: null, cell: null, position: 0, fields: ['', '9'] },
+        ],
+      }),
+      'host',
+    );
+    expect(view.targets).toEqual(['g7', 'g8', 'g9']);
+    // Prozesse: XL, XL, M → (3 + 3 + 1) / 3; Tools: S; Kunden: L (versteckte Karte zählt nicht), aber auf S festgelegt
+    expect(view.rated).toEqual({ g7: [2.33, 2], g8: [0, null], g9: [0, null] });
+    expect(view.ratedFixed).toEqual({ g7: [false, true], g9: [true, false] });
+    // Andere Modi bekommen nichts
+    expect(buildBoardView(boardSlide(6, { mode: 'dots' }), data(), 'host').rated).toEqual({});
+  });
+
   it('nimmt mit „Zeilen der Ergebnistabelle“ die letzte Tabelle davor, in ihrer Reihenfolge', () => {
     const slides: Slide[] = [
       boardSlide(1, { mode: 'collect', tags: ['S', 'M', 'L', 'XL'] }),

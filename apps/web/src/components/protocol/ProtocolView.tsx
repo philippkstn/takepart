@@ -7,13 +7,14 @@ import {
   type PublicSlide,
   type SlideResults,
   type SlideType,
+  hasVoteScale,
   tagCountText,
   teamLabel,
 } from '@slides/shared';
 import { useEffect, type ReactNode } from 'react';
 import { BarList, SlideResultsView } from '../Results.tsx';
 import { BrandMark } from '../ui.tsx';
-import { cardsByGroup, itemsByCell, labelOf, ratingText } from '../../lib/board.ts';
+import { cardsByGroup, finalRatingScore, finalRatingText, itemsByCell, labelOf, voteCounts } from '../../lib/board.ts';
 import { cardsByTeam } from '../board/Breakout.tsx';
 import { ChooseProtocol } from '../board/BoardProtocol.tsx';
 import { brandStyle } from '../../lib/brand.ts';
@@ -67,8 +68,9 @@ export function hasContent(s: ProtocolSlide): boolean {
       case 'place':
         return Object.keys(view.places).length > 0;
       case 'dots':
-      case 'rate':
         return (s.results?.voters ?? 0) > 0;
+      case 'rate':
+        return (s.results?.voters ?? 0) > 0 || Object.keys(view.rated ?? {}).length > 0;
       case 'choose':
         return (s.results?.voters ?? 0) > 0 || Object.keys(view.chosen ?? {}).length > 0;
       case 'table':
@@ -365,23 +367,24 @@ function Board({ config, summary, results }: { config: BoardConfig; summary: Boa
       );
     }
     case 'rate': {
-      const sum = (k: string) => board?.ratings[k]?.average.reduce<number>((a, b) => a + (b ?? 0), 0) ?? -1;
+      const sum = (k: string) => finalRatingScore(config, view, board, k);
       const keys = [...view.targets].sort((a, b) => sum(b) - sum(a));
+      const votes = hasVoteScale(config);
       return (
         <table className="protocol-table">
           <thead>
             <tr>
               <th>Eintrag</th>
               <th>Einschätzung</th>
-              <th>Stimmen</th>
+              {votes && <th>Stimmen</th>}
             </tr>
           </thead>
           <tbody>
             {keys.map((k) => (
               <tr key={k}>
                 <td>{label(k)}</td>
-                <td className="tabular">{ratingText(config, board?.ratings[k])}</td>
-                <td className="tabular">{board?.ratings[k]?.n.join(' / ') ?? 0}</td>
+                <td className="tabular">{finalRatingText(config, view, board, k)}</td>
+                {votes && <td className="tabular">{voteCounts(config, board, k)}</td>}
               </tr>
             ))}
           </tbody>
