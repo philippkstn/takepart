@@ -4,6 +4,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
+import { useDecodedSlide } from '../lib/slideImage.ts';
 import { BoardStage } from './board/BoardStage.tsx';
 import { StageCallback } from './board/Breakout.tsx';
 import { ScrollingResults } from '../lib/autoScroll.tsx';
@@ -152,36 +153,44 @@ export function Stage({
 
 /**
  * Importierte Folie: Bild im Seitenverhältnis der Folie, darüber die
- * Aufbau-Animationen; Folienwechsel als kurze Überblendung.
+ * Aufbau-Animationen; Folienwechsel als kurze Überblendung. Gewechselt wird erst,
+ * wenn das neue Bild dekodiert ist – bis dahin bleibt die vorige Folie stehen.
  */
 function ImageStage({ slide, step, animate }: { slide: Extract<PublicSlide, { type: 'image' }>; step: number; animate: boolean }) {
-  const src = assetUrl(slide.config.asset);
-  const alt = slide.config.title || 'Folie';
+  const shown = useDecodedSlide(slide);
+  if (!shown) return <div className="stage-image" />;
+  const src = assetUrl(shown.config.asset);
+  const alt = shown.config.title || 'Folie';
+  // Die vorige Folie steht im Endzustand ihrer Animationen, bis die neue da ist.
+  const shownStep = shown.id === slide.id ? step : (shown.config.builds?.steps ?? 0);
   const frame = (
     <>
       <img src={src} alt={alt} />
-      <BuildLayer builds={slide.config.builds} step={step} image={src} animate={animate} slideId={slide.id} />
+      {/* Die gehaltene vorige Folie springt in ihren Endzustand, statt Animationen nachzuspielen */}
+      <BuildLayer builds={shown.config.builds} step={shownStep} image={src} animate={animate && shown.id === slide.id} slideId={shown.id} />
     </>
   );
-  const ratio = { '--ar': `${slide.config.width} / ${slide.config.height}` } as CSSProperties;
+  const ratio = { '--ar': `${shown.config.width} / ${shown.config.height}` } as CSSProperties;
   return (
     <div className="stage-image">
       {animate ? (
         <AnimatePresence initial={false}>
+          {/* Die neue Folie (später im DOM, also oben) blendet über der alten ein; die alte
+              bleibt bis zum Ende deckend darunter – sonst schiene der schwarze Grund durch. */}
           <motion.div
-            key={slide.id}
+            key={shown.id}
             className="slide-frame"
             style={ratio}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            exit={{ opacity: 0, transition: { delay: 0.2, duration: 0.01 } }}
             transition={{ duration: 0.2 }}
           >
             {frame}
           </motion.div>
         </AnimatePresence>
       ) : (
-        <div key={slide.id} className="slide-frame" style={ratio}>
+        <div key={shown.id} className="slide-frame" style={ratio}>
           {frame}
         </div>
       )}

@@ -1,6 +1,6 @@
 import { initialRunState, parseConfig, type Slide } from '@slides/shared';
 import { describe, expect, it } from 'vitest';
-import { boardTags, buildBoardView, tableSlideBefore, targetsOf, type BoardCard, type BoardData, type BoardSlide } from './board.ts';
+import { boardTags, buildBoardView, collectSlideIds, tableSlideBefore, targetsOf, type BoardCard, type BoardData, type BoardSlide } from './board.ts';
 import { applyStartHidden } from './runs.ts';
 
 const boardSlide = (id: number, config: Record<string, unknown>): BoardSlide => ({
@@ -139,5 +139,21 @@ describe('Kartenwand: erst aufdecken', () => {
     s.resultsVisible = true;
     applyStartHidden(s, slides, 1);
     expect(s.resultsVisible).toBe(true);
+  });
+});
+
+describe('Kartenwand: Parkplatz', () => {
+  it('teilt die Karten aller Sammel-Folien einer Wand mit „jederzeit“', () => {
+    const parking = boardSlide(1, { board: 'Parkplatz', anytime: true });
+    const review = boardSlide(5, { board: 'Parkplatz', prompt: 'Was ist offen geblieben?' });
+    const slides: Slide[] = [parking, boardSlide(2, {}), boardSlide(3, {}), review, boardSlide(6, { board: 'Parkplatz', mode: 'cluster' })];
+    expect(collectSlideIds(slides, parking)).toEqual([1, 5]);
+    expect(collectSlideIds(slides, review)).toEqual([1, 5]);
+  });
+
+  it('lässt Sammel-Folien ohne Parkplatz bei ihren eigenen Karten', () => {
+    const first = boardSlide(2, {});
+    const second = boardSlide(3, {});
+    expect(collectSlideIds([first, second], second)).toEqual([3]);
   });
 });

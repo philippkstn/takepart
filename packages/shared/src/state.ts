@@ -520,6 +520,8 @@ export interface ParticipantView {
   handoutUrl: string | null;
   /** Aufgedeckter Animationsschritt der aktuellen Folie */
   buildStep: number;
+  /** Bild der nächsten Folie zum Vorladen (nur mit „Folien auf Handys zeigen“) */
+  preload: string[];
   board: BoardView | null;
   parking: ParkingView[];
   countdown: Countdown | null;

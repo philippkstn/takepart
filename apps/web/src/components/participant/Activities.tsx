@@ -3,6 +3,7 @@ import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, Rotate
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useCountdown } from '../../lib/live.ts';
+import { useDecodedSlide } from '../../lib/slideImage.ts';
 import { BuildLayer } from '../BuildLayer.tsx';
 import { usePageVisible } from '../Stage.tsx';
 import { BoardActivity } from './BoardActivity.tsx';
@@ -110,14 +111,21 @@ function NameGate({ view, token, reason, children }: { view: ParticipantView; to
 /** Importierte Folie zum Mitlesen; antippen öffnet sie groß zum Zoomen. */
 function ImageSlide({ slide, step }: { slide: Slide<'image'>; step: number }) {
   const visible = usePageVisible();
+  // Bleibt über mehrere Bildfolien hinweg stehen (siehe ParticipantPage); das neue Bild
+  // erscheint erst dekodiert, bis dahin bleibt die vorige Folie sichtbar.
+  const shown = useDecodedSlide(slide.config.asset ? slide : null);
   // Ohne Bildkennung hat die Vortragende das Mitlesen ausgeschaltet.
   if (!slide.config.asset) return <Info icon={<Hourglass size={20} />}>Schau auf die Präsentation – gleich geht es weiter.</Info>;
-  const src = assetUrl(slide.config.asset);
+  const ratio = { '--slide-ratio': slide.config.width / slide.config.height } as CSSProperties;
+  if (!shown) return <div className="p-slide is-loading anim-rise" style={ratio} aria-busy />;
+  const src = assetUrl(shown.config.asset);
+  // Die vorige Folie steht im Endzustand ihrer Animationen, bis die neue da ist.
+  const shownStep = shown.id === slide.id ? step : (shown.config.builds?.steps ?? 0);
   // Aufbau-Animationen laufen wie auf dem Beamer mit; wer später dazukommt, sieht den aktuellen Stand
   return (
-    <div className="p-slide anim-rise" style={{ '--slide-ratio': slide.config.width / slide.config.height } as CSSProperties}>
-      <img src={src} alt={slide.config.title || 'Aktuelle Folie'} width={slide.config.width} height={slide.config.height} />
-      <BuildLayer builds={slide.config.builds} step={step} image={src} animate={visible} slideId={slide.id} />
+    <div className="p-slide anim-rise" style={{ '--slide-ratio': shown.config.width / shown.config.height } as CSSProperties}>
+      <img src={src} alt={shown.config.title || 'Aktuelle Folie'} width={shown.config.width} height={shown.config.height} />
+      <BuildLayer builds={shown.config.builds} step={shownStep} image={src} animate={visible && shown.id === slide.id} slideId={shown.id} />
     </div>
   );
 }

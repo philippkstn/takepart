@@ -26,7 +26,7 @@ import {
   type SlideType,
   type SlideSchedule,
 } from '@slides/shared';
-import { boardSlides, loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
+import { boardSlides, collectSlideIds, loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { json, one, query, type Conn } from './db.ts';
 import { loadTeamTags } from './teams.ts';
@@ -247,18 +247,18 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   const counts = new Map<number, number>();
   for (const r of countRows) counts.set(r.slide_id, (counts.get(r.slide_id) ?? 0) + Number(r.n));
 
-  // Parkplatz: Sammel-Folien, die von jeder Folie aus Karten annehmen
+  // Parkplatz: Sammel-Folien, die von jeder Folie aus Karten annehmen – nicht, solange
+  // ohnehin eine Sammel-Folie derselben Wand gezeigt wird (dort schreibt man direkt)
+  const collectingHere = current?.type === 'board' && current.config.mode === 'collect' ? current.config.board : null;
   const parkingSlides = slides.filter(
-    (s): s is BoardSlide => s.type === 'board' && s.config.mode === 'collect' && s.config.anytime && s.id !== current?.id,
+    (s): s is BoardSlide => s.type === 'board' && s.config.mode === 'collect' && s.config.anytime && s.config.board !== collectingHere,
   );
-  const parkingCards = await loadCards(
-    db,
-    runId,
-    parkingSlides.map((s) => s.id),
-  );
+  // Karten aller Sammel-Folien der Parkplatz-Wand, nicht nur die über den Knopf angelegten
+  const parkingIds = new Map(parkingSlides.map((s) => [s.id, new Set(collectSlideIds(slides, s))]));
+  const parkingCards = await loadCards(db, runId, [...new Set([...parkingIds.values()].flatMap((ids) => [...ids]))]);
   const parking = parkingSlides.map((slide) => ({
     slide,
-    posts: parkingCards.filter((c) => c.slideId === slide.id).map(cardToPost),
+    posts: parkingCards.filter((c) => parkingIds.get(slide.id)!.has(c.slideId)).map(cardToPost),
   }));
 
   let recall: Snapshot['recall'] = null;

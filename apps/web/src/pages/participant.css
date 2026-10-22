@@ -471,7 +471,11 @@
   border-radius: var(--radius);
   overflow: hidden;
   border: 1px solid var(--border);
-  background: #000;
+  background: var(--surface-2);
+}
+/* Bild der ersten Folie lädt noch: Platz im Seitenverhältnis freihalten */
+.p-slide.is-loading {
+  aspect-ratio: var(--slide-ratio, 1.7778);
 }
 .p-slide img {
   display: block;

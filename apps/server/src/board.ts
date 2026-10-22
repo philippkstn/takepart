@@ -76,9 +76,20 @@ export function boardSlides(slides: Slide[], board: string): BoardSlide[] {
   return slides.filter((s): s is BoardSlide => s.type === 'board' && s.config.board === board);
 }
 
-/** Karten einer Sammel-Folie zählen nur dort; alle anderen Modi sehen die ganze Wand. */
+/**
+ * Sammel-Folien, deren Karten eine Sammel-Folie zeigt: sonst nur sie selbst. Ausnahme
+ * Parkplatz – hat die Wand eine Sammel-Folie mit „jederzeit“, teilen sich alle ihre
+ * Sammel-Folien die Karten. Sonst fehlten auf einer späteren Folie derselben Wand
+ * (z. B. „Was ist offen geblieben?“) die Karten aus dem Parkplatz-Knopf und umgekehrt.
+ */
+export function collectSlideIds(slides: Slide[], slide: BoardSlide): number[] {
+  const collect = boardSlides(slides, slide.config.board).filter((s) => s.config.mode === 'collect');
+  return collect.some((s) => s.config.anytime) ? collect.map((s) => s.id) : [slide.id];
+}
+
+/** Karten einer Sammel-Folie zählen nur dort (außer beim Parkplatz); alle anderen Modi sehen die ganze Wand. */
 function cardSlideIds(slides: Slide[], slide: BoardSlide): number[] {
-  return slide.config.mode === 'collect' ? [slide.id] : boardSlides(slides, slide.config.board).map((s) => s.id);
+  return slide.config.mode === 'collect' ? collectSlideIds(slides, slide) : boardSlides(slides, slide.config.board).map((s) => s.id);
 }
 
 export async function loadCards(db: Conn, runId: number, slideIds: number[]): Promise<BoardCard[]> {

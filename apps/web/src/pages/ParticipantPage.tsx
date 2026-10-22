@@ -15,6 +15,7 @@ import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.
 import { api, errorMessage } from '../lib/api.ts';
 import { brandStyle } from '../lib/brand.ts';
 import { useLive } from '../lib/live.ts';
+import { usePreload } from '../lib/slideImage.ts';
 import './participant.css';
 
 const storageKey = (code: string) => `slides:participant:${code}`;
@@ -46,6 +47,16 @@ function mainWidth(view: ParticipantView): string {
   return '';
 }
 
+/**
+ * Neu aufbauen bei jeder Folie (und Runde beim Satz-Spiel) – außer zwischen
+ * Bildfolien: Die bleiben stehen, damit das nächste Bild ohne schwarzen
+ * Zwischenstand und ohne erneutes Hereingleiten wechselt.
+ */
+function activityKey(view: ParticipantView): string {
+  if (view.slide?.type === 'image' && view.slide.config.asset && !view.leaderboard) return 'image';
+  return `${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`;
+}
+
 export default function ParticipantPage({ code }: { code: string }) {
   const [token, setToken] = useState<string | null>(null);
   const [joinError, setJoinError] = useState<string | null>(null);
@@ -67,6 +78,7 @@ export default function ParticipantPage({ code }: { code: string }) {
 
   const { view, status, offset, handoutUrl: endedHandout } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
   const handoutUrl = endedHandout ?? view?.handoutUrl ?? null;
+  usePreload(view?.preload ?? []);
 
   if (joinError) {
     return (
@@ -164,7 +176,7 @@ export default function ParticipantPage({ code }: { code: string }) {
         {view.pause && <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.length > 0} />}
         {/* Während der Pause nur versteckt, damit angefangene Eingaben (z. B. eine Karte) erhalten bleiben */}
         <div className="p-activity" hidden={!!view.pause}>
-          <ParticipantActivity key={`${view.slide?.id ?? 'none'}-${view.sentence?.round ?? 0}`} view={view} token={token} />
+          <ParticipantActivity key={activityKey(view)} view={view} token={token} />
         </div>
       </main>
       <footer className="p-footer">

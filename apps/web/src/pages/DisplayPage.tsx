@@ -11,6 +11,7 @@ import { api } from '../lib/api.ts';
 import { playEnd, playWarning, useCountdownMoments, useCountdownSounds } from '../lib/countdownSound.ts';
 import { useLive } from '../lib/live.ts';
 import { usePresenterKeys } from '../lib/presenterKeys.ts';
+import { usePreload } from '../lib/slideImage.ts';
 import { authStatus } from '../lib/passkey.ts';
 import './display.css';
 
@@ -189,8 +190,6 @@ function toggleFullscreen() {
 
 /** Bild der nächsten Folie schon laden, damit der Wechsel nicht flackert. */
 function Preload({ urls }: { urls: string[] }) {
-  useEffect(() => {
-    for (const url of urls) new Image().src = url;
-  }, [urls.join('|')]);
+  usePreload(urls);
   return null;
 }

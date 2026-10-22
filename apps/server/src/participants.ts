@@ -19,7 +19,7 @@ import {
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { exec, isDuplicateKey, json, one, transaction, type Db } from './db.ts';
-import { applyBoardOp, loadBoard, targetsOf } from './board.ts';
+import { applyBoardOp, collectSlideIds, loadBoard, targetsOf } from './board.ts';
 import { teamForNewCard } from './breakout.ts';
 import { CommandError } from './errors.ts';
 import type { LiveHub } from './live.ts';
@@ -226,9 +226,10 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       team = teamForNewCard(ctx.slides, slide, ctx.state, p.id);
       if (slide.config.mode !== 'collect') return reply.code(400).send({ error: 'Auf dieser Folie werden keine Karten gesammelt' });
       if (body.data.text.length > 300) return reply.code(400).send({ error: 'Höchstens 300 Zeichen' });
-      const own = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id = ? AND participant_id = ?', [
+      // Beim Parkplatz zählen die Karten aller Sammel-Folien der Wand zusammen
+      const own = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id IN (?) AND participant_id = ?', [
         p.runId,
-        slide.id,
+        collectSlideIds(ctx.slides, slide),
         p.id,
       ]);
       if (Number(own?.n ?? 0) >= slide.config.maxCards) {

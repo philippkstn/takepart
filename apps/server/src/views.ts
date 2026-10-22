@@ -53,6 +53,16 @@ function preloadFor(snap: Snapshot): string[] {
   return next?.type === 'image' ? [assetUrl(next.config.asset)] : [];
 }
 
+/**
+ * Handys laden das nächste Folienbild ebenfalls vorab – aber nur, wenn das Publikum
+ * die Folien sehen darf, und nicht während einer Quizfrage: Die Folie danach löst
+ * oft auf und stünde sonst schon vor der Antwort im Netzwerk-Tab.
+ */
+function participantPreload(snap: Snapshot): string[] {
+  if (!snap.run.shareSlides || snap.current?.type === 'quiz') return [];
+  return preloadFor(snap);
+}
+
 function runInfo(snap: Snapshot): RunInfo {
   return { id: snap.run.id, title: snap.run.title, code: snap.run.code, ended: snap.run.ended, brand: snap.run.brand };
 }
@@ -226,6 +236,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     leaderboard: state.leaderboard,
     handoutUrl: handoutUrl(snap),
     buildStep: buildStepOf(snap),
+    preload: participantPreload(snap),
     board,
     parking: parkingViews(snap, participantId),
     countdown: state.countdown ?? null,
