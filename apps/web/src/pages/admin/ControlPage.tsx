@@ -47,7 +47,7 @@ import { useRequireHost } from './AdminLayout.tsx';
 import { BoardPanel } from './BoardPanel.tsx';
 import { CallbackControl, hasTeams } from '../../components/board/Breakout.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
-import { PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
+import { HostToasts, PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
 import { TurnsPanel } from './TurnsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { LiveRunNote } from '../../components/protocol/RunNoteEditor.tsx';
@@ -181,6 +181,7 @@ export default function ControlPage() {
         <PresenterClock view={view} offset={offset} onReset={() => command({ action: 'timer-reset' })} />
         <PlanStatus view={view} offset={offset} />
         <SignalsBar view={view} offset={offset} command={command} />
+        <HostToasts view={view} />
         <PresenceButton view={view} />
         <DisplayStatus displays={view.displays} />
         <div className="row control-head-actions">

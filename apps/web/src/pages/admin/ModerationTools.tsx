@@ -9,6 +9,7 @@ import {
 } from '@slides/shared';
 import { Check, Dices, Eye, EyeOff, RotateCcw, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useToast } from '../../components/ui.tsx';
 import { useServerNow } from '../../lib/serverNow.ts';
 import './moderation.css';
 
@@ -30,6 +31,57 @@ export function SignalsBar({ view, offset, command }: { view: HostView; offset: 
       ))}
     </span>
   );
+}
+
+/**
+ * Stille Hinweise (ohne Ton) im Steuerpult, damit nichts übersehen wird: neue
+ * Handzeichen, neue Fragen im Q&A und Gruppen, die sich fertig melden. Was beim
+ * Öffnen des Steuerpults oder einer Folie schon da ist, zählt nicht als neu.
+ */
+export function HostToasts({ view }: { view: HostView }) {
+  const toast = useToast();
+
+  // Handzeichen: erneutes Setzen durch dieselbe Person zählt (neuer Zeitpunkt)
+  const signals = SIGNAL_KINDS.flatMap((kind) => view.signals[kind].map((e) => ({ key: `${kind}:${e.id}:${e.at}`, kind, e })));
+  useFresh('signals', signals, (fresh) => {
+    for (const kind of SIGNAL_KINDS) {
+      const entries = fresh.filter((f) => f.kind === kind).map((f) => f.e);
+      if (entries.length === 0) continue;
+      const who = entries.length === 1 ? (entries[0]!.name ?? 'ohne Namen') : `${entries.length} neue Handzeichen`;
+      toast(`${SIGNAL_LABELS[kind]} – ${who}`);
+    }
+  });
+
+  const slide = view.slide;
+  const questions = slide?.type === 'qa' ? view.posts.map((p) => ({ key: String(p.id), p })) : [];
+  useFresh(`qa:${slide?.id ?? ''}`, questions, (fresh) => {
+    if (fresh.length > 1) return toast(`${fresh.length} neue Fragen`);
+    const p = fresh[0]!.p;
+    toast(`${p.status === 'pending' ? 'Neue Frage zur Freigabe' : 'Neue Frage'} – ${p.authorName ?? 'ohne Namen'}`);
+  });
+
+  const teams = (view.board?.breakout?.teams ?? []).filter((t) => t.done).map((t) => ({ key: String(t.index), t }));
+  useFresh(`teams:${slide?.id ?? ''}`, teams, (fresh) => {
+    toast(fresh.length === 1 ? `Gruppe fertig – ${fresh[0]!.t.name}` : `${fresh.length} Gruppen fertig`);
+  });
+  return null;
+}
+
+/**
+ * Meldet Einträge, die seit dem letzten Stand dazugekommen sind. Wechselt der
+ * Bereich (z. B. die Folie), gilt der erste Stand als Ausgangslage, nicht als neu.
+ */
+function useFresh<T extends { key: string }>(scope: string, items: T[], onNew: (fresh: T[]) => void) {
+  const seen = useRef<{ scope: string; keys: Set<string> } | null>(null);
+  const report = useRef(onNew);
+  report.current = onNew;
+  const keys = items.map((i) => i.key).join('|');
+  useEffect(() => {
+    const prev = seen.current?.scope === scope ? seen.current.keys : null;
+    seen.current = { scope, keys: new Set(items.map((i) => i.key)) };
+    const fresh = prev ? items.filter((i) => !prev.has(i.key)) : [];
+    if (fresh.length > 0) report.current(fresh);
+  }, [scope, keys]);
 }
 
 /** Ein Handzeichen-Zähler; Klick zeigt, wer es gegeben hat, und quittiert auf Wunsch */
