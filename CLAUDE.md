@@ -101,6 +101,12 @@ npm run build
 
 - Folien mit Beteiligung (Abstimmungen, Q&A, Pinnwand, Wand, Gruppen, Feedback …) haben `config.task` (≤ 600 Zeichen): klein unter der Frage auf Beamer (`.stage-task`, höchstens 5 Zeilen) und Handy (`.p-task`). `slideTask(slide)` liest sie typunabhängig, `headlineSize(text)` setzt lange Überschriften kleiner (`is-long` > 70, `is-longer` > 140 Zeichen). Lange Anleitungen gehören in die Aufgabe, nicht in die Frage.
 
+## SEO und GEO
+
+- Indexiert wird nur die Startseite. `apps/server/src/seo.ts`: `renderIndex` setzt für `/` Titel, Beschreibung, canonical, Open Graph, JSON-LD (`WebApplication`, `type="application/ld+json"` – von der CSP nicht betroffen) und lesbaren Inhalt in `#root` (React ersetzt ihn) an der Stelle `<!--#seo-->` in `index.html` ein; alle anderen SPA-Pfade bekommen `<meta name="robots" content="noindex">`. Im Vite-Entwicklungsserver passiert das nicht. Texte zentral in `packages/shared/src/about.ts` (`ABOUT`, auch der sichtbare Abschnitt „home-about“ auf `HomePage.tsx` und `llms.txt`).
+- `robots.txt`, `sitemap.xml`, `llms.txt` erzeugt der Server – Domain immer aus `APP_ORIGIN`, Quellcode-/Rechtslinks aus der Konfiguration, nie fest im Code.
+- **Token-Links nie in den Index:** `onSend` in `app.ts` setzt `X-Robots-Tag: noindex, nofollow` für alles außer `/` und öffentlichen Dateien (`isIndexable`, Positivliste) – Teilnahme `/<code>`, Beamer `/d/`, Freigabe `/h/`, Fotoprotokoll `/p/`, Admin, Login, API. Diese Seiten in `robots.txt` bewusst nicht sperren (gesperrte Seiten ruft der Crawler nicht ab und sieht das `noindex` nie); gesperrt sind nur `/api/` und `/ws` (`/admin` steht im Manifest – gesperrt käme es als bloße URL in den Index). Neue öffentliche Info-Seiten in `isIndexable` und `sitemapXml` aufnehmen.
+
 ## Design
 
 Schlicht und klar: eine Schrift (Figtree, lokal über `@fontsource`), neutrale Flächen, feine Rahmen, kaum Schatten, kleine Rundungen. Keine Verläufe, kein Lila, kein Glas, keine Emojis, keine farbigen Balken am linken Rand, keine Versal-Kicker in Farbe. Farben als Tokens in `apps/web/src/index.css` (hell + dunkel). Ohne Branding: Tinte für Primär-Buttons, Blau `#2563C9` für Auswahl und Diagramme (mit dem dataviz-Validator geprüft). Animationen 120–600 ms, `prefers-reduced-motion` respektieren (CSS + `MotionConfig reducedMotion="user"`). Text trägt nie die Diagrammfarbe. Keine externen CDNs.

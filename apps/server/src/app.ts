@@ -1,10 +1,10 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { ZodError, z } from 'zod';
 import { assetRoutes, deleteAllOrphanAssets } from './assets.ts';
 import { owns } from './access.ts';
@@ -22,6 +22,7 @@ import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
 import { rehearsalRoutes } from './rehearsal.ts';
+import { isIndexable, renderIndex, seoRoutes } from './seo.ts';
 import { protocolRoutes } from './protocol.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
@@ -76,6 +77,8 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'same-origin');
     if (!request.url.startsWith('/api/')) reply.header('Content-Security-Policy', csp);
+    // Token-Links (Teilnahme, Beamer, Freigabe, Fotoprotokoll), Admin und API nie in den Suchindex
+    if (!isIndexable(request.url)) reply.header('X-Robots-Tag', 'noindex, nofollow');
     return payload;
   });
 
@@ -133,6 +136,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   protocolRoutes(app, db);
   followupRoutes(app, db);
   compareRoutes(app, db);
+  seoRoutes(app, config);
 
   /**
    * Live-Verbindung. Drei Rollen:
@@ -184,18 +188,26 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     await app.register(fastifyStatic, {
       root: staticDir,
       wildcard: false,
+      // `/` liefert die Startseite mit Meta-Angaben und Inhalt (unten), nicht die rohe index.html
+      index: false,
       setHeaders(res, path) {
         // Gebaute Dateien tragen einen Hash im Namen und ändern sich nie.
         const value = path.includes(join(staticDir, 'assets')) ? 'public, max-age=31536000, immutable' : 'no-cache';
         res.header('Cache-Control', value);
       },
     });
-    // Single-Page-App: alle unbekannten Pfade außerhalb von /api liefern index.html.
+    const template = readFileSync(join(staticDir, 'index.html'), 'utf8');
+    const homeHtml = renderIndex(template, config, true);
+    const appHtml = renderIndex(template, config, false);
+    const html = (reply: FastifyReply, body: string) =>
+      reply.header('Cache-Control', 'no-cache').type('text/html; charset=utf-8').send(body);
+    app.get('/', (_request, reply) => html(reply, homeHtml));
+    // Single-Page-App: alle unbekannten Pfade außerhalb von /api liefern index.html (mit noindex).
     app.setNotFoundHandler((request, reply) => {
       if (request.method !== 'GET' || request.url.startsWith('/api/') || request.url === '/ws') {
         return reply.code(404).send({ error: 'Nicht gefunden' });
       }
-      return reply.header('Cache-Control', 'no-cache').sendFile('index.html');
+      return html(reply, appHtml);
     });
   }
 

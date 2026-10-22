@@ -17,3 +17,4 @@ export * from './blocks.ts';
 export * from './rehearsal.ts';
 export * from './schedule.ts';
 export * from './similar.ts';
+export * from './about.ts';
