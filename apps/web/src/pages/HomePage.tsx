@@ -1,3 +1,4 @@
+import { ABOUT } from '@slides/shared/about';
 import { ArrowRight } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { SiteFooter } from '../components/LegalLinks.tsx';
@@ -46,6 +47,17 @@ export function HomePage() {
           </button>
         </form>
       </main>
+      {/* Kurz erklärt, was TakePart ist – unter dem Code-Feld, für Neugierige und Suchmaschinen (Text: shared/about.ts) */}
+      <section className="home-about">
+        <h2>{ABOUT.tagline}</h2>
+        <p>{ABOUT.description}</p>
+        <ul>
+          {ABOUT.features.map((f) => (
+            <li key={f}>{f}</li>
+          ))}
+        </ul>
+        <p>{ABOUT.selfHosting}</p>
+      </section>
       <SiteFooter>
         <Link to="/login">Für Vortragende</Link>
       </SiteFooter>

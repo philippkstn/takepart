@@ -64,6 +64,31 @@
   font-weight: 700;
   justify-content: center;
 }
+/* Startseite: kurze Beschreibung unter dem Code-Feld (auch im ausgelieferten HTML, siehe server/seo.ts) */
+.home-about {
+  width: min(560px, 100%);
+  margin: 0 auto;
+  padding: 8px 16px 24px;
+  color: var(--ink-2);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+.home-about h1,
+.home-about h2 {
+  font-size: 1.1rem;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.home-about p {
+  margin: 0 0 10px;
+}
+.home-about ul {
+  margin: 0 0 10px;
+  padding-left: 1.2em;
+}
+.home-about a {
+  color: inherit;
+}
 /* Anmeldung: Passwort-Formular unter dem Passkey-Knopf, abgesetzt durch eine feine Linie */
 .login-password {
   border-top: 1px solid var(--border);
