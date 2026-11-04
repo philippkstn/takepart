@@ -61,19 +61,19 @@ export function useAutoScroll<T extends HTMLElement>() {
   return ref;
 }
 
-/** Mindestbreite einer Balken-Spalte in em */
-const MIN_COLUMN_EM = 18;
-/** Erst ab so vielen Balken lohnt eine zweite Spalte */
-const MIN_BARS = 4;
+/** Säulen: Mindestbreite je Säule in em – darunter wird die Beschriftung unlesbar */
+const MIN_PILLAR_EM = 4.5;
+/** Mehr Säulen nebeneinander sind nicht mehr lesbar – dann bleibt die Liste und scrollt */
+const MAX_PILLARS = 6;
 
 /**
  * Balken nebeneinander statt scrollen: Passt eine Balkenliste (direkt im
- * Container) nicht in die Höhe und ist genug Breite da, setzt der Hook
- * `data-cols` auf 2 oder 3 – das Layout macht `stage.css` (Spalten von oben
- * nach unten, Reihenfolge bleibt lesbar). Passt es dann immer noch nicht, wird
- * die Liste in zwei Stufen kleiner (`data-dense`); erst danach scrollt die
- * Bühne. Gerechnet wird immer ab einer Spalte ohne Verkleinerung, damit die
- * eigene Änderung beim nächsten Messen dasselbe Ergebnis liefert.
+ * Container) nicht in die Höhe, werden die Balken zu Säulen nebeneinander mit
+ * kleiner Beschriftung darunter (`data-layout="columns"`, Layout in
+ * `stage.css`). Bei mehr als `MAX_PILLARS` Balken oder zu wenig Breite bleibt
+ * die Liste untereinander und scrollt automatisch. Gerechnet wird immer vom
+ * Ausgangszustand, damit die eigene Änderung beim nächsten Messen dasselbe
+ * Ergebnis liefert.
  */
 function useBarColumns(ref: RefObject<HTMLElement | null>) {
   useEffect(() => {
@@ -81,23 +81,11 @@ function useBarColumns(ref: RefObject<HTMLElement | null>) {
     if (!el) return;
     let frame = 0;
     const fit = () => {
-      const bars = el.querySelector(':scope > .bars');
-      if (!bars || bars.children.length < MIN_BARS) {
-        delete el.dataset.cols;
-        return;
-      }
-      const em = parseFloat(getComputedStyle(el).fontSize) || 16;
-      const maxCols = Math.min(3, Math.floor(el.clientWidth / (MIN_COLUMN_EM * em)));
-      const overflows = () => el.scrollHeight - el.clientHeight > 4;
-      let cols = 1;
-      delete el.dataset.cols;
-      delete el.dataset.dense;
-      while (cols < maxCols && overflows()) {
-        cols += 1;
-        el.dataset.cols = String(cols);
-      }
-      // Reichen die Spalten nicht, Balken etwas kleiner setzen – erst danach scrollen
-      for (let dense = 1; dense <= 2 && overflows(); dense++) el.dataset.dense = String(dense);
+      delete el.dataset.layout;
+      const n = el.querySelector(':scope > .bars')?.children.length ?? 0;
+      if (n < 2 || n > MAX_PILLARS || el.scrollHeight - el.clientHeight <= 4) return;
+      const width = el.clientWidth / (parseFloat(getComputedStyle(el).fontSize) || 16);
+      if (width / n >= MIN_PILLAR_EM) el.dataset.layout = 'columns';
     };
     const schedule = () => {
       cancelAnimationFrame(frame);

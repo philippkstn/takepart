@@ -33,6 +33,7 @@ export function BarList({ items, max, inline = false }: { items: BarItem[]; max:
             key={item.key}
             className={`bar-row ${item.correct ? 'is-correct' : ''} ${item.dim ? 'is-dim' : ''}`}
             title={`${item.label}: ${item.display}`}
+            style={{ ['--bar' as string]: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%` }}
           >
             <div className="bar-label">
               {item.correct !== undefined && (
@@ -46,7 +47,7 @@ export function BarList({ items, max, inline = false }: { items: BarItem[]; max:
             </div>
             <div className="bar-track">
               <div className="bar-area">
-                <div className="bar-fill" style={{ width: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%` }} />
+                <div className="bar-fill" />
               </div>
               <span className="bar-value tabular">{item.display}</span>
             </div>
