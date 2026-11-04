@@ -76,6 +76,18 @@ function TaskField({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
+/** Ergebnisse dieser Folie auf dem Beamer erst nach dem Aufdecken im Steuerpult zeigen */
+function RevealToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <Toggle
+      label="Antworten auf dem Beamer erst nach dem Aufdecken zeigen"
+      hint="Beim Betreten der Folie sind die Ergebnisse verborgen – du deckst sie im Steuerpult auf, wenn alle geantwortet haben."
+      checked={value}
+      onChange={onChange}
+    />
+  );
+}
+
 function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
     <label className="switch">
@@ -191,6 +203,7 @@ function ChoiceForm({ value, onChange }: FormProps<'choice'>) {
         onChange={(options) => onChange({ ...value, options })}
       />
       <Toggle label="Mehrfachauswahl erlauben" checked={value.multiple} onChange={(multiple) => onChange({ ...value, multiple })} />
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -210,6 +223,7 @@ function OpenForm({ value, onChange }: FormProps<'open'>) {
           ))}
         </select>
       </label>
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -244,6 +258,7 @@ function ScaleForm({ value, onChange }: FormProps<'scale'>) {
           onChange={(maxLabel) => onChange({ ...value, maxLabel })}
         />
       </div>
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -263,6 +278,7 @@ function WordcloudForm({ value, onChange }: FormProps<'wordcloud'>) {
           ))}
         </div>
       </div>
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -273,6 +289,7 @@ function RankingForm({ value, onChange }: FormProps<'ranking'>) {
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
       <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList label="Optionen (2–8)" options={value.options} min={2} max={8} onChange={(options) => onChange({ ...value, options })} />
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -336,6 +353,7 @@ function BrainstormForm({ value, onChange }: FormProps<'brainstorm'>) {
         checked={value.allowVotes}
         onChange={(allowVotes) => onChange({ ...value, allowVotes })}
       />
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -353,6 +371,7 @@ function PinboardForm({ value, onChange }: FormProps<'pinboard'>) {
         placeholder="Spalte"
         onChange={(columns) => onChange({ ...value, columns })}
       />
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }
@@ -392,6 +411,7 @@ function FeedbackForm({ value, onChange, boards = [] }: FormProps<'feedback'> & 
         Jede Person sieht über dem Formular ihre eigenen Karten dieser Wand, z. B. die Erwartungen vom Anfang. Beamer und Steuerpult zeigen
         nichts davon.
       </p>
+      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
     </>
   );
 }

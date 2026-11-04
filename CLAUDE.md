@@ -60,7 +60,7 @@ npm run build
 - Folientyp `teams`: Name (NameGate) und optional eine Kennzeichnung (Antwort `{ tag }`). Einteilung in `RunState.teams[slideId]` (Teilnehmer-IDs je Gruppe), Befehle `teams-make|fill|move|clear` laufen in der `/command`-Route (brauchen DB), Algorithmus pure in `packages/shared/src/teams.ts`. Teilnehmende sehen ihre Gruppe aus der letzten Einteilung bis zur aktuellen Folie (`participantTeam`). Nie in der Freigabe. Die Kennzeichnung gilt auch für spätere Gruppen-Folien mit denselben Kennzeichnungen (`loadTeamTags`). Zusammensetzung über Töpfe (`pools`: Kennzeichnung → Topf, gespeichert in `RunState.teamPools`): gemischt, je Kategorie getrennt oder gezielt zusammengelegt.
 - **Breakout** (`packages/shared/src/breakout.ts`, `apps/server/src/breakout.ts`, `components/board/Breakout.tsx`, `components/participant/Breakout.tsx`): Sammel-Folie mit `perTeam` + Einteilung davor (`breakoutAssignment`, letzte Einteilung bis zu dieser Folie) → jede neue Karte bekommt `posts.team` (Index der Gruppe, beim Anlegen fest gespeichert). Teilnehmende sehen eigene Karten plus sichtbare Karten ihrer Gruppe (`teamVisibleCards`, nur lesend), nie fremde Gruppen; sie bekommen nur `BoardView.myTeam`, Beamer/Steuerpult `BoardView.breakout`. Fertig-Meldungen in `RunState.teamDone[slideId]` (Teilnehmende über `/api/p/team-done`, Moderation über `team-done`). Sammelruf `RunState.callback` (Host-Befehl `callback`; die Minuten starten zusätzlich den normalen `countdown` – keine eigene Timer-Logik), läuft nach `until` von selbst ab, Handys schließen ihn lokal. Folgeschritte (Clustern, Punkte …) arbeiten mit allen Karten der Wand und zeigen die Herkunft als „G2“.
 - Fotoprotokoll `/admin/runs/:id/protokoll` (`ProtocolPage.tsx`): druckoptimiert (A4 quer), PDF über den Druckdialog – keine PDF-Software auf dem Server.
-- Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`).
+- Beamer: zu lange Ergebnisse scrollen automatisch (`lib/autoScroll.tsx`, `ScrollingResults` mit `key={slide.id}`). Vorher setzt `ScrollingResults` eine direkt enthaltene Balkenliste (ab 4 Balken) bei Platz in 2–3 Spalten (`data-cols`, Spalten ≥ 18em, CSS-Mehrspaltensatz in `stage.css`, von oben nach unten gefüllt), reicht das nicht, in zwei Stufen kleiner (`data-dense`); gescrollt wird nur, wenn es dann immer noch nicht passt.
 
 ## Pausen-Folie
 
@@ -96,6 +96,10 @@ npm run build
 
 - Installierbar: `apps/web/public/manifest.webmanifest`, Icons (`icon-192/512.png`, `icon-maskable-512.png` randlos mit Balken in der sicheren Mitte, `apple-touch-icon.png`), Meta-Angaben in `index.html`. PNGs sind aus `favicon.svg` bzw. `icon-maskable.svg` gerendert und eingecheckt.
 - `public/sw.js` speichert bewusst nichts zwischen (Live-Ansichten müssen frisch sein) und fängt nur Seitenaufrufe ohne Netz ab (Hinweisseite). Registriert nur im Produktions-Build (`main.tsx`). Die App startet in `/admin` (primär für Vortragende), `id` bleibt `/`, `scope` `/`.
+
+## Erst aufdecken
+
+- `config.startHidden` (Abstimmung, offene Frage, Skala, Wortwolke, Ranking, Brainstorming, Pinnwand, Feedback, Kartenwand): Betreten der Folie setzt `RunState.resultsVisible = false`, Verlassen wieder `true` (`applyStartHidden` in `runs.ts`, gilt für jeden Typ mit dem Feld). Im Editor `RevealToggle` in `SlideForm.tsx`. Quiz und Satz-Spiel decken ohnehin selbst auf, Q&A zeigt Fragen immer.
 
 ## Aufgabenbeschreibung und lange Überschriften
 

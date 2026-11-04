@@ -1,6 +1,15 @@
 import { initialRunState, parseConfig, type Slide } from '@slides/shared';
 import { describe, expect, it } from 'vitest';
-import { boardTags, buildBoardView, collectSlideIds, tableSlideBefore, targetsOf, type BoardCard, type BoardData, type BoardSlide } from './board.ts';
+import {
+  boardTags,
+  buildBoardView,
+  collectSlideIds,
+  tableSlideBefore,
+  targetsOf,
+  type BoardCard,
+  type BoardData,
+  type BoardSlide,
+} from './board.ts';
 import { applyStartHidden } from './runs.ts';
 
 const boardSlide = (id: number, config: Record<string, unknown>): BoardSlide => ({
@@ -139,6 +148,29 @@ describe('Kartenwand: erst aufdecken', () => {
     s.resultsVisible = true;
     applyStartHidden(s, slides, 1);
     expect(s.resultsVisible).toBe(true);
+  });
+});
+
+describe('Abstimmung: erst aufdecken', () => {
+  const choice = (id: number, startHidden: boolean): Slide => ({
+    id,
+    type: 'choice',
+    position: id,
+    config: parseConfig('choice', { question: 'Frage', startHidden }),
+  });
+
+  it('gilt für jede Folie mit der Einstellung, nicht nur für Wände', () => {
+    const slides = [choice(1, false), choice(2, true), choice(3, false)];
+    const s = { ...initialRunState(1), slideId: 2 };
+    applyStartHidden(s, slides, 1);
+    expect(s.resultsVisible).toBe(false);
+    s.slideId = 3;
+    applyStartHidden(s, slides, 2);
+    expect(s.resultsVisible).toBe(true);
+  });
+
+  it('ist standardmäßig aus', () => {
+    expect(parseConfig('choice', {}).startHidden).toBe(false);
   });
 });
 

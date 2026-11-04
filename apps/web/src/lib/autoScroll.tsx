@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
 
 /** Pause oben und unten, bevor es weitergeht */
 const PAUSE_MS = 3500;
@@ -61,9 +61,67 @@ export function useAutoScroll<T extends HTMLElement>() {
   return ref;
 }
 
-/** Ergebnisbereich der Bühne, der bei Überlänge automatisch scrollt */
+/** Mindestbreite einer Balken-Spalte in em */
+const MIN_COLUMN_EM = 18;
+/** Erst ab so vielen Balken lohnt eine zweite Spalte */
+const MIN_BARS = 4;
+
+/**
+ * Balken nebeneinander statt scrollen: Passt eine Balkenliste (direkt im
+ * Container) nicht in die Höhe und ist genug Breite da, setzt der Hook
+ * `data-cols` auf 2 oder 3 – das Layout macht `stage.css` (Spalten von oben
+ * nach unten, Reihenfolge bleibt lesbar). Passt es dann immer noch nicht, wird
+ * die Liste in zwei Stufen kleiner (`data-dense`); erst danach scrollt die
+ * Bühne. Gerechnet wird immer ab einer Spalte ohne Verkleinerung, damit die
+ * eigene Änderung beim nächsten Messen dasselbe Ergebnis liefert.
+ */
+function useBarColumns(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    const fit = () => {
+      const bars = el.querySelector(':scope > .bars');
+      if (!bars || bars.children.length < MIN_BARS) {
+        delete el.dataset.cols;
+        return;
+      }
+      const em = parseFloat(getComputedStyle(el).fontSize) || 16;
+      const maxCols = Math.min(3, Math.floor(el.clientWidth / (MIN_COLUMN_EM * em)));
+      const overflows = () => el.scrollHeight - el.clientHeight > 4;
+      let cols = 1;
+      delete el.dataset.cols;
+      delete el.dataset.dense;
+      while (cols < maxCols && overflows()) {
+        cols += 1;
+        el.dataset.cols = String(cols);
+      }
+      // Reichen die Spalten nicht, Balken etwas kleiner setzen – erst danach scrollen
+      for (let dense = 1; dense <= 2 && overflows(); dense++) el.dataset.dense = String(dense);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(el);
+    // Ergebnisse erscheinen oft erst nach dem Container (aufgedeckt, Quiz aufgelöst)
+    const mutation = new MutationObserver(schedule);
+    mutation.observe(el, { childList: true, subtree: true, characterData: true });
+    void document.fonts?.ready.then(schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, [ref]);
+}
+
+/** Ergebnisbereich der Bühne, der bei Überlänge Balken nebeneinander setzt und sonst automatisch scrollt */
 export function ScrollingResults({ className = 'stage-results', children }: { className?: string; children: ReactNode }) {
   const ref = useAutoScroll<HTMLDivElement>();
+  useBarColumns(ref);
   return (
     <div ref={ref} className={className}>
       {children}

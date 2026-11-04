@@ -172,6 +172,29 @@
 .stage-results .columns {
   height: 7.5em;
 }
+/* Zu viele Balken für die Höhe: nebeneinander in Spalten (data-cols aus
+   ScrollingResults), von oben nach unten gefüllt – Platz 1–3 links, 4–6 rechts. */
+.stage-results[data-cols='2'] > .bars,
+.stage-results[data-cols='3'] > .bars {
+  display: block;
+  column-gap: 2.5em;
+}
+.stage-results[data-cols='2'] > .bars {
+  column-count: 2;
+}
+.stage-results[data-cols='3'] > .bars {
+  column-count: 3;
+}
+.stage-results[data-cols] > .bars > .bar-row {
+  break-inside: avoid;
+  margin-bottom: 0.75em;
+}
+.stage-results[data-dense='1'] > .bars {
+  font-size: 0.9em;
+}
+.stage-results[data-dense='2'] > .bars {
+  font-size: 0.8em;
+}
 .stage-results .wordcloud {
   font-size: 1.1em;
 }

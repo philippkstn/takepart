@@ -69,6 +69,8 @@ export const SLIDE_TYPE_HINTS: Record<SlideType, string> = {
 const text = (max: number) => z.string().trim().max(max);
 /** Aufgabenbeschreibung unter der Frage – klein auf Beamer und Handys (nur Folien mit Beteiligung) */
 const task = text(600).default('');
+/** Beim Betreten der Folie sind die Ergebnisse auf dem Beamer verborgen (Moderation deckt auf) */
+const startHidden = z.boolean().default(false);
 const option = z.string().trim().min(1, 'Option darf nicht leer sein').max(120);
 
 export const contentConfig = z.object({
@@ -81,11 +83,13 @@ export const choiceConfig = z.object({
   options: z.array(option).min(2).max(10).default(['Option A', 'Option B']),
   multiple: z.boolean().default(false),
   task,
+  startHidden,
 });
 export const openConfig = z.object({
   question: text(300).default(''),
   maxLength: z.number().int().min(20).max(500).default(280),
   task,
+  startHidden,
 });
 export const scaleConfig = z.object({
   question: text(300).default(''),
@@ -93,16 +97,19 @@ export const scaleConfig = z.object({
   minLabel: text(40).default('trifft nicht zu'),
   maxLabel: text(40).default('trifft voll zu'),
   task,
+  startHidden,
 });
 export const wordcloudConfig = z.object({
   question: text(300).default(''),
   maxWords: z.number().int().min(1).max(3).default(1),
   task,
+  startHidden,
 });
 export const rankingConfig = z.object({
   question: text(300).default(''),
   options: z.array(option).min(2).max(8).default(['Option A', 'Option B', 'Option C']),
   task,
+  startHidden,
 });
 export const quizConfig = z.object({
   question: text(300).default(''),
@@ -115,11 +122,13 @@ export const brainstormConfig = z.object({
   question: text(300).default(''),
   allowVotes: z.boolean().default(true),
   task,
+  startHidden,
 });
 export const pinboardConfig = z.object({
   title: text(200).default(''),
   columns: z.array(z.string().trim().min(1).max(60)).min(1).max(5).default(['Gut', 'Verbessern', 'Ideen']),
   task,
+  startHidden,
 });
 export const feedbackConfig = z.object({
   question: text(300).default('Wie hat dir der Vortrag gefallen?'),
@@ -129,6 +138,7 @@ export const feedbackConfig = z.object({
   /** Name einer Kartenwand (z. B. „Erwartungen“): jedes Handy zeigt die eigenen Karten von dort zum Gegenlesen */
   recall: z.string().trim().max(60).default(''),
   task,
+  startHidden,
 });
 export const qaConfig = z.object({
   title: text(200).default('Eure Fragen'),
@@ -210,8 +220,7 @@ export const boardConfig = z.object({
   perTeam: z.boolean().default(false),
   /** Vor dem Schreiben den Namen abfragen – z. B. für eine Runde reihum */
   askName: z.boolean().default(false),
-  /** Beim Betreten der Folie sind die Ergebnisse auf dem Beamer verborgen (Moderation deckt auf) */
-  startHidden: z.boolean().default(false),
+  startHidden,
   /* Clustern */
   layout: z.enum(['wall', 'mindmap']).default('wall'),
   /* Zuordnen: Bahnen mit eigenen Feldern; zwei Bahnen à zwei Felder ergeben eine Matrix */

@@ -77,10 +77,10 @@ async function saveRunState(db: Db, runId: number, state: RunState) {
   await exec(db, 'UPDATE runs SET state = ? WHERE id = ?', [JSON.stringify(state), runId]);
 }
 
-const startsHidden = (slide: Slide | undefined) => slide?.type === 'board' && slide.config.startHidden;
+const startsHidden = (slide: Slide | undefined) => !!slide && (slide.config as { startHidden?: unknown }).startHidden === true;
 
 /**
- * Wand-Folie mit „erst aufdecken“ betreten: Ergebnisse auf dem Beamer verbergen.
+ * Folie mit „erst aufdecken“ betreten: Ergebnisse auf dem Beamer verbergen.
  * Beim Verlassen einer solchen Folie werden sie wieder gezeigt – sonst bleibt
  * die Einstellung wie bisher folienübergreifend stehen.
  */
