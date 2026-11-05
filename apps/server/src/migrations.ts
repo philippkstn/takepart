@@ -361,4 +361,14 @@ export const migrations: Migration[] = [
     name: '013_protocol_expires',
     statements: [`ALTER TABLE runs ADD COLUMN protocol_expires DATETIME(3) NULL AFTER protocol_slides`],
   },
+  {
+    // Folienbilder in doppelter Auflösung (Druck, große Beamer) und Textebene der PDF-Seite (JSON)
+    name: '014_asset_hires',
+    statements: [
+      `ALTER TABLE assets
+         ADD COLUMN hires MEDIUMBLOB NULL AFTER thumb_mime,
+         ADD COLUMN hires_mime VARCHAR(40) NULL AFTER hires,
+         ADD COLUMN text_layer MEDIUMTEXT NULL AFTER hires_mime`,
+    ],
+  },
 ];

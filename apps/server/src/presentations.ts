@@ -434,6 +434,63 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     return { ids: created };
   });
 
+  /**
+   * „Folienbilder aktualisieren“: neue Bilder (aus einem erneuten PDF-Export) für
+   * bestehende Bildfolien – an Ort und Stelle. Folien-IDs, Reihenfolge, Animationen,
+   * Notizen und alle Ergebnisse bleiben; nur Bild, Maße und Titel wechseln.
+   * Die alten Bilder räumt `deleteOrphanAssets` später ab.
+   */
+  app.post('/api/presentations/:id/slides/replace-images', { ...ownPresentation, bodyLimit: 1024 * 1024 }, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const body = z
+      .object({
+        items: z
+          .array(
+            z.object({
+              slideId: z.number().int(),
+              asset: z.string(),
+              width: z.number().int().min(1).max(10000),
+              height: z.number().int().min(1).max(10000),
+              title: z.string().max(200).optional(),
+            }),
+          )
+          .min(1)
+          .max(300),
+      })
+      .parse(request.body);
+    const assets = new Set(
+      (await query<{ public_id: string }>(db, 'SELECT public_id FROM assets WHERE presentation_id = ?', [id])).map((r) => r.public_id),
+    );
+    if (body.items.some((it) => !assets.has(it.asset))) return reply.code(400).send({ error: 'Unbekanntes Folienbild' });
+    const result = await transaction(db, async (conn) => {
+      const slides = new Map(
+        (
+          await query<{ id: number; config: string }>(
+            conn,
+            "SELECT id, config FROM slides WHERE presentation_id = ? AND type = 'image' FOR UPDATE",
+            [id],
+          )
+        ).map((s) => [s.id, json<Record<string, unknown>>(s.config)]),
+      );
+      if (body.items.some((it) => !slides.has(it.slideId))) return null;
+      for (const it of body.items) {
+        const current = slides.get(it.slideId)!;
+        const config = parseConfig('image', {
+          ...current,
+          asset: it.asset,
+          width: it.width,
+          height: it.height,
+          title: it.title?.trim() ? it.title.trim().slice(0, 200) : current.title,
+        });
+        await exec(conn, 'UPDATE slides SET config = ? WHERE id = ?', [JSON.stringify(config), it.slideId]);
+      }
+      return body.items.length;
+    });
+    if (result === null) return reply.code(400).send({ error: 'Unbekannte Bildfolie' });
+    await touch(id);
+    return { updated: result };
+  });
+
   app.put('/api/presentations/:id/order', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
     const body = z.object({ ids: z.array(z.number().int()) }).parse(request.body);

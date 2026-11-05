@@ -9,11 +9,15 @@ import {
   type SlideResults,
   type SlideConfigs,
   type SlideType,
+  assetTextUrl,
   assetUrl,
+  cleanTextRuns,
+  hiresUrl,
   hasVoteScale,
   tagCountText,
   teamLabel,
 } from '@slides/shared';
+import { useQuery } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { BarList, SlideResultsView } from '../Results.tsx';
 import { BrandMark } from '../ui.tsx';
@@ -113,11 +117,14 @@ export function ProtocolView({
   toolbar,
   noteEditor,
   showSlides = false,
+  hiresSlides = true,
 }: {
   run: ProtocolData;
   toolbar?: ReactNode;
   noteEditor?: (slide: ProtocolSlide) => ReactNode;
   showSlides?: boolean;
+  /** Folienbilder in doppelter Auflösung (schärfer, aber deutlich größeres PDF) */
+  hiresSlides?: boolean;
 }) {
   // Der Dokumenttitel wird zum Dateinamen der PDF
   useEffect(() => {
@@ -186,7 +193,7 @@ export function ProtocolView({
 
       {shown.map((s, position) => {
         const i = exercise.get(s.id);
-        if (i === undefined) return <SlidePage key={s.id} slide={s} position={run.slides.indexOf(s)} />;
+        if (i === undefined) return <SlidePage key={s.id} slide={s} position={run.slides.indexOf(s)} hires={hiresSlides} />;
         const image = showSlides ? slideImage(s) : null;
         return (
           <section key={s.id} className="protocol-page">
@@ -198,7 +205,7 @@ export function ProtocolView({
               </span>
               <h2>{s.headline || s.typeLabel}</h2>
             </header>
-            {image && <SlideImage image={image} />}
+            {image && <SlideImage image={image} hires={hiresSlides} />}
             <SlideBody slide={s} index={i} />
             {s.note && (
               <div className={`protocol-minutes${noteEditor ? ' print-only' : ''}`}>
@@ -215,16 +222,47 @@ export function ProtocolView({
 }
 
 /** Folienbild im Format der Bühne (16:9, Endzustand ohne Animationen) */
-function SlideImage({ image }: { image: SlideConfigs['image'] }) {
+/**
+ * Folienbild in doppelter Auflösung (fällt auf das normale zurück) mit unsichtbarer
+ * Textebene darüber – im gespeicherten PDF lässt sich der Folientext so markieren,
+ * kopieren und durchsuchen.
+ */
+function SlideImage({ image, hires }: { image: SlideConfigs['image']; hires: boolean }) {
+  const text = useQuery({
+    queryKey: ['slide-text', image.asset],
+    queryFn: async () => {
+      const res = await fetch(assetTextUrl(image.asset));
+      return res.ok ? cleanTextRuns(await res.json()) : [];
+    },
+    staleTime: Infinity,
+  });
+  const { width: W, height: H } = image;
   return (
     <div className="protocol-slide">
-      <img src={assetUrl(image.asset)} alt={image.title || 'Folie'} width={image.width} height={image.height} />
+      <img src={hires ? hiresUrl(image.asset) : assetUrl(image.asset)} alt={image.title || 'Folie'} width={W} height={H} />
+      {!!text.data?.length && (
+        <svg className="protocol-slide-text" viewBox={`0 0 ${W} ${H}`} aria-hidden>
+          {text.data.map(([t, x, y, w, size], i) => (
+            <text
+              key={i}
+              x={x * W}
+              y={y * H}
+              fontSize={size * H}
+              textLength={w * W}
+              lengthAdjust="spacingAndGlyphs"
+              xmlSpace="preserve"
+            >
+              {t}
+            </text>
+          ))}
+        </svg>
+      )}
     </div>
   );
 }
 
 /** Folie ohne Ergebnisse, nur mit „Folien mitdrucken“: Bild bzw. Titel und Text */
-function SlidePage({ slide: s, position }: { slide: ProtocolSlide; position: number }) {
+function SlidePage({ slide: s, position, hires }: { slide: ProtocolSlide; position: number; hires: boolean }) {
   const image = slideImage(s);
   const content = s.type === 'content' ? (s.config as SlideConfigs['content']) : null;
   return (
@@ -234,7 +272,7 @@ function SlidePage({ slide: s, position }: { slide: ProtocolSlide; position: num
         {s.type !== 'image' && ` · ${s.typeLabel}`}
       </span>
       {image ? (
-        <SlideImage image={image} />
+        <SlideImage image={image} hires={hires} />
       ) : (
         <div className="protocol-slide is-text">
           <h2>{content ? content.title || s.typeLabel : s.headline || s.typeLabel}</h2>

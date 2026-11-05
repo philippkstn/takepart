@@ -64,3 +64,35 @@ export function planNotes(slides: PptxSlideInfo[] | null, pageCount: number, inc
     skippedHidden: 0,
   };
 }
+
+const normTitle = (t: string) => t.toLowerCase().replace(/\s+/g, ' ').trim();
+
+/**
+ * „Folienbilder aktualisieren“: Seiten eines neuen PDFs den vorhandenen Bildfolien
+ * zuordnen. Gleiche Anzahl → der Reihe nach. Sonst über die Überschriften
+ * (längste gemeinsame Teilfolge, Reihenfolge bleibt): jede Bildfolie braucht eine
+ * Seite mit gleicher Überschrift, sonst `null` (lieber abbrechen als falsch zuordnen).
+ * Liefert je Bildfolie den Seitenindex.
+ */
+export function alignPages(slideTitles: string[], pageTitles: string[]): number[] | null {
+  if (slideTitles.length === pageTitles.length) return slideTitles.map((_, i) => i);
+  const a = slideTitles.map(normTitle);
+  const b = pageTitles.map(normTitle);
+  if (a.some((t) => !t)) return null;
+  const n = a.length;
+  const m = b.length;
+  const dp = Array.from({ length: n + 1 }, () => Array.from({ length: m + 1 }, () => 0));
+  for (let i = n - 1; i >= 0; i--)
+    for (let j = m - 1; j >= 0; j--) dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
+  if (dp[0]![0] !== n) return null;
+  const out: number[] = [];
+  for (let i = 0, j = 0; i < n && j < m; ) {
+    if (a[i] === b[j] && dp[i]![j] === dp[i + 1]![j + 1]! + 1) {
+      out.push(j);
+      i++;
+      j++;
+    } else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) i++;
+    else j++;
+  }
+  return out.length === n ? out : null;
+}

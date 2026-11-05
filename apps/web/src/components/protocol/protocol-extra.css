@@ -161,3 +161,17 @@
 .protocol-share-expired {
   color: var(--danger);
 }
+
+/* Unsichtbare Textebene über dem Folienbild: im gespeicherten PDF markier- und kopierbar */
+.protocol-slide {
+  position: relative;
+}
+.protocol-slide-text {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  font-family: Figtree, Arial, sans-serif;
+  fill: transparent;
+  user-select: text;
+}

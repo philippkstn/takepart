@@ -1,5 +1,4 @@
 import {
-  assetUrl,
   headlineSize,
   slideTask,
   SLIDE_TYPE_LABELS,
@@ -13,7 +12,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
-import { useDecodedSlide } from '../lib/slideImage.ts';
+import { useDecodedSlide, useSlideSrc } from '../lib/slideImage.ts';
 import { BoardStage } from './board/BoardStage.tsx';
 import { StageCallback } from './board/Breakout.tsx';
 import { ScrollingResults } from '../lib/autoScroll.tsx';
@@ -167,8 +166,8 @@ export function Stage({
  */
 function ImageStage({ slide, step, animate }: { slide: Extract<PublicSlide, { type: 'image' }>; step: number; animate: boolean }) {
   const shown = useDecodedSlide(slide);
-  if (!shown) return <div className="stage-image" />;
-  const src = assetUrl(shown.config.asset);
+  const src = useSlideSrc(shown?.config.asset);
+  if (!shown || !src) return <div className="stage-image" />;
   const alt = shown.config.title || 'Folie';
   // Die vorige Folie steht im Endzustand ihrer Animationen, bis die neue da ist.
   const shownStep = shown.id === slide.id ? step : (shown.config.builds?.steps ?? 0);

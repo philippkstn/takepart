@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { planNotes, type PptxSlideInfo } from './deck.ts';
+import { alignPages, planNotes, type PptxSlideInfo } from './deck.ts';
 
 const slides: PptxSlideInfo[] = [
   { notes: 'eins', hidden: false },
@@ -47,5 +47,19 @@ describe('Notizen zuordnen', () => {
     expect(plan.mode).toBe('mismatch');
     expect(plan.pages.every((p) => p.slide === null)).toBe(true);
     expect(plan.pages.map((p) => p.notes)).toEqual(['eins', 'drei', '', '', '']);
+  });
+});
+
+describe('Folienbilder aktualisieren: Seiten zuordnen', () => {
+  it('ordnet bei gleicher Anzahl der Reihe nach zu', () => {
+    expect(alignPages(['A', 'B'], ['X', 'Y'])).toEqual([0, 1]);
+  });
+  it('überspringt zusätzliche Seiten anhand der Überschriften', () => {
+    expect(alignPages(['Start', 'Ende'], ['Start', 'Neu', 'ende'])).toEqual([0, 2]);
+    expect(alignPages(['A', 'A', 'B'], ['A', 'X', 'A', 'B'])).toEqual([0, 2, 3]);
+  });
+  it('bricht ab, wenn eine Folie keine passende Seite hat', () => {
+    expect(alignPages(['A', 'Fehlt'], ['A', 'B', 'C'])).toBeNull();
+    expect(alignPages(['', 'B'], ['A', 'B', 'C'])).toBeNull();
   });
 });

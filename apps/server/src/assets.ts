@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { assetId } from '@slides/shared';
+import { assetId, cleanTextRuns } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
@@ -16,6 +16,8 @@ import { exec, one, type Conn, type Db } from './db.ts';
  */
 
 const MAX_IMAGE_BYTES = 6 * 1024 * 1024;
+/** Druckbild (doppelte Auflösung) darf größer sein */
+const MAX_HIRES_BYTES = 12 * 1024 * 1024;
 const IMAGE_TYPES = ['image/webp', 'image/jpeg', 'image/png'] as const;
 
 /** Bildformat an den ersten Bytes erkennen – der Content-Type allein reicht nicht. */
@@ -68,8 +70,8 @@ export async function copyAssets(conn: Conn, fromId: number, toId: number): Prom
     const fresh = newPublicId();
     await exec(
       conn,
-      `INSERT INTO assets (presentation_id, public_id, mime, width, height, data, thumb, thumb_mime)
-       SELECT ?, ?, mime, width, height, data, thumb, thumb_mime FROM assets WHERE public_id = ?`,
+      `INSERT INTO assets (presentation_id, public_id, mime, width, height, data, thumb, thumb_mime, hires, hires_mime, text_layer)
+       SELECT ?, ?, mime, width, height, data, thumb, thumb_mime, hires, hires_mime, text_layer FROM assets WHERE public_id = ?`,
       [toId, fresh, r.public_id],
     );
     map.set(r.public_id, fresh);
@@ -79,7 +81,7 @@ export async function copyAssets(conn: Conn, fromId: number, toId: number): Prom
 
 export function assetRoutes(app: FastifyInstance, db: Db) {
   // Rohe Bilddaten als Body (nur für die Upload-Routen relevant; alle anderen erwarten JSON)
-  app.addContentTypeParser([...IMAGE_TYPES], { parseAs: 'buffer', bodyLimit: MAX_IMAGE_BYTES }, (_req, body, done) => done(null, body));
+  app.addContentTypeParser([...IMAGE_TYPES], { parseAs: 'buffer', bodyLimit: MAX_HIRES_BYTES }, (_req, body, done) => done(null, body));
 
   const uploadQuery = z.object({ width: z.coerce.number().int().min(1).max(10000), height: z.coerce.number().int().min(1).max(10000) });
 
@@ -114,6 +116,36 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
     return { ok: true };
   });
 
+  /** Druckbild in doppelter Auflösung – für Fotoprotokoll und große Beamer */
+  app.put('/api/assets/:asset/hires', { ...requireOwner(db, 'asset', 'asset'), bodyLimit: MAX_HIRES_BYTES }, async (request, reply) => {
+    const { asset } = z.object({ asset: assetId }).parse(request.params);
+    const data = request.body;
+    const mime = Buffer.isBuffer(data) ? sniffImage(data) : null;
+    if (!Buffer.isBuffer(data) || !mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
+    const result = await exec(db, 'UPDATE assets SET hires = ?, hires_mime = ? WHERE public_id = ?', [data, mime, asset]);
+    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
+    return { ok: true };
+  });
+
+  /** Textebene der PDF-Seite (`TextRun[]`), unsichtbar über dem Bild im Fotoprotokoll */
+  app.put('/api/assets/:asset/text', { ...requireOwner(db, 'asset', 'asset'), bodyLimit: 2 * 1024 * 1024 }, async (request, reply) => {
+    const { asset } = z.object({ asset: assetId }).parse(request.params);
+    const runs = cleanTextRuns((request.body as { runs?: unknown } | null)?.runs);
+    const result = await exec(db, 'UPDATE assets SET text_layer = ? WHERE public_id = ?', [runs.length ? JSON.stringify(runs) : null, asset]);
+    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
+    return { ok: true };
+  });
+
+  app.get('/api/assets/:asset/text', async (request, reply) => {
+    const parsed = z.object({ asset: assetId }).safeParse(request.params);
+    if (!parsed.success) return reply.code(404).send({ error: 'Nicht gefunden' });
+    const row = await one<{ text_layer: string | null }>(db, 'SELECT text_layer FROM assets WHERE public_id = ?', [parsed.data.asset]);
+    if (!row) return reply.code(404).send({ error: 'Nicht gefunden' });
+    // Nicht immutable: die Textebene wird nach dem Bild hochgeladen
+    reply.header('Cache-Control', 'public, max-age=3600');
+    return reply.type('application/json').send(row.text_layer ?? '[]');
+  });
+
   const serve = (thumb: boolean) => async (request: import('fastify').FastifyRequest, reply: import('fastify').FastifyReply) => {
     const parsed = z.object({ asset: assetId }).safeParse(request.params);
     if (!parsed.success) return reply.code(404).send({ error: 'Nicht gefunden' });
@@ -134,4 +166,20 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
   };
   app.get('/api/assets/:asset', serve(false));
   app.get('/api/assets/:asset/thumb', serve(true));
+  app.get('/api/assets/:asset/hires', async (request, reply) => {
+    const parsed = z.object({ asset: assetId }).safeParse(request.params);
+    if (!parsed.success) return reply.code(404).send({ error: 'Nicht gefunden' });
+    // Ohne Druckbild (ältere Importe) das normale Bild
+    const row = await one<{ body: Buffer; type: string }>(
+      db,
+      'SELECT COALESCE(hires, data) AS body, IF(hires IS NULL, mime, hires_mime) AS type FROM assets WHERE public_id = ?',
+      [parsed.data.asset],
+    );
+    if (!row) return reply.code(404).send({ error: 'Nicht gefunden' });
+    return reply
+      .header('Content-Type', row.type)
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('Content-Security-Policy', "default-src 'none'; sandbox")
+      .send(row.body);
+  });
 }

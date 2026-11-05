@@ -405,6 +405,10 @@ export function buildSteps(slide: { type: string; config: unknown }): number {
 
 /** URLs hochgeladener Bilder; die Kennung ist zufällig und nicht erratbar. */
 export const assetUrl = (asset: string) => `/api/assets/${asset}`;
+/** Druckbild in doppelter Auflösung (fällt auf das normale Bild zurück, wenn es keins gibt) */
+export const hiresUrl = (asset: string) => `/api/assets/${asset}/hires`;
+/** Textebene einer Folie (JSON, `TextRun[]`) */
+export const assetTextUrl = (asset: string) => `/api/assets/${asset}/text`;
 export const assetThumbUrl = (asset: string) => `/api/assets/${asset}/thumb`;
 
 /** Folientypen, deren Beiträge als einzelne Karten (Posts) gespeichert werden. */

@@ -33,6 +33,7 @@ import {
   Play,
   Plus,
   Radio,
+  RefreshCw,
   Sparkles,
   Timer,
   Trash2,
@@ -43,6 +44,7 @@ import { Link, useParams } from 'react-router';
 import { InsertPicker, SaveBlockDialog } from '../../components/admin/BlockPicker.tsx';
 import { RehearsalList } from '../../components/admin/RehearsalList.tsx';
 import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
+import { ReplaceImagesDialog } from '../../components/admin/ReplaceImagesDialog.tsx';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
 import { ScheduleFields } from '../../components/admin/ScheduleFields.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
@@ -88,6 +90,7 @@ export default function EditorPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   /** Hinter welcher Folie der Einfügen-Dialog bzw. der PDF-Import einfügt (Rechtsklick oder +) */
   const [insertAfter, setInsertAfter] = useState<number | null>(null);
   const [inserting, setInserting] = useState(false);
@@ -372,6 +375,15 @@ export default function EditorPage() {
             >
               <FileUp /> PDF importieren
             </button>
+            {slides.some((s) => s.type === 'image') && (
+              <button
+                className="btn btn-block"
+                onClick={() => setReplacing(true)}
+                title="Dieselbe Präsentation erneut als PDF hochladen – schärfere Bilder und kopierbarer Text, Ergebnisse bleiben"
+              >
+                <RefreshCw /> Folienbilder aktualisieren
+              </button>
+            )}
             {slides.some(needsRefit) && (
               <button
                 className="btn btn-block"
@@ -521,6 +533,18 @@ export default function EditorPage() {
           schedule={pres.data.schedule}
           startId={savingBlock}
           onClose={() => setSavingBlock(null)}
+        />
+      )}
+      {replacing && (
+        <ReplaceImagesDialog
+          presentationId={id}
+          imageSlides={slides.flatMap((s) => (s.type === 'image' ? [{ id: s.id, title: s.config.title }] : []))}
+          onClose={() => setReplacing(false)}
+          onDone={async (count) => {
+            setReplacing(false);
+            toast(`${count} Folienbilder aktualisiert`);
+            await refresh();
+          }}
         />
       )}
       {importing && (

@@ -11,7 +11,7 @@ import { api } from '../lib/api.ts';
 import { playEnd, playWarning, useCountdownMoments, useCountdownSounds } from '../lib/countdownSound.ts';
 import { useLive } from '../lib/live.ts';
 import { usePresenterKeys } from '../lib/presenterKeys.ts';
-import { usePreload } from '../lib/slideImage.ts';
+import { HiresSlides, useHiresDecision, usePreload } from '../lib/slideImage.ts';
 import { authStatus } from '../lib/passkey.ts';
 import './display.css';
 
@@ -29,6 +29,7 @@ export default function DisplayPage() {
   const isHost = !!auth.data?.loggedIn;
   const [fullscreen, setFullscreen] = useState(false);
   const [idle, setIdle] = useState(false);
+  const hires = useHiresDecision();
   const runId = view?.run.id;
   const sound = useCountdownSounds(view?.countdown ?? null, offset);
   // Pause: dieselben Töne eine Minute vor Ende und bei Ablauf
@@ -100,47 +101,50 @@ export default function DisplayPage() {
   if (!view) return <FullScreenSpinner />;
 
   return (
-    <div className={`display-page ${idle ? 'is-idle' : ''}`}>
-      {/* Feste 16:9-Bühne: Laserpointer und Zeichnungen liegen so exakt wie im Steuerpult */}
-      <div className="display-box">
-        <Stage
-          view={view}
-          offset={offset}
-          overlay={
-            <>
-              <InkOverlay ink={ink} />
-              <CountdownPopup countdown={view.countdown} offset={offset} />
-            </>
-          }
-        />
-      </div>
-      <Preload urls={view.preload} />
-      {wasHidden.shown && (
-        <div className="display-hidden-note" role="status">
-          <EyeOff size={16} aria-hidden />
-          <span>
-            Dieses Fenster war verdeckt – Browser zeichnen verdeckte Fenster nicht neu. Für Beamer oder Bildschirmfreigabe sichtbar lassen.
-          </span>
-          <button className="icon-btn" onClick={wasHidden.dismiss} aria-label="Hinweis schließen">
-            <X size={16} />
-          </button>
+    <HiresSlides.Provider value={hires}>
+      <div className={`display-page ${idle ? 'is-idle' : ''}`}>
+        {/* Feste 16:9-Bühne: Laserpointer und Zeichnungen liegen so exakt wie im Steuerpult */}
+        <div className="display-box">
+          <Stage
+            view={view}
+            offset={offset}
+            overlay={
+              <>
+                <InkOverlay ink={ink} />
+                <CountdownPopup countdown={view.countdown} offset={offset} />
+              </>
+            }
+          />
         </div>
-      )}
-      <ConnectionBadge status={status} />
-      {(view.countdown || view.pause) && sound.locked && (
-        <button className="display-sound btn btn-small" onClick={sound.unlock} title="Ton für den Countdown freigeben">
-          <VolumeX /> Ton aktivieren
+        <Preload urls={view.preload} />
+        {wasHidden.shown && (
+          <div className="display-hidden-note" role="status">
+            <EyeOff size={16} aria-hidden />
+            <span>
+              Dieses Fenster war verdeckt – Browser zeichnen verdeckte Fenster nicht neu. Für Beamer oder Bildschirmfreigabe sichtbar
+              lassen.
+            </span>
+            <button className="icon-btn" onClick={wasHidden.dismiss} aria-label="Hinweis schließen">
+              <X size={16} />
+            </button>
+          </div>
+        )}
+        <ConnectionBadge status={status} />
+        {(view.countdown || view.pause) && sound.locked && (
+          <button className="display-sound btn btn-small" onClick={sound.unlock} title="Ton für den Countdown freigeben">
+            <VolumeX /> Ton aktivieren
+          </button>
+        )}
+        <button
+          className="display-fs icon-btn"
+          onClick={toggleFullscreen}
+          aria-label={fullscreen ? 'Vollbild verlassen' : 'Vollbild'}
+          title="Vollbild (F)"
+        >
+          {fullscreen ? <Minimize /> : <Maximize />}
         </button>
-      )}
-      <button
-        className="display-fs icon-btn"
-        onClick={toggleFullscreen}
-        aria-label={fullscreen ? 'Vollbild verlassen' : 'Vollbild'}
-        title="Vollbild (F)"
-      >
-        {fullscreen ? <Minimize /> : <Maximize />}
-      </button>
-    </div>
+      </div>
+    </HiresSlides.Provider>
   );
 }
 

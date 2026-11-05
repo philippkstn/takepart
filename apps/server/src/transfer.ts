@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { promisify } from 'node:util';
 import { gunzip as gunzipCb, gzip as gzipCb } from 'node:zlib';
 import {
+  cleanTextRuns,
   liveTurns,
   parseConfig,
   plannedMinutes,
@@ -69,6 +70,10 @@ const fileSchema = z.object({
       data: base64,
       thumb: base64.nullable(),
       thumbMime: z.string().max(40).nullable(),
+      // Druckbild und Textebene (seit 014, optional – ältere Dateien haben sie nicht)
+      hires: base64.nullable().optional(),
+      hiresMime: z.string().max(40).nullable().optional(),
+      text: z.unknown().optional(),
     }),
   ),
   slides: z
@@ -242,9 +247,14 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
     data: Buffer;
     thumb: Buffer | null;
     thumb_mime: string | null;
-  }>(db, 'SELECT public_id, mime, width, height, data, thumb, thumb_mime FROM assets WHERE presentation_id = ? ORDER BY id', [
-    presentationId,
-  ]);
+    hires: Buffer | null;
+    hires_mime: string | null;
+    text_layer: string | null;
+  }>(
+    db,
+    'SELECT public_id, mime, width, height, data, thumb, thumb_mime, hires, hires_mime, text_layer FROM assets WHERE presentation_id = ? ORDER BY id',
+    [presentationId],
+  );
   const slides = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null }>(
     db,
     `SELECT id, type, config, notes, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id`,
@@ -379,6 +389,9 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
       data: a.data.toString('base64'),
       thumb: a.thumb?.toString('base64') ?? null,
       thumbMime: a.thumb_mime,
+      hires: a.hires?.toString('base64') ?? null,
+      hiresMime: a.hires_mime,
+      text: a.text_layer ? json<unknown>(a.text_layer) : undefined,
     })),
     slides: slides.map((s) => {
       const schedule = scheduleFromRow(s);
@@ -435,7 +448,8 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
       const publicId = newPublicId();
       await exec(
         conn,
-        'INSERT INTO assets (presentation_id, public_id, mime, width, height, data, thumb, thumb_mime) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        `INSERT INTO assets (presentation_id, public_id, mime, width, height, data, thumb, thumb_mime, hires, hires_mime, text_layer)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           presentationId,
           publicId,
@@ -445,6 +459,9 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
           Buffer.from(a.data, 'base64'),
           a.thumb ? Buffer.from(a.thumb, 'base64') : null,
           a.thumb ? a.thumbMime : null,
+          a.hires ? Buffer.from(a.hires, 'base64') : null,
+          a.hires ? (a.hiresMime ?? null) : null,
+          cleanTextRuns(a.text).length ? JSON.stringify(cleanTextRuns(a.text)) : null,
         ],
       );
       assets.set(a.id, publicId);

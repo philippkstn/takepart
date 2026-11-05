@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { planNotes, type BuildsConfig, type NotesPlan, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
 import { extractPptxNotes, pageBuilds, renderPdfPages } from '../../lib/importDeck.ts';
+import { uploadPage } from '../../lib/uploadPage.ts';
 
 interface Props {
   presentationId: number;
@@ -15,15 +16,6 @@ interface Props {
 type Phase = { step: 'idle' } | { step: 'notes' } | { step: 'pages'; done: number; total: number } | { step: 'saving' };
 
 const MAX_PDF_BYTES = 150 * 1024 * 1024;
-
-async function uploadImage(path: string, blob: Blob, method = 'POST') {
-  const res = await fetch(path, { method, headers: { 'Content-Type': blob.type }, body: blob, credentials: 'same-origin' });
-  if (!res.ok) {
-    const data = (await res.json().catch(() => null)) as { error?: string } | null;
-    throw new Error(data?.error ?? `Upload fehlgeschlagen (${res.status})`);
-  }
-  return res.json() as Promise<{ asset: string }>;
-}
 
 /**
  * Folien importieren: PDF (Pflicht) plus optional die PPTX für Sprechernotizen.
@@ -66,11 +58,7 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
       for await (const page of renderPdfPages(pdf, select, raw)) {
         const wanted = plan!.pages.filter((p) => p.include).length;
         setPhase({ step: 'pages', done: items.length, total: wanted });
-        const { asset } = await uploadImage(
-          `/api/presentations/${presentationId}/assets?width=${page.width}&height=${page.height}`,
-          page.full,
-        );
-        await uploadImage(`/api/assets/${asset}/thumb`, page.thumb, 'PUT');
+        const asset = await uploadPage(presentationId, page);
         const { builds, skipped } = pageBuilds(page, raw(page.index), plan!.pages[page.index]?.slide);
         skippedRegions += skipped;
         if (builds) animated++;

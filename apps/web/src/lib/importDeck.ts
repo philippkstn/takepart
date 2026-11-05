@@ -10,10 +10,21 @@
  * für Teilnehmende.
  */
 
-import { fitBuildBox, rotatedBounds, type BuildEffect, type BuildsConfig, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
+import {
+  fitBuildBox,
+  rotatedBounds,
+  textRuns,
+  type BuildEffect,
+  type BuildsConfig,
+  type PptxSlideInfo,
+  type RawBuildRegion,
+  type TextRun,
+} from '@slides/shared';
 
 /** Lange Seite der Folienbilder in Pixeln – scharf auf Full-HD-Beamern, klein genug für Handys. */
 const FULL_SIZE = 1920;
+/** Druckbild (Fotoprotokoll, große Beamer): doppelte Auflösung */
+const HIRES_SIZE = 3840;
 const THUMB_WIDTH = 400;
 
 export interface RenderedPage {
@@ -23,6 +34,10 @@ export interface RenderedPage {
   height: number;
   full: Blob;
   thumb: Blob;
+  /** Doppelte Auflösung – Druck und große Beamer */
+  hires: Blob;
+  /** Text der Seite mit Position (unsichtbar über dem Bild im Fotoprotokoll) */
+  text: TextRun[];
   /** Größter Text der Seite – meist die Überschrift, für Folienlisten */
   title: string;
   /**
@@ -61,6 +76,37 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob>
   });
 }
 
+async function openPdf(file: File) {
+  const pdfjs = await import('pdfjs-dist');
+  const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
+  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+  return pdfjs.getDocument({
+    data: new Uint8Array(await file.arrayBuffer()),
+    cMapUrl: '/pdfjs/cmaps/',
+    cMapPacked: true,
+    standardFontDataUrl: '/pdfjs/standard_fonts/',
+    wasmUrl: '/pdfjs/wasm/',
+    iccUrl: '/pdfjs/iccs/',
+  });
+}
+
+/** Überschriften aller Seiten (ohne zu rendern) – zum Zuordnen beim Aktualisieren der Folienbilder */
+export async function pdfPageTitles(file: File): Promise<string[]> {
+  const task = await openPdf(file);
+  try {
+    const doc = await task.promise;
+    const titles: string[] = [];
+    for (let i = 1; i <= doc.numPages; i++) {
+      const page = await doc.getPage(i);
+      titles.push(await pageTitle(page));
+      page.cleanup();
+    }
+    return titles;
+  } finally {
+    await task.destroy();
+  }
+}
+
 /**
  * Rendert die Seiten eines PDFs. `select` bekommt die Seitenzahl und entscheidet
  * je Seite, ob sie gebraucht wird – übersprungene Seiten werden nicht gerendert.
@@ -70,18 +116,7 @@ export async function* renderPdfPages(
   select: (total: number) => (index: number) => boolean = () => () => true,
   regionsFor: (index: number) => Box[] = () => [],
 ): AsyncGenerator<RenderedPage> {
-  const pdfjs = await import('pdfjs-dist');
-  const worker = await import('pdfjs-dist/build/pdf.worker.min.mjs?url');
-  pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-
-  const task = pdfjs.getDocument({
-    data: new Uint8Array(await file.arrayBuffer()),
-    cMapUrl: '/pdfjs/cmaps/',
-    cMapPacked: true,
-    standardFontDataUrl: '/pdfjs/standard_fonts/',
-    wasmUrl: '/pdfjs/wasm/',
-    iccUrl: '/pdfjs/iccs/',
-  });
+  const task = await openPdf(file);
   const doc = await task.promise;
   const wanted = select(doc.numPages);
 
@@ -90,19 +125,26 @@ export async function* renderPdfPages(
       if (!wanted(i - 1)) continue;
       const page = await doc.getPage(i);
       const base = page.getViewport({ scale: 1 });
-      const scale = FULL_SIZE / Math.max(base.width, base.height);
-      const viewport = page.getViewport({ scale });
+      // Einmal in doppelter Auflösung rendern, das Beamer-Bild daraus verkleinern
+      const hiresViewport = page.getViewport({ scale: HIRES_SIZE / Math.max(base.width, base.height) });
+      const hiresCanvas = document.createElement('canvas');
+      hiresCanvas.width = Math.round(hiresViewport.width);
+      hiresCanvas.height = Math.round(hiresViewport.height);
+      const hctx = hiresCanvas.getContext('2d')!;
+      // Weißer Grund: transparente PDF-Seiten sähen sonst auf dunklem Beamer schwarz aus.
+      hctx.fillStyle = '#ffffff';
+      hctx.fillRect(0, 0, hiresCanvas.width, hiresCanvas.height);
+      // intent 'print': zeichnet ohne requestAnimationFrame – der Import läuft so auch
+      // weiter, wenn der Tab im Hintergrund liegt. Für statische Folienbilder ohnehin passend.
+      await page.render({ canvas: hiresCanvas, canvasContext: hctx, viewport: hiresViewport, intent: 'print' }).promise;
 
+      const viewport = page.getViewport({ scale: FULL_SIZE / Math.max(base.width, base.height) });
       const canvas = document.createElement('canvas');
       canvas.width = Math.round(viewport.width);
       canvas.height = Math.round(viewport.height);
       const ctx = canvas.getContext('2d')!;
-      // Weißer Grund: transparente PDF-Seiten sähen sonst auf dunklem Beamer schwarz aus.
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      // intent 'print': zeichnet ohne requestAnimationFrame – der Import läuft so auch
-      // weiter, wenn der Tab im Hintergrund liegt. Für statische Folienbilder ohnehin passend.
-      await page.render({ canvas, canvasContext: ctx, viewport, intent: 'print' }).promise;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(hiresCanvas, 0, 0, canvas.width, canvas.height);
 
       const thumbCanvas = document.createElement('canvas');
       thumbCanvas.width = THUMB_WIDTH;
@@ -124,7 +166,13 @@ export async function* renderPdfPages(
         fitted = samples.map((x) => x.box);
       }
 
-      const [full, thumb, title] = await Promise.all([canvasToBlob(canvas, 0.86), canvasToBlob(thumbCanvas, 0.8), pageTitle(page)]);
+      const [full, hires, thumb, title, text] = await Promise.all([
+        canvasToBlob(canvas, 0.9),
+        canvasToBlob(hiresCanvas, 0.9),
+        canvasToBlob(thumbCanvas, 0.8),
+        pageTitle(page),
+        pageText(page, viewport),
+      ]);
       page.cleanup();
       yield {
         index: i - 1,
@@ -133,6 +181,8 @@ export async function* renderPdfPages(
         height: canvas.height,
         full,
         thumb,
+        hires,
+        text,
         title,
         fills,
         boxes: fitted,
@@ -141,6 +191,18 @@ export async function* renderPdfPages(
     }
   } finally {
     await task.destroy();
+  }
+}
+
+/** Text der Seite mit Position (Anteile der Seite) – leer, wenn die PDF keinen Text enthält */
+async function pageText(
+  page: { getTextContent: () => Promise<{ items: unknown[] }> },
+  viewport: { width: number; height: number; scale: number; transform: number[] },
+): Promise<TextRun[]> {
+  try {
+    return textRuns((await page.getTextContent()).items, viewport);
+  } catch {
+    return [];
   }
 }
 

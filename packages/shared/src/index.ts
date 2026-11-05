@@ -19,3 +19,4 @@ export * from './schedule.ts';
 export * from './similar.ts';
 export * from './about.ts';
 export * from './buildFit.ts';
+export * from './textLayer.ts';

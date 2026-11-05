@@ -26,6 +26,7 @@ export default function ProtocolPage() {
   const data = useQuery({ queryKey: ['run-results', runId], queryFn: () => api<RunResults>(`/api/runs/${runId}/results`) });
   const run = data.data;
   const [withSlides, setWithSlides] = usePref('protocol-slides', false, isBoolean);
+  const [hires, setHires] = usePref('protocol-hires', true, isBoolean);
 
   if (data.isLoading) return <FullScreenSpinner />;
   if (!run) return <main className="page">Nicht gefunden.</main>;
@@ -34,6 +35,7 @@ export default function ProtocolPage() {
     <ProtocolView
       run={run}
       showSlides={withSlides}
+      hiresSlides={hires}
       toolbar={
         <>
           <div className="protocol-toolbar no-print">
@@ -45,6 +47,12 @@ export default function ProtocolPage() {
               <input type="checkbox" checked={withSlides} onChange={(e) => setWithSlides(e.target.checked)} />
               Folien mitdrucken
             </label>
+            {withSlides && (
+              <label className="row small" title="Schärfer, aber das PDF wird etwa dreimal so groß">
+                <input type="checkbox" checked={hires} onChange={(e) => setHires(e.target.checked)} />
+                in hoher Auflösung
+              </label>
+            )}
             <span className="small faint">Im Druckdialog „Als PDF sichern“ wählen – Querformat ist voreingestellt.</span>
             <FollowupButton runId={run.id} />
             <button className="btn btn-primary" onClick={() => void printProtocol()}>

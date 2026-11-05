@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "predev": "node scripts/copy-pdfjs.mjs",
-    "prebuild": "node scripts/copy-pdfjs.mjs"
+    "prebuild": "node scripts/copy-pdfjs.mjs",
+    "test": "vitest run"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
