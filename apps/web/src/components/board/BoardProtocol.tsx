@@ -38,7 +38,8 @@ export function BoardProtocol({ config, summary, results }: { config: BoardConfi
               <ul>
                 {(byGroup.get(g.id) ?? []).map((c) => (
                   <li key={c.id}>
-                    {c.text} {tag(c.column) && <span className="pill">{tag(c.column)}</span>}
+                    {c.text} {c.authorName && <span className="faint small">· {c.authorName}</span>}{' '}
+                    {tag(c.column) && <span className="pill">{tag(c.column)}</span>}
                   </li>
                 ))}
               </ul>
@@ -49,7 +50,9 @@ export function BoardProtocol({ config, summary, results }: { config: BoardConfi
               <h3>Nicht eingeordnet</h3>
               <ul>
                 {unsorted.map((c) => (
-                  <li key={c.id}>{c.text}</li>
+                  <li key={c.id}>
+                    {c.text} {c.authorName && <span className="faint small">· {c.authorName}</span>}
+                  </li>
                 ))}
               </ul>
             </section>

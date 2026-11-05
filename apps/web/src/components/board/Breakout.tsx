@@ -104,7 +104,9 @@ export function BreakoutPanel({ view, breakout, command }: { view: HostView; bre
               </summary>
               <ul className="breakout-cards">
                 {(byTeam.get(t.index) ?? []).map((p) => (
-                  <li key={p.id}>{p.text}</li>
+                  <li key={p.id}>
+                    {p.text} {p.authorName && <span className="faint small">· {p.authorName}</span>}
+                  </li>
                 ))}
                 {(byTeam.get(t.index) ?? []).length === 0 && <li className="faint">Noch keine Karten</li>}
               </ul>
@@ -126,7 +128,9 @@ export function BreakoutPanel({ view, breakout, command }: { view: HostView; bre
               </summary>
               <ul className="breakout-cards">
                 {loose.map((p) => (
-                  <li key={p.id}>{p.text}</li>
+                  <li key={p.id}>
+                    {p.text} {p.authorName && <span className="faint small">· {p.authorName}</span>}
+                  </li>
                 ))}
               </ul>
             </details>
