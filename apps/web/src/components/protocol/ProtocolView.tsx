@@ -262,7 +262,7 @@ function SlideBody({ slide: s, index }: { slide: ProtocolSlide; index: number })
         {columns.map((c, i) => (
           <div key={i} className="protocol-column">
             <h3>{c}</h3>
-            <Notes items={visible.filter((p) => (p.column ?? 0) === i).map((p) => ({ id: p.id, text: p.text, votes: p.votes }))} />
+            <Notes items={visible.filter((p) => (p.column ?? 0) === i).map((p) => ({ id: p.id, text: p.text, meta: p.authorName ?? undefined, votes: p.votes }))} />
           </div>
         ))}
       </div>
