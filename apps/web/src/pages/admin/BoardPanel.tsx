@@ -150,6 +150,7 @@ function CardRow({
           <span>{post.text}</span>
         )}
         <span className="post-meta">
+          {post.authorName && <span>{post.authorName}</span>}
           {post.column !== null && tags[post.column] && <span className="pill">{tags[post.column]}</span>}
           {post.team !== null && post.team !== undefined && view.slide?.type === 'board' && view.slide.config.mode !== 'collect' && (
             <span className="pill" title={`aus Gruppe ${post.team + 1}`}>

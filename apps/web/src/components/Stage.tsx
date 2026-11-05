@@ -1,4 +1,13 @@
-import { assetUrl, headlineSize, slideTask, SLIDE_TYPE_LABELS, type BoardOp, type DisplayView, type PostView, type PublicSlide } from '@slides/shared';
+import {
+  assetUrl,
+  headlineSize,
+  slideTask,
+  SLIDE_TYPE_LABELS,
+  type BoardOp,
+  type DisplayView,
+  type PostView,
+  type PublicSlide,
+} from '@slides/shared';
 import { ChevronUp, EyeOff, MessageCircleQuestion, Trophy, Users } from 'lucide-react';
 import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -416,7 +425,13 @@ function SlideStage({
           {!view.resultsVisible ? (
             <HiddenResults answers={view.answers} />
           ) : (
-            <PostGrid posts={view.posts.slice(0, 30)} layout="cards" showVotes={slide.type === 'brainstorm' && slide.config.allowVotes} />
+            <ScrollingResults key={slide.id} className="stage-scroll">
+              <PostGrid
+                posts={view.posts.slice(0, MAX_STAGE_POSTS)}
+                layout="cards"
+                showVotes={slide.type === 'brainstorm' && slide.config.allowVotes}
+              />
+            </ScrollingResults>
           )}
         </>
       );
@@ -431,14 +446,16 @@ function SlideStage({
           {!view.resultsVisible ? (
             <HiddenResults answers={view.answers} />
           ) : (
-            <div className="pinboard" style={{ gridTemplateColumns: `repeat(${slide.config.columns.length}, minmax(0, 1fr))` }}>
-              {slide.config.columns.map((c, i) => (
-                <section key={i} className="pinboard-col">
-                  <h2 className="pinboard-title">{c}</h2>
-                  <PostGrid posts={view.posts.filter((p) => (p.column ?? 0) === i)} layout="list" />
-                </section>
-              ))}
-            </div>
+            <ScrollingResults key={slide.id} className="stage-scroll">
+              <div className="pinboard" style={{ gridTemplateColumns: `repeat(${slide.config.columns.length}, minmax(0, 1fr))` }}>
+                {slide.config.columns.map((c, i) => (
+                  <section key={i} className="pinboard-col">
+                    <h2 className="pinboard-title">{c}</h2>
+                    <PostGrid posts={view.posts.filter((p) => (p.column ?? 0) === i)} layout="list" />
+                  </section>
+                ))}
+              </div>
+            </ScrollingResults>
           )}
         </>
       );
@@ -502,6 +519,9 @@ function QuizStage({ view, slide, offset }: { view: DisplayView; slide: Extract<
     </>
   );
 }
+
+/** Obergrenze für Karten auf der Bühne – mehr scrollt ohnehin niemand durch */
+const MAX_STAGE_POSTS = 80;
 
 function PostGrid({ posts, layout, showVotes = false }: { posts: PostView[]; layout: 'cards' | 'list'; showVotes?: boolean }) {
   return (

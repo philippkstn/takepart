@@ -216,6 +216,9 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     [runId],
   );
   const names = new Map(nameRows.map((r) => [r.id, r.name]));
+  // Wer einen Namen angegeben hat, steht auch an seinen Beiträgen (Beamer, Steuerpult) –
+  // nachträglich, damit ein später abgefragter Name auch an früheren Karten erscheint.
+  posts = withAuthorNames(posts, names);
   const total = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ?', [runId]);
   const fakes = run.rehearsal
     ? Number((await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ? AND fake = 1', [runId]))?.n ?? 0)
@@ -308,6 +311,11 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     counts,
     now,
   };
+}
+
+/** Namen der Teilnehmenden an ihre Beiträge hängen (Q&A bringt den Namen schon mit) */
+export function withAuthorNames(posts: SnapshotPost[], names: ReadonlyMap<number, string>): SnapshotPost[] {
+  return posts.map((p) => (p.authorName || p.participantId === null ? p : { ...p, authorName: names.get(p.participantId) ?? null }));
 }
 
 function cardToPost(c: BoardData['cards'][number]): SnapshotPost {

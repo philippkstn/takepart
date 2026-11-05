@@ -228,6 +228,7 @@ function Card({ post, ctx, tag = true }: { post: PostView; ctx: Ctx; tag?: boole
   return (
     <li className={`board-card ${ctx.focus === post.id ? 'is-focus' : ''}`} {...dragProps(cardKey(post.id), post.text, !!ctx.onBoard)}>
       <span className="board-card-text">{post.text}</span>
+      {post.authorName && <span className="board-card-author">{post.authorName}</span>}
       {(label || team) && (
         <span className="row" style={{ gap: '0.3em' }}>
           {label && <span className="board-tag">{label}</span>}
@@ -300,12 +301,15 @@ function Collect({ ctx }: { ctx: Ctx }) {
       />
     );
   if (posts.length === 0) return <Waiting>Noch keine Karten</Waiting>;
+  // Passt die Wand trotz Verdichtung nicht auf die Bühne, scrollt sie langsam durch
   return (
-    <ul className={`board-cards ${density(posts.length)}`}>
-      {posts.map((p) => (
-        <Card key={p.id} post={p} ctx={ctx} />
-      ))}
-    </ul>
+    <ScrollingResults key={view.slide?.id} className="stage-scroll">
+      <ul className={`board-cards ${density(posts.length)}`}>
+        {posts.map((p) => (
+          <Card key={p.id} post={p} ctx={ctx} />
+        ))}
+      </ul>
+    </ScrollingResults>
   );
 }
 

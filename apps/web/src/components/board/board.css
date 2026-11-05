@@ -68,6 +68,15 @@
   overflow-wrap: break-word;
   white-space: pre-wrap;
 }
+/* Name der Person (nur wenn sie einen angegeben hat) */
+.board-card-author {
+  font-size: 0.75em;
+  font-weight: 600;
+  color: var(--ink-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .board-tag {
   justify-self: start;
   font-size: 0.78em;

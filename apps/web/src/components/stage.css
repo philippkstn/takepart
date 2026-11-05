@@ -551,6 +551,23 @@
   justify-self: end;
 }
 
+/* Karten (Pinnwand, Brainstorming, offene Fragen, Kartenwand) in voller Höhe;
+   ist es mehr als die Bühne fasst, scrollt ScrollingResults sie langsam durch. */
+.stage-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.stage-scroll.stage-scroll > * {
+  flex: 1 0 auto;
+  min-height: auto;
+  overflow: visible;
+}
+.stage-scroll.stage-scroll .post-rows {
+  overflow: visible;
+}
 .pinboard {
   flex: 1;
   display: grid;

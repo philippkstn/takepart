@@ -4,6 +4,10 @@
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  /* Eigener Stapelkontext: Die z-Indizes der Abdeckungen (1…Anzahl Elemente) dürfen
+     nicht über Zufallsauswahl, Zeichnungen, Countdown & Co. der Bühne rutschen. */
+  isolation: isolate;
+  z-index: 0;
 }
 .build-mask,
 .build-crop {
