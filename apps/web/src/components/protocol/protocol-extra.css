@@ -116,6 +116,10 @@
     margin: 0 auto;
     background: #fff;
   }
+  /* Keine leere Seite am Ende */
+  .protocol > section:last-child {
+    break-after: auto;
+  }
 }
 
 /* Steuerpult: Protokollnotiz unter den Sprechernotizen */
