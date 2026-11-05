@@ -6,7 +6,9 @@ import {
   type PostView,
   type PublicSlide,
   type SlideResults,
+  type SlideConfigs,
   type SlideType,
+  assetUrl,
   hasVoteScale,
   tagCountText,
   teamLabel,
@@ -50,6 +52,8 @@ export interface ProtocolData {
   endedAt: string | null;
   participants: number;
   brand: BrandView | null;
+  /** Geteilter Link: Folienbilder wurden mitgeteilt */
+  withSlides?: boolean;
   slides: ProtocolSlide[];
 }
 
@@ -80,21 +84,39 @@ export function hasContent(s: ProtocolSlide): boolean {
   return s.responses > 0;
 }
 
+/** Folienbild einer importierten Folie – fehlt im geteilten Link ohne „Folien mitteilen“ */
+function slideImage(s: ProtocolSlide): SlideConfigs['image'] | null {
+  if (s.type !== 'image') return null;
+  const c = s.config as Partial<SlideConfigs['image']>;
+  return typeof c.asset === 'string' && c.asset ? (c as SlideConfigs['image']) : null;
+}
+
+/** Drucken, sobald alle Folienbilder geladen sind (höchstens 5 s warten) */
+export async function printProtocol() {
+  const images = [...document.querySelectorAll<HTMLImageElement>('.protocol img')];
+  const ready = Promise.all(images.map((img) => img.decode().catch(() => undefined)));
+  await Promise.race([ready, new Promise((resolve) => setTimeout(resolve, 5000))]);
+  window.print();
+}
+
 /**
  * Fotoprotokoll einer Durchführung: alle Karten, Gruppen, Zuordnungen, Punkte,
  * Ergebnisse, Notizen der Moderation und die Gruppeneinteilung – aufbereitet für
  * den Druck. Gemeinsam für die Admin-Seite und den geteilten Link (`/p/:token`).
  * `noteEditor` ersetzt im Admin die Anzeige der Notiz durch ein Eingabefeld
- * (gedruckt wird immer der Text).
+ * (gedruckt wird immer der Text). `showSlides` zeigt zusätzlich alle Folien in
+ * ihrer Reihenfolge – Folienbilder 16:9, übrige Folien mit Titel bzw. Frage.
  */
 export function ProtocolView({
   run,
   toolbar,
   noteEditor,
+  showSlides = false,
 }: {
   run: ProtocolData;
   toolbar?: ReactNode;
   noteEditor?: (slide: ProtocolSlide) => ReactNode;
+  showSlides?: boolean;
 }) {
   // Der Dokumenttitel wird zum Dateinamen der PDF
   useEffect(() => {
@@ -106,6 +128,9 @@ export function ProtocolView({
   }, [run.title, run.startedAt]);
 
   const slides = run.slides.filter(hasContent);
+  // Nummer der Übung je Folie – bleibt gleich, ob Folien mitgedruckt werden oder nicht
+  const exercise = new Map(slides.map((s, i) => [s.id, i]));
+  const shown = showSlides ? run.slides : slides;
   const started = new Date(run.startedAt);
   const minutes = run.endedAt ? Math.round((new Date(run.endedAt).getTime() - started.getTime()) / 60000) : null;
 
@@ -153,26 +178,64 @@ export function ProtocolView({
         )}
       </section>
 
-      {slides.map((s, i) => (
-        <section key={s.id} className="protocol-page">
-          <header className="protocol-page-head">
-            <span className="protocol-kicker">
-              {i + 1} · {s.typeLabel}
-              {s.board && ` · ${(s.config as BoardConfig).board}`}
-            </span>
-            <h2>{s.headline || s.typeLabel}</h2>
-          </header>
-          <SlideBody slide={s} index={i} />
-          {s.note && (
-            <div className={`protocol-minutes${noteEditor ? ' print-only' : ''}`}>
-              <h3>Notizen der Moderation</h3>
-              <p>{s.note}</p>
-            </div>
-          )}
-          {noteEditor?.(s)}
-        </section>
-      ))}
+      {shown.map((s, position) => {
+        const i = exercise.get(s.id);
+        if (i === undefined) return <SlidePage key={s.id} slide={s} position={run.slides.indexOf(s)} />;
+        const image = showSlides ? slideImage(s) : null;
+        return (
+          <section key={s.id} className="protocol-page">
+            <header className="protocol-page-head">
+              <span className="protocol-kicker">
+                {i + 1} · {s.typeLabel}
+                {s.board && ` · ${(s.config as BoardConfig).board}`}
+                {showSlides && ` · Folie ${position + 1}`}
+              </span>
+              <h2>{s.headline || s.typeLabel}</h2>
+            </header>
+            {image && <SlideImage image={image} />}
+            <SlideBody slide={s} index={i} />
+            {s.note && (
+              <div className={`protocol-minutes${noteEditor ? ' print-only' : ''}`}>
+                <h3>Notizen der Moderation</h3>
+                <p>{s.note}</p>
+              </div>
+            )}
+            {noteEditor?.(s)}
+          </section>
+        );
+      })}
     </div>
+  );
+}
+
+/** Folienbild im Format der Bühne (16:9, Endzustand ohne Animationen) */
+function SlideImage({ image }: { image: SlideConfigs['image'] }) {
+  return (
+    <div className="protocol-slide">
+      <img src={assetUrl(image.asset)} alt={image.title || 'Folie'} width={image.width} height={image.height} />
+    </div>
+  );
+}
+
+/** Folie ohne Ergebnisse, nur mit „Folien mitdrucken“: Bild bzw. Titel und Text */
+function SlidePage({ slide: s, position }: { slide: ProtocolSlide; position: number }) {
+  const image = slideImage(s);
+  const content = s.type === 'content' ? (s.config as SlideConfigs['content']) : null;
+  return (
+    <section className="protocol-page is-slide">
+      <span className="protocol-kicker">
+        Folie {position + 1}
+        {s.type !== 'image' && ` · ${s.typeLabel}`}
+      </span>
+      {image ? (
+        <SlideImage image={image} />
+      ) : (
+        <div className="protocol-slide is-text">
+          <h2>{content ? content.title || s.typeLabel : s.headline || s.typeLabel}</h2>
+          {content?.body && <p>{content.body}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 

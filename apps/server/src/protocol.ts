@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import type { BoardSummary, SlideResults } from '@slides/shared';
+import type { BoardSummary, SlideConfigs, SlideResults } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
@@ -12,7 +12,9 @@ import { remapBoardKey } from './transfer.ts';
  * enthält es bewusst Kartentexte, Freitexte, Gruppen und – wenn nicht abgewählt –
  * Namen (Gruppeneinteilung, Autorinnen und Autoren bei Q&A). Nie enthalten:
  * interne IDs (werden fortlaufend neu nummeriert), Tokens, Codes, ausgeblendete
- * oder nicht freigegebene Beiträge, der Link selbst.
+ * oder nicht freigegebene Beiträge, der Link selbst, Sprechernotizen. Folienbilder
+ * (deren zufällige `public_id` die Zugriffskontrolle ist) nur, wenn beim Teilen
+ * „Folien mitteilen“ gewählt wurde – sonst verlässt keine Bildkennung den Server.
  */
 
 type RunResults = NonNullable<Awaited<ReturnType<typeof runResults>>>;
@@ -72,8 +74,21 @@ function publicBoard(board: BoardSummary, results: SlideResults | null): { board
   };
 }
 
-/** Daten des Fotoprotokolls für den geteilten Link. `names = false` lässt Personennamen weg. */
-export function publicProtocol(data: RunResults, names: boolean) {
+/**
+ * Konfiguration einer Folie für den geteilten Link: Bildfolien ohne Animationen
+ * und – ohne „Folien mitteilen“ – ohne Bildkennung, nur mit dem Titel.
+ */
+export function publicSlideConfig(slide: Pick<ResultSlide, 'type' | 'config'>, withSlides: boolean): ResultSlide['config'] {
+  if (slide.type !== 'image') return slide.config;
+  const { asset, width, height, title } = slide.config as SlideConfigs['image'];
+  return (withSlides ? { asset, width, height, title } : { title }) as ResultSlide['config'];
+}
+
+/**
+ * Daten des Fotoprotokolls für den geteilten Link. `names = false` lässt Personennamen weg,
+ * `withSlides = true` gibt die Folienbilder mit.
+ */
+export function publicProtocol(data: RunResults, names: boolean, withSlides = false) {
   const slides = data.slides.map((s: ResultSlide, i) => {
     const board = s.board ? publicBoard(s.board, s.results) : null;
     const posts = s.posts
@@ -84,7 +99,7 @@ export function publicProtocol(data: RunResults, names: boolean) {
       type: s.type,
       typeLabel: s.typeLabel,
       headline: s.headline,
-      config: s.config,
+      config: publicSlideConfig(s, withSlides),
       note: s.note,
       results: board ? board.results : s.results,
       responses: s.responses,
@@ -103,38 +118,47 @@ export function publicProtocol(data: RunResults, names: boolean) {
     participants: data.participants,
     brand: data.brand,
     names,
+    withSlides,
     slides,
   };
 }
 
 export async function protocolData(db: Db, token: string) {
-  const run = await one<{ id: number; protocol_names: number }>(db, 'SELECT id, protocol_names FROM runs WHERE protocol_token = ?', [
-    token,
-  ]);
+  const run = await one<{ id: number; protocol_names: number; protocol_slides: number }>(
+    db,
+    'SELECT id, protocol_names, protocol_slides FROM runs WHERE protocol_token = ?',
+    [token],
+  );
   if (!run) return null;
   const data = await runResults(db, run.id);
-  return data ? publicProtocol(data, !!run.protocol_names) : null;
+  return data ? publicProtocol(data, !!run.protocol_names, !!run.protocol_slides) : null;
 }
 
 export function protocolRoutes(app: FastifyInstance, db: Db) {
   /** Fotoprotokoll teilen (eigener, zufälliger Link) oder zurückziehen. */
   app.post('/api/runs/:id/protocol-share', requireOwner(db, 'run'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
-    const body = z.object({ enabled: z.boolean(), names: z.boolean().default(true) }).parse(request.body);
+    const body = z
+      .object({ enabled: z.boolean(), names: z.boolean().default(true), slides: z.boolean().default(false) })
+      .parse(request.body);
     const result = body.enabled
-      ? await exec(db, 'UPDATE runs SET protocol_token = COALESCE(protocol_token, ?), protocol_names = ? WHERE id = ?', [
-          randomBytes(24).toString('base64url'),
-          body.names ? 1 : 0,
-          id,
-        ])
-      : await exec(db, 'UPDATE runs SET protocol_token = NULL, protocol_names = 1 WHERE id = ?', [id]);
+      ? await exec(
+          db,
+          'UPDATE runs SET protocol_token = COALESCE(protocol_token, ?), protocol_names = ?, protocol_slides = ? WHERE id = ?',
+          [randomBytes(24).toString('base64url'), body.names ? 1 : 0, body.slides ? 1 : 0, id],
+        )
+      : await exec(db, 'UPDATE runs SET protocol_token = NULL, protocol_names = 1, protocol_slides = 0 WHERE id = ?', [id]);
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Durchführung nicht gefunden' });
-    const run = await one<{ protocol_token: string | null; protocol_names: number }>(
+    const run = await one<{ protocol_token: string | null; protocol_names: number; protocol_slides: number }>(
       db,
-      'SELECT protocol_token, protocol_names FROM runs WHERE id = ?',
+      'SELECT protocol_token, protocol_names, protocol_slides FROM runs WHERE id = ?',
       [id],
     );
-    return { protocol: run?.protocol_token ? { url: `/p/${run.protocol_token}`, names: !!run.protocol_names } : null };
+    return {
+      protocol: run?.protocol_token
+        ? { url: `/p/${run.protocol_token}`, names: !!run.protocol_names, slides: !!run.protocol_slides }
+        : null,
+    };
   });
 
   app.get('/api/protocol/:token', async (request, reply) => {

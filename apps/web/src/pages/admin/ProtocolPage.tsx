@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, Printer } from 'lucide-react';
 import { Link, useParams } from 'react-router';
-import { ProtocolView, type ProtocolData } from '../../components/protocol/ProtocolView.tsx';
+import { ProtocolView, printProtocol, type ProtocolData } from '../../components/protocol/ProtocolView.tsx';
 import { FollowupButton, ProtocolShare, type ProtocolShareState } from '../../components/protocol/ProtocolShare.tsx';
 import { RunNoteEditor } from '../../components/protocol/RunNoteEditor.tsx';
 import { FullScreenSpinner } from '../../components/ui.tsx';
 import { api } from '../../lib/api.ts';
+import { isBoolean, usePref } from '../../lib/prefs.ts';
 
 interface RunResults extends ProtocolData {
   id: number;
@@ -17,11 +18,13 @@ interface RunResults extends ProtocolData {
  * Fotoprotokoll einer Durchführung (Admin). „Als PDF speichern“ nutzt den
  * Druckdialog des Browsers; auf dem Server läuft dafür nichts. Notizen der
  * Moderation lassen sich hier noch ergänzen, der Link zum Teilen erzeugen.
+ * „Folien mitdrucken“ merkt sich der Browser (reine Ansichtssache).
  */
 export default function ProtocolPage() {
   const runId = Number(useParams().runId);
   const data = useQuery({ queryKey: ['run-results', runId], queryFn: () => api<RunResults>(`/api/runs/${runId}/results`) });
   const run = data.data;
+  const [withSlides, setWithSlides] = usePref('protocol-slides', false, isBoolean);
 
   if (data.isLoading) return <FullScreenSpinner />;
   if (!run) return <main className="page">Nicht gefunden.</main>;
@@ -29,6 +32,7 @@ export default function ProtocolPage() {
   return (
     <ProtocolView
       run={run}
+      showSlides={withSlides}
       toolbar={
         <>
           <div className="protocol-toolbar no-print">
@@ -36,9 +40,13 @@ export default function ProtocolPage() {
               <ArrowLeft /> Zum Archiv
             </Link>
             <span className="grow" />
+            <label className="row small">
+              <input type="checkbox" checked={withSlides} onChange={(e) => setWithSlides(e.target.checked)} />
+              Folien mitdrucken
+            </label>
             <span className="small faint">Im Druckdialog „Als PDF sichern“ wählen – Querformat ist voreingestellt.</span>
             <FollowupButton runId={run.id} />
-            <button className="btn btn-primary" onClick={() => window.print()}>
+            <button className="btn btn-primary" onClick={() => void printProtocol()}>
               <Printer /> Als PDF speichern
             </button>
           </div>
