@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router';
 import { BoardProtocol } from '../../components/board/BoardProtocol.tsx';
 import { FollowupButton, ProtocolShare, type ProtocolShareState } from '../../components/protocol/ProtocolShare.tsx';
 import { RunNoteEditor } from '../../components/protocol/RunNoteEditor.tsx';
+import { RunTimes } from '../../components/protocol/RunTimes.tsx';
 import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { FullScreenSpinner, useToast } from '../../components/ui.tsx';
@@ -62,8 +63,17 @@ export default function ArchivePage() {
           <div>
             <h1>{run.title}</h1>
             <p className="muted small">
-              {new Date(run.startedAt).toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' })} · {run.participants} Teilnehmende
+              {new Date(run.startedAt).toLocaleDateString('de-DE', { dateStyle: 'full' })} · {run.participants} Teilnehmende
             </p>
+            {run.endedAt ? (
+              <div className="muted small">
+                <RunTimes key={`${run.startedAt}-${run.endedAt}`} runId={run.id} startedAt={run.startedAt} endedAt={run.endedAt} />
+              </div>
+            ) : (
+              <p className="muted small">
+                Seit {new Date(run.startedAt).toLocaleTimeString('de-DE', { timeStyle: 'short' })} Uhr
+              </p>
+            )}
           </div>
         </div>
         <div className="row">
@@ -88,7 +98,7 @@ export default function ArchivePage() {
         </div>
       </div>
 
-      <ProtocolShare key={run.protocol?.url ?? 'none'} runId={run.id} protocol={run.protocol} />
+      <ProtocolShare key={`${run.protocol?.url ?? 'none'}-${run.protocol?.expiresAt ?? ''}`} runId={run.id} protocol={run.protocol} />
 
       {run.slides.map((s, i) => (
         <section key={s.id} className="card card-pad stack archive-slide">

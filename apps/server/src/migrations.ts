@@ -356,4 +356,9 @@ export const migrations: Migration[] = [
     name: '012_protocol_slides',
     statements: [`ALTER TABLE runs ADD COLUMN protocol_slides TINYINT NOT NULL DEFAULT 0 AFTER protocol_names`],
   },
+  {
+    // Geteiltes Fotoprotokoll läuft optional automatisch ab (UTC; NULL = nie)
+    name: '013_protocol_expires',
+    statements: [`ALTER TABLE runs ADD COLUMN protocol_expires DATETIME(3) NULL AFTER protocol_slides`],
+  },
 ];

@@ -131,3 +131,33 @@
 .control-panel .run-note .textarea {
   min-height: 72px;
 }
+
+/* Zeitraum einer Durchführung */
+.run-times {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.run-times-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+}
+.run-times-form .input {
+  min-height: 36px;
+}
+.protocol-share-expiry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.protocol-share-expiry .input {
+  min-height: 34px;
+  width: auto;
+}
+.protocol-share-expired {
+  color: var(--danger);
+}

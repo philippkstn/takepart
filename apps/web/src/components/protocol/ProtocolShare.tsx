@@ -11,7 +11,22 @@ export interface ProtocolShareState {
   names: boolean;
   /** Folienbilder mitgeteilt */
   slides: boolean;
+  /** Läuft automatisch ab (ISO); `null` = nie */
+  expiresAt: string | null;
 }
+
+/** `YYYY-MM-DD` in Ortszeit */
+function dateInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** Ablauf am Ende des gewählten Tages (Ortszeit) */
+function endOfDay(date: string) {
+  return new Date(`${date}T23:59:59.999`).toISOString();
+}
+
+const DEFAULT_EXPIRY_DAYS = 30;
 
 /**
  * Fotoprotokoll teilen: eigener, zufälliger Link. Anders als die Folien-Freigabe
@@ -22,13 +37,17 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
   const queryClient = useQueryClient();
   const [withoutNames, setWithoutNames] = useState(protocol ? !protocol.names : false);
   const [withSlides, setWithSlides] = useState(protocol?.slides ?? false);
+  const [expiry, setExpiry] = useState<string | null>(protocol?.expiresAt ? dateInput(new Date(protocol.expiresAt)) : null);
   const [busy, setBusy] = useState(false);
+  const expired = !!protocol?.expiresAt && new Date(protocol.expiresAt).getTime() <= Date.now();
   const absolute = protocol ? `${location.origin}${protocol.url}` : '';
 
-  const send = async (enabled: boolean, names = !withoutNames, slides = withSlides) => {
+  const send = async (enabled: boolean, names = !withoutNames, slides = withSlides, until = expiry) => {
     setBusy(true);
     try {
-      await api(`/api/runs/${runId}/protocol-share`, { body: { enabled, names, slides } });
+      await api(`/api/runs/${runId}/protocol-share`, {
+        body: { enabled, names, slides, expiresAt: until ? endOfDay(until) : null },
+      });
       await queryClient.invalidateQueries({ queryKey: ['run-results', runId] });
       toast(enabled ? (protocol ? 'Einstellung gespeichert' : 'Link erzeugt') : 'Link zurückgezogen – er funktioniert nicht mehr');
     } catch (err) {
@@ -81,6 +100,44 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
         />
         Folien mitteilen (alle Folien in ihrer Reihenfolge, importierte Folien als Bild)
       </label>
+      <div className="protocol-share-expiry small">
+        <label className="row">
+          <input
+            type="checkbox"
+            checked={expiry !== null}
+            disabled={busy}
+            onChange={(e) => {
+              const next = e.target.checked ? dateInput(new Date(Date.now() + DEFAULT_EXPIRY_DAYS * 86_400_000)) : null;
+              setExpiry(next);
+              if (protocol) void send(true, !withoutNames, withSlides, next);
+            }}
+          />
+          Link läuft automatisch ab am
+        </label>
+        {expiry !== null && (
+          <input
+            className="input"
+            type="date"
+            value={expiry}
+            min={dateInput(new Date())}
+            disabled={busy}
+            aria-label="Ablaufdatum"
+            onChange={(e) => {
+              const next = e.target.value;
+              if (!next) return;
+              setExpiry(next);
+              if (protocol && next >= dateInput(new Date())) void send(true, !withoutNames, withSlides, next);
+            }}
+          />
+        )}
+        {expiry !== null && <span className="faint">(bis 23:59 Uhr, danach funktioniert der Link nicht mehr)</span>}
+      </div>
+      {expired && (
+        <p className="small protocol-share-expired">
+          Der Link ist am {new Date(protocol!.expiresAt!).toLocaleDateString('de-DE', { dateStyle: 'long' })} abgelaufen. Mit einem
+          neuen Datum (oder ohne Ablauf) funktioniert derselbe Link wieder.
+        </p>
+      )}
       {protocol ? (
         <div className="protocol-share-link">
           <input className="input" readOnly value={absolute} aria-label="Link zum Fotoprotokoll" onFocus={(e) => e.target.select()} />

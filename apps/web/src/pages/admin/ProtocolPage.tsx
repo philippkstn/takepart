@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 import { ProtocolView, printProtocol, type ProtocolData } from '../../components/protocol/ProtocolView.tsx';
 import { FollowupButton, ProtocolShare, type ProtocolShareState } from '../../components/protocol/ProtocolShare.tsx';
 import { RunNoteEditor } from '../../components/protocol/RunNoteEditor.tsx';
+import { RunTimes } from '../../components/protocol/RunTimes.tsx';
 import { FullScreenSpinner } from '../../components/ui.tsx';
 import { api } from '../../lib/api.ts';
 import { isBoolean, usePref } from '../../lib/prefs.ts';
@@ -50,7 +51,13 @@ export default function ProtocolPage() {
               <Printer /> Als PDF speichern
             </button>
           </div>
-          <ProtocolShare key={run.protocol?.url ?? 'none'} runId={run.id} protocol={run.protocol} />
+          {run.endedAt && (
+            <section className="card card-pad no-print row small">
+              <strong>Zeitraum</strong>
+              <RunTimes key={`${run.startedAt}-${run.endedAt}`} runId={run.id} startedAt={run.startedAt} endedAt={run.endedAt} />
+            </section>
+          )}
+          <ProtocolShare key={`${run.protocol?.url ?? 'none'}-${run.protocol?.expiresAt ?? ''}`} runId={run.id} protocol={run.protocol} />
         </>
       }
       noteEditor={(s) => <RunNoteEditor key={s.id} runId={run.id} slideId={s.id} initial={s.note ?? ''} rows={2} />}

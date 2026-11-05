@@ -1,3 +1,4 @@
+import { durationLabel } from './RunTimes.tsx';
 import {
   type BoardConfig,
   type BoardResults,
@@ -132,7 +133,7 @@ export function ProtocolView({
   const exercise = new Map(slides.map((s, i) => [s.id, i]));
   const shown = showSlides ? run.slides : slides;
   const started = new Date(run.startedAt);
-  const minutes = run.endedAt ? Math.round((new Date(run.endedAt).getTime() - started.getTime()) / 60000) : null;
+  const ended = run.endedAt ? new Date(run.endedAt) : null;
 
   return (
     <div className="protocol" style={brandStyle(run.brand)}>
@@ -153,8 +154,13 @@ export function ProtocolView({
             <dt>Uhrzeit</dt>
             <dd>
               {started.toLocaleTimeString('de-DE', { timeStyle: 'short' })}
-              {run.endedAt && ` – ${new Date(run.endedAt).toLocaleTimeString('de-DE', { timeStyle: 'short' })}`}
-              {minutes !== null && ` (${minutes} Min.)`}
+              {ended &&
+                ` – ${
+                  ended.toDateString() === started.toDateString()
+                    ? ended.toLocaleTimeString('de-DE', { timeStyle: 'short' })
+                    : ended.toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
+                }`}
+              {run.endedAt && ` (${durationLabel(run.startedAt, run.endedAt)})`}
             </dd>
           </div>
           <div>

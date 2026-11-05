@@ -492,6 +492,28 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { handoutUrl: run?.handout_token ? `/h/${run.handout_token}` : null };
   });
 
+  /**
+   * Beginn und Ende einer beendeten Durchführung nachträglich korrigieren
+   * (z. B. erst am nächsten Tag beendet) – bestimmt die Dauer im Archiv und Fotoprotokoll.
+   */
+  app.patch('/api/runs/:id/times', ownRun, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const body = z
+      .object({ startedAt: z.string().datetime({ offset: true }), endedAt: z.string().datetime({ offset: true }) })
+      .parse(request.body);
+    const started = new Date(body.startedAt);
+    const ended = new Date(body.endedAt);
+    if (ended.getTime() <= started.getTime()) return reply.code(400).send({ error: 'Das Ende muss nach dem Beginn liegen' });
+    if (ended.getTime() > Date.now() + 60_000) return reply.code(400).send({ error: 'Das Ende darf nicht in der Zukunft liegen' });
+    const result = await exec(db, 'UPDATE runs SET started_at = ?, ended_at = ? WHERE id = ? AND ended_at IS NOT NULL', [
+      started,
+      ended,
+      id,
+    ]);
+    if (result.affectedRows === 0) return reply.code(409).send({ error: 'Nur beendete Durchführungen lassen sich anpassen' });
+    return { ok: true };
+  });
+
   app.post('/api/runs/:id/display-token', ownRun, async (request) => {
     const { id } = idParam.parse(request.params);
     await exec(db, 'UPDATE runs SET display_token = ? WHERE id = ?', [randomBytes(24).toString('base64url'), id]);
@@ -597,6 +619,23 @@ function handoutBoard(config: SlideConfigs['board'], board: BoardSummary, result
   return [{ type: 'board', headline, mode: config.mode, columns: config.mode === 'table' ? config.columns : [], entries }];
 }
 
+/** Freigabe-Zustand des Fotoprotokolls für den Host */
+export function protocolShareState(row: {
+  protocol_token: string | null;
+  protocol_names: number;
+  protocol_slides: number;
+  protocol_expires: Date | null;
+}) {
+  return row.protocol_token
+    ? {
+        url: `/p/${row.protocol_token}`,
+        names: !!row.protocol_names,
+        slides: !!row.protocol_slides,
+        expiresAt: row.protocol_expires,
+      }
+    : null;
+}
+
 export async function runResults(db: Db, runId: number) {
   const run = await one<
     BrandRow & {
@@ -609,10 +648,12 @@ export async function runResults(db: Db, runId: number) {
       protocol_token: string | null;
       protocol_names: number;
       protocol_slides: number;
+      protocol_expires: Date | null;
     }
   >(
     db,
-    `SELECT r.id, r.presentation_id, p.title, r.state, r.started_at, r.ended_at, r.protocol_token, r.protocol_names, r.protocol_slides, ${BRAND_COLUMNS}
+    `SELECT r.id, r.presentation_id, p.title, r.state, r.started_at, r.ended_at, r.protocol_token, r.protocol_names, r.protocol_slides,
+            r.protocol_expires, ${BRAND_COLUMNS}
        FROM runs r JOIN presentations p ON p.id = r.presentation_id LEFT JOIN brands b ON b.id = p.brand_id WHERE r.id = ?`,
     [runId],
   );
@@ -657,7 +698,7 @@ export async function runResults(db: Db, runId: number) {
     participants: Number(participants),
     brand: brandView(run),
     // Geteiltes Fotoprotokoll (nur für den Host; protocolData entfernt es wieder)
-    protocol: run.protocol_token ? { url: `/p/${run.protocol_token}`, names: !!run.protocol_names, slides: !!run.protocol_slides } : null,
+    protocol: protocolShareState(run),
     slides: await Promise.all(
       slides.map(async (slide) => {
         const own = responses.filter((r) => r.slide_id === slide.id);

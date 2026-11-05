@@ -4,7 +4,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireOwner } from './access.ts';
 import { exec, one, type Db } from './db.ts';
-import { runResults } from './runs.ts';
+import { protocolShareState, runResults } from './runs.ts';
 import { remapBoardKey } from './transfer.ts';
 
 /**
@@ -128,9 +128,12 @@ export function publicProtocol(data: RunResults, names: boolean, withSlides = fa
 }
 
 export async function protocolData(db: Db, token: string) {
+  // Abgelaufene Links verhalten sich wie zurückgezogene (404); der Token bleibt,
+  // damit ein neues Ablaufdatum denselben Link wieder öffnet.
   const run = await one<{ id: number; protocol_names: number; protocol_slides: number }>(
     db,
-    'SELECT id, protocol_names, protocol_slides FROM runs WHERE protocol_token = ?',
+    `SELECT id, protocol_names, protocol_slides FROM runs
+      WHERE protocol_token = ? AND (protocol_expires IS NULL OR protocol_expires > UTC_TIMESTAMP(3))`,
     [token],
   );
   if (!run) return null;
@@ -139,36 +142,56 @@ export async function protocolData(db: Db, token: string) {
 }
 
 export function protocolRoutes(app: FastifyInstance, db: Db) {
-  /** Fotoprotokoll teilen (eigener, zufälliger Link) oder zurückziehen. */
+  /**
+   * Fotoprotokoll teilen (eigener, zufälliger Link) oder zurückziehen.
+   * `expiresAt`: Ablaufzeitpunkt (ISO), `null` = läuft nie ab, weggelassen = unverändert.
+   */
   app.post('/api/runs/:id/protocol-share', requireOwner(db, 'run'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     const body = z
-      .object({ enabled: z.boolean(), names: z.boolean().default(true), slides: z.boolean().default(false) })
+      .object({
+        enabled: z.boolean(),
+        names: z.boolean().default(true),
+        slides: z.boolean().default(false),
+        expiresAt: z.string().datetime({ offset: true }).nullable().optional(),
+      })
       .parse(request.body);
+    const expires = body.expiresAt === undefined ? undefined : body.expiresAt === null ? null : new Date(body.expiresAt);
+    if (body.enabled && expires && expires.getTime() <= Date.now()) {
+      return reply.code(400).send({ error: 'Das Ablaufdatum liegt in der Vergangenheit' });
+    }
     const result = body.enabled
       ? await exec(
           db,
-          'UPDATE runs SET protocol_token = COALESCE(protocol_token, ?), protocol_names = ?, protocol_slides = ? WHERE id = ?',
-          [randomBytes(24).toString('base64url'), body.names ? 1 : 0, body.slides ? 1 : 0, id],
+          `UPDATE runs SET protocol_token = COALESCE(protocol_token, ?), protocol_names = ?, protocol_slides = ?${
+            expires === undefined ? '' : ', protocol_expires = ?'
+          } WHERE id = ?`,
+          [
+            randomBytes(24).toString('base64url'),
+            body.names ? 1 : 0,
+            body.slides ? 1 : 0,
+            ...(expires === undefined ? [] : [expires]),
+            id,
+          ],
         )
-      : await exec(db, 'UPDATE runs SET protocol_token = NULL, protocol_names = 1, protocol_slides = 0 WHERE id = ?', [id]);
+      : await exec(
+          db,
+          'UPDATE runs SET protocol_token = NULL, protocol_names = 1, protocol_slides = 0, protocol_expires = NULL WHERE id = ?',
+          [id],
+        );
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Durchführung nicht gefunden' });
-    const run = await one<{ protocol_token: string | null; protocol_names: number; protocol_slides: number }>(
+    const run = await one<{ protocol_token: string | null; protocol_names: number; protocol_slides: number; protocol_expires: Date | null }>(
       db,
-      'SELECT protocol_token, protocol_names, protocol_slides FROM runs WHERE id = ?',
+      'SELECT protocol_token, protocol_names, protocol_slides, protocol_expires FROM runs WHERE id = ?',
       [id],
     );
-    return {
-      protocol: run?.protocol_token
-        ? { url: `/p/${run.protocol_token}`, names: !!run.protocol_names, slides: !!run.protocol_slides }
-        : null,
-    };
+    return { protocol: run ? protocolShareState(run) : null };
   });
 
   app.get('/api/protocol/:token', async (request, reply) => {
     const { token } = z.object({ token: z.string().max(64) }).parse(request.params);
     const data = await protocolData(db, token);
-    if (!data) return reply.code(404).send({ error: 'Dieses Protokoll ist nicht (mehr) geteilt' });
+    if (!data) return reply.code(404).send({ error: 'Dieses Protokoll ist nicht (mehr) geteilt oder der Link ist abgelaufen' });
     reply.header('Cache-Control', 'no-store');
     return data;
   });
