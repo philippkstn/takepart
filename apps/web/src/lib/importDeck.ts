@@ -10,7 +10,7 @@
  * für Teilnehmende.
  */
 
-import { fitBuildBox, rotatedBounds, type BuildEffect, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
+import { fitBuildBox, rotatedBounds, type BuildEffect, type BuildsConfig, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
 
 /** Lange Seite der Folienbilder in Pixeln – scharf auf Full-HD-Beamern, klein genug für Handys. */
 const FULL_SIZE = 1920;
@@ -396,4 +396,28 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
     }
   }
   return { regions, steps: Math.min(50, step) };
+}
+
+/**
+ * Aufbau-Animationen einer gerenderten Seite aus den Bereichen der PPTX-Folie:
+ * angepasste Boxen und gemessene Farben übernehmen, Elemente auf Foto/Verlauf
+ * weglassen (`skipped`), leere Klicks entfernen. Ohne passendes Seitenverhältnis
+ * keine Animationen – die Abdeckungen säßen sonst daneben.
+ */
+export function pageBuilds(
+  page: Pick<RenderedPage, 'width' | 'height' | 'fills' | 'boxes'>,
+  regions: RawBuildRegion[],
+  slideInfo: PptxSlideInfo | null | undefined,
+): { builds: BuildsConfig | undefined; skipped: number } {
+  const fits = slideInfo?.aspect ? Math.abs(page.width / page.height - slideInfo.aspect) < 0.01 : false;
+  const covered = regions.flatMap((r, k) => {
+    const fill = page.fills[k];
+    const box = page.boxes[k];
+    return fill ? [{ ...r, ...box, fill }] : [];
+  });
+  const clicks = [...new Set(covered.map((r) => r.step).filter((x) => x > 0))].sort((a, b) => a - b);
+  const renumbered = covered.map((r) => ({ ...r, step: r.step === 0 ? 0 : clicks.indexOf(r.step) + 1 }));
+  const builds: BuildsConfig | undefined =
+    renumbered.length > 0 && fits ? { enabled: true, steps: clicks.length, regions: renumbered, fitted: true } : undefined;
+  return { builds, skipped: regions.length - covered.length };
 }

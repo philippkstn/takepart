@@ -2,7 +2,7 @@ import { FileText, Presentation as PptIcon, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { planNotes, type BuildsConfig, type NotesPlan, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
-import { extractPptxNotes, renderPdfPages } from '../../lib/importDeck.ts';
+import { extractPptxNotes, pageBuilds, renderPdfPages } from '../../lib/importDeck.ts';
 
 interface Props {
   presentationId: number;
@@ -71,22 +71,8 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
           page.full,
         );
         await uploadImage(`/api/assets/${asset}/thumb`, page.thumb, 'PUT');
-        const regions = raw(page.index);
-        const slideInfo = plan!.pages[page.index]?.slide;
-        // Seitenverhältnis von PDF und PPTX muss passen, sonst säßen die Abdeckungen daneben
-        const fits = slideInfo?.aspect ? Math.abs(page.width / page.height - slideInfo.aspect) < 0.01 : false;
-        // Elemente auf Foto oder Verlauf ließen sich nicht sauber abdecken – die sind von Anfang an sichtbar
-        const covered = regions.flatMap((r, k) => {
-          const fill = page.fills[k];
-          const box = page.boxes[k];
-          return fill ? [{ ...r, ...(box ?? {}), fill }] : [];
-        });
-        skippedRegions += regions.length - covered.length;
-        // Klicks ohne verbliebene Elemente entfallen, sonst gäbe es „leere“ Klicks
-        const clicks = [...new Set(covered.map((r) => r.step).filter((x) => x > 0))].sort((a, b) => a - b);
-        const renumbered = covered.map((r) => ({ ...r, step: r.step === 0 ? 0 : clicks.indexOf(r.step) + 1 }));
-        const builds: BuildsConfig | undefined =
-          renumbered.length > 0 && fits ? { enabled: true, steps: clicks.length, regions: renumbered, fitted: true } : undefined;
+        const { builds, skipped } = pageBuilds(page, raw(page.index), plan!.pages[page.index]?.slide);
+        skippedRegions += skipped;
         if (builds) animated++;
         items.push({
           asset,

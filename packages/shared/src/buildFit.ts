@@ -113,24 +113,30 @@ export function fitBuildBox(px: Pixels, box: FitBox): { box: FitBox; fill: strin
   const maxX = Math.max(2, Math.round(W * MAX_GROW_X));
   const maxY = Math.max(2, Math.round(H * MAX_GROW_Y));
   const cur = { ...orig };
-  const stuck = { l: false, t: false, r: false, b: false };
+  type Side = 'l' | 't' | 'r' | 'b';
+  const stuck: Record<Side, boolean> = { l: false, t: false, r: false, b: false };
+  // Außen liegende Linie je Seite und Wachstumsrichtung (links/oben nach außen = kleiner)
+  const dirty: Record<Side, () => boolean> = {
+    l: () => dirtyCol(cur.l - 1, cur.t, cur.b),
+    r: () => dirtyCol(cur.r + 1, cur.t, cur.b),
+    t: () => dirtyRow(cur.t - 1, cur.l, cur.r),
+    b: () => dirtyRow(cur.b + 1, cur.l, cur.r),
+  };
+  const dir: Record<Side, number> = { l: -1, t: -1, r: 1, b: 1 };
+  const cap: Record<Side, number> = { l: maxX, r: maxX, t: maxY, b: maxY };
   for (let changed = true; changed;) {
     changed = false;
-    if (!stuck.l && dirtyCol(cur.l - 1, cur.t, cur.b)) {
-      if (orig.l - (cur.l - 2) > maxX) ((stuck.l = true), (cur.l = orig.l));
-      else ((cur.l -= 2), (changed = true));
-    }
-    if (!stuck.r && dirtyCol(cur.r + 1, cur.t, cur.b)) {
-      if (cur.r + 2 - orig.r > maxX) ((stuck.r = true), (cur.r = orig.r));
-      else ((cur.r += 2), (changed = true));
-    }
-    if (!stuck.t && dirtyRow(cur.t - 1, cur.l, cur.r)) {
-      if (orig.t - (cur.t - 2) > maxY) ((stuck.t = true), (cur.t = orig.t));
-      else ((cur.t -= 2), (changed = true));
-    }
-    if (!stuck.b && dirtyRow(cur.b + 1, cur.l, cur.r)) {
-      if (cur.b + 2 - orig.b > maxY) ((stuck.b = true), (cur.b = orig.b));
-      else ((cur.b += 2), (changed = true));
+    for (const side of ['l', 'r', 't', 'b'] as const) {
+      if (stuck[side] || !dirty[side]()) continue;
+      const next = cur[side] + 2 * dir[side];
+      if (Math.abs(next - orig[side]) > cap[side]) {
+        // Tinte endet nicht bald: Nachbar oder Bild – diese Seite bleibt, wie sie war
+        stuck[side] = true;
+        cur[side] = orig[side];
+      } else {
+        cur[side] = next;
+        changed = true;
+      }
     }
   }
 
