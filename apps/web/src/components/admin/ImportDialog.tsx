@@ -86,7 +86,7 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
         const clicks = [...new Set(covered.map((r) => r.step).filter((x) => x > 0))].sort((a, b) => a - b);
         const renumbered = covered.map((r) => ({ ...r, step: r.step === 0 ? 0 : clicks.indexOf(r.step) + 1 }));
         const builds: BuildsConfig | undefined =
-          renumbered.length > 0 && fits ? { enabled: true, steps: clicks.length, regions: renumbered } : undefined;
+          renumbered.length > 0 && fits ? { enabled: true, steps: clicks.length, regions: renumbered, fitted: true } : undefined;
         if (builds) animated++;
         items.push({
           asset,

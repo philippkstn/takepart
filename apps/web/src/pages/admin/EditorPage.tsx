@@ -28,6 +28,7 @@ import {
   ChevronRight,
   Copy,
   FileUp,
+  Layers,
   Palette,
   Play,
   Plus,
@@ -49,6 +50,7 @@ import { Stage } from '../../components/Stage.tsx';
 import { staticPreview } from '../../components/staticPreview.ts';
 import { formatCode, FullScreenSpinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
+import { needsRefit, refitBuilds } from '../../lib/refitBuilds.ts';
 import { RehearsalButton, useStartRun } from './PresentationsPage.tsx';
 
 interface Presentation {
@@ -138,6 +140,22 @@ export default function EditorPage() {
   const loadDemo = useMutation({
     mutationFn: () => api(`/api/presentations/${id}/demo-slides`, { body: {} }),
     onSuccess: refresh,
+    onError,
+  });
+  /** Abdeckungen schon importierter Animationen an die Folienbilder anpassen (ohne Neuimport) */
+  const refit = useMutation({
+    mutationFn: async () => {
+      const todo = slides.filter(needsRefit);
+      for (const s of todo) {
+        const builds = await refitBuilds(s);
+        await api(`/api/slides/${s.id}`, { method: 'PATCH', body: { config: { ...s.config, builds } } });
+      }
+      return todo.length;
+    },
+    onSuccess: async (n) => {
+      await refresh();
+      toast(`Animationen auf ${n} ${n === 1 ? 'Folie' : 'Folien'} nachgebessert`);
+    },
     onError,
   });
   const removeSlide = useMutation({
@@ -354,6 +372,16 @@ export default function EditorPage() {
             >
               <FileUp /> PDF importieren
             </button>
+            {slides.some(needsRefit) && (
+              <button
+                className="btn btn-block"
+                onClick={() => refit.mutate()}
+                disabled={refit.isPending}
+                title="Abdeckungen älterer Importe an die Folienbilder anpassen, damit vor dem Aufdecken nichts durchscheint"
+              >
+                <Layers /> {refit.isPending ? 'Bessere nach …' : 'Animationen nachbessern'}
+              </button>
+            )}
           </div>
           {adding && (
             <InsertPicker

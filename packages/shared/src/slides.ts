@@ -321,6 +321,8 @@ export const buildsConfig = z.object({
   /** Anzahl Klicks bis zum Endzustand */
   steps: z.number().int().min(0).max(50),
   regions: z.array(buildRegion).max(300),
+  /** Abdeckungen schon am gerenderten Folienbild angepasst (`fitBuildBox`) – beim Import oder per „Animationen nachbessern“ */
+  fitted: z.boolean().optional(),
 });
 export type BuildsConfig = z.infer<typeof buildsConfig>;
 

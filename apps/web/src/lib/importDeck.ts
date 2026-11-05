@@ -268,8 +268,11 @@ function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string,
       if (!off || !ext) continue;
       const ox = Number(off.getAttribute('x'));
       const oy = Number(off.getAttribute('y'));
-      const cx = Number(ext.getAttribute('cx'));
-      const cy = Number(ext.getAttribute('cy'));
+      let cx = Number(ext.getAttribute('cx'));
+      let cy = Number(ext.getAttribute('cy'));
+      // Tabellen: Die Rahmengröße ist oft veraltet – maßgeblich sind Spaltenbreiten und Zeilenhöhen
+      const table = el.localName === 'graphicFrame' ? tableSize(el) : null;
+      if (table) [cx, cy] = table;
       const [ax, ay] = tf(ox, oy);
       // Konturen liegen mittig auf der Kante und ragen halb über die Box hinaus
       const ln = kid(props, 'ln');
@@ -294,6 +297,17 @@ function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string,
   };
   walk(kid(kid(slide, 'cSld'), 'spTree'), (x, y) => [x, y], 1, 1);
   return boxes;
+}
+
+/** Größe einer Tabelle (EMU) aus `a:gridCol@w` und `a:tr@h`, sonst `null` */
+function tableSize(frame: Element): [number, number] | null {
+  const tbl = frame.getElementsByTagNameNS('*', 'tbl')[0];
+  if (!tbl) return null;
+  const sum = (name: string, attr: string) =>
+    Array.from(tbl.getElementsByTagNameNS('*', name)).reduce((n, c) => n + (Number(c.getAttribute(attr)) || 0), 0);
+  const w = sum('gridCol', 'w');
+  const h = sum('tr', 'h');
+  return w > 0 && h > 0 ? [w, h] : null;
 }
 
 function effectOf(presetId: string | null, subtype: string | null): BuildEffect {
