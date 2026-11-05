@@ -78,7 +78,8 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
         // Elemente auf Foto oder Verlauf ließen sich nicht sauber abdecken – die sind von Anfang an sichtbar
         const covered = regions.flatMap((r, k) => {
           const fill = page.fills[k];
-          return fill ? [{ ...r, fill }] : [];
+          const box = page.boxes[k];
+          return fill ? [{ ...r, ...(box ?? {}), fill }] : [];
         });
         skippedRegions += regions.length - covered.length;
         // Klicks ohne verbliebene Elemente entfallen, sonst gäbe es „leere“ Klicks

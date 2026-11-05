@@ -31,7 +31,11 @@ function remapRecord<T>(record: Record<string, T>, map: (key: string) => string 
 }
 
 /** Kartenwand ohne interne IDs: Karten und Gruppen bekommen laufende Nummern, Schlüssel werden umgeschrieben. */
-function publicBoard(board: BoardSummary, results: SlideResults | null): { board: BoardSummary; results: SlideResults | null } {
+function publicBoard(
+  board: BoardSummary,
+  results: SlideResults | null,
+  names: boolean,
+): { board: BoardSummary; results: SlideResults | null } {
   const cards = board.cards.filter((c) => c.status === 'visible');
   const posts: IdMap = new Map(cards.map((c, i) => [c.id, i + 1]));
   const groups: IdMap = new Map(board.view.groups.map((g, i) => [g.id, i + 1]));
@@ -58,7 +62,7 @@ function publicBoard(board: BoardSummary, results: SlideResults | null): { board
       cards: cards.map((c) => ({
         ...c,
         id: posts.get(c.id)!,
-        authorName: null,
+        authorName: names ? c.authorName : null,
         group: c.group === null || c.group === undefined ? null : (groups.get(c.group) ?? null),
       })),
     },
@@ -90,7 +94,7 @@ export function publicSlideConfig(slide: Pick<ResultSlide, 'type' | 'config'>, w
  */
 export function publicProtocol(data: RunResults, names: boolean, withSlides = false) {
   const slides = data.slides.map((s: ResultSlide, i) => {
-    const board = s.board ? publicBoard(s.board, s.results) : null;
+    const board = s.board ? publicBoard(s.board, s.results, names) : null;
     const posts = s.posts
       .filter((p) => p.status === 'visible' || p.status === 'answered')
       .map((p, j) => ({ ...p, id: j + 1, authorName: names ? p.authorName : null }));

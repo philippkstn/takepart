@@ -18,3 +18,4 @@ export * from './rehearsal.ts';
 export * from './schedule.ts';
 export * from './similar.ts';
 export * from './about.ts';
+export * from './buildFit.ts';

@@ -627,6 +627,7 @@ export async function runResults(db: Db, runId: number) {
   const posts = await query<{
     id: number;
     slide_id: number;
+    participant_id: number | null;
     author_name: string | null;
     text: string;
     column_index: number | null;
@@ -634,11 +635,11 @@ export async function runResults(db: Db, runId: number) {
     votes: number;
   }>(
     db,
-    'SELECT id, slide_id, author_name, text, column_index, status, votes FROM posts WHERE run_id = ? ORDER BY votes DESC, created_at',
+    'SELECT id, slide_id, participant_id, author_name, text, column_index, status, votes FROM posts WHERE run_id = ? ORDER BY votes DESC, created_at',
     [runId],
   );
   const participants = (await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM participants WHERE run_id = ?', [runId]))?.n ?? 0;
-  // Namen nur für die Gruppeneinteilung im Archiv (Host) – nie in der Freigabe
+  // Namen für Archiv und Fotoprotokoll (Gruppen, Beiträge, Karten) – nie in der Freigabe
   const names = new Map(
     (await query<{ id: number; name: string }>(db, 'SELECT id, name FROM participants WHERE run_id = ? AND name IS NOT NULL', [runId])).map(
       (r) => [r.id, r.name],
@@ -677,10 +678,18 @@ export async function runResults(db: Db, runId: number) {
           responses: isPostType(slide.type) ? posts.filter((p) => p.slide_id === slide.id).length : own.length,
           posts: posts
             .filter((p) => p.slide_id === slide.id)
-            .map((p) => ({ id: p.id, authorName: p.author_name, text: p.text, column: p.column_index, status: p.status, votes: p.votes })),
+            .map((p) => ({
+              id: p.id,
+              // Q&A speichert den Namen, sonst der Name der Person, falls sie einen angegeben hat
+              authorName: p.author_name ?? (p.participant_id !== null ? (names.get(p.participant_id) ?? null) : null),
+              text: p.text,
+              column: p.column_index,
+              status: p.status,
+              votes: p.votes,
+            })),
           sentence: slide.type === 'sentence' ? sentenceText(slide, state) : null,
           quiz: slide.type === 'quiz' ? effectiveQuiz(state, slide.id, Date.now()) : null,
-          board: slide.type === 'board' ? await boardSummary(db, runId, slides, slide, boardRights(state, slide)) : null,
+          board: slide.type === 'board' ? await boardSummary(db, runId, slides, slide, boardRights(state, slide), names) : null,
           teams:
             slide.type === 'teams'
               ? (state.teams?.[slide.id] ?? []).map((ids, i) => ({

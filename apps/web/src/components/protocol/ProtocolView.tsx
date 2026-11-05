@@ -327,7 +327,7 @@ function Board({ config, summary, results }: { config: BoardConfig; summary: Boa
   // Auf späteren Folien der Wand gelten die Kennzeichnungen der Sammel-Folie
   const tag = (c: PostView) => (c.column !== null ? (config.tags[c.column] ?? view.tags?.[c.column]) : undefined);
   const dist = (key: string) => tagCountText(view.tags ?? [], view.tagCounts?.[key]);
-  const note = (c: PostView) => ({ id: c.id, text: c.text, meta: tag(c) });
+  const note = (c: PostView) => ({ id: c.id, text: c.text, meta: [c.authorName, tag(c)].filter(Boolean).join(' · ') || undefined });
 
   switch (config.mode) {
     case 'collect': {

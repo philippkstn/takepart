@@ -583,6 +583,8 @@ export async function boardSummary(
   slides: Slide[],
   slide: BoardSlide,
   rights: BoardRights,
+  /** Namen der Teilnehmenden (Archiv, Fotoprotokoll) – ohne bleiben Karten anonym */
+  names?: ReadonlyMap<number, string>,
 ): Promise<BoardSummary> {
   const data = await loadBoard(db, runId, slides, slide);
   return {
@@ -590,7 +592,7 @@ export async function boardSummary(
     cards: data.cards.map((c) => ({
       id: c.id,
       text: c.text,
-      authorName: null,
+      authorName: (c.participantId !== null && names?.get(c.participantId)) || null,
       column: c.column,
       status: c.status,
       votes: c.votes,

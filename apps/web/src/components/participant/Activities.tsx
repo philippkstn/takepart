@@ -1,4 +1,12 @@
-import { assetUrl, headlineSize, slideTask, type ParticipantView, type PostView, type PublicSlide, type ResponsePayloads } from '@slides/shared';
+import {
+  assetUrl,
+  headlineSize,
+  slideTask,
+  type ParticipantView,
+  type PostView,
+  type PublicSlide,
+  type ResponsePayloads,
+} from '@slides/shared';
 import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, RotateCcw, Send, Star, Trophy } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
@@ -158,7 +166,11 @@ function Choice({ view, slide, token }: Props<'choice'>) {
 
   return (
     <div className="stack">
-      <Question kicker={multiple ? 'Mehrere Antworten möglich' : 'Eine Antwort wählen'} text={slide.config.question} task={slideTask(slide)} />
+      <Question
+        kicker={multiple ? 'Mehrere Antworten möglich' : 'Eine Antwort wählen'}
+        text={slide.config.question}
+        task={slideTask(slide)}
+      />
       {own && !editing ? (
         <Done onChange={view.locked ? undefined : () => setEditing(true)}>
           <strong>Danke!</strong>
@@ -606,20 +618,26 @@ function Compose({
   cta: string;
 }) {
   const [text, setText] = useState('');
-  const [column, setColumn] = useState(0);
+  // Mehrere Bereiche: bewusst wählen lassen – nichts vorauswählen, nach jedem Beitrag neu
+  const choose = !!columns && columns.length > 1;
+  const [column, setColumn] = useState<number | null>(choose ? null : 0);
+  const missingColumn = choose && column === null;
   const { send, busy } = useSend(token);
   const toast = useToast();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (await send('/api/p/posts', { slideId: slide.id, text, column: columns ? column : undefined })) {
+    if (missingColumn) return;
+    if (await send('/api/p/posts', { slideId: slide.id, text, column: columns ? (column ?? 0) : undefined })) {
       setText('');
+      if (choose) setColumn(null);
       toast(slide.type === 'qa' && slide.config.moderated ? 'Danke! Deine Frage erscheint nach der Freigabe.' : 'Abgeschickt');
     }
   };
   return (
     <form className="compose" onSubmit={submit}>
-      {columns && (
-        <div className="segmented" role="group" aria-label="Spalte" style={{ flexWrap: 'wrap', justifySelf: 'start' }}>
+      {choose && <span className="label">Bereich wählen</span>}
+      {choose && (
+        <div className="segmented" role="group" aria-label="Bereich" style={{ flexWrap: 'wrap', justifySelf: 'start' }}>
           {columns.map((c, i) => (
             <button type="button" key={i} aria-pressed={column === i} onClick={() => setColumn(i)}>
               {c}
@@ -637,9 +655,9 @@ function Compose({
       />
       <div className="row-between">
         <span className="char-count tabular">
-          {text.length}/{maxLength}
+          {missingColumn && text.trim() ? 'Bitte zuerst einen Bereich wählen' : `${text.length}/${maxLength}`}
         </span>
-        <button className="btn btn-primary" disabled={busy || !text.trim()}>
+        <button className="btn btn-primary" disabled={busy || !text.trim() || missingColumn}>
           {cta} <Send />
         </button>
       </div>

@@ -10,7 +10,7 @@
  * für Teilnehmende.
  */
 
-import type { BuildEffect, PptxSlideInfo, RawBuildRegion } from '@slides/shared';
+import { fitBuildBox, rotatedBounds, type BuildEffect, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
 
 /** Lange Seite der Folienbilder in Pixeln – scharf auf Full-HD-Beamern, klein genug für Handys. */
 const FULL_SIZE = 1920;
@@ -31,6 +31,8 @@ export interface RenderedPage {
    * eine Abdeckung als Fleck zu sehen.
    */
   fills: (string | null)[];
+  /** An das gerenderte Bild angepasste Bereiche (Text über den Kasten hinaus, Schatten, Kanten) */
+  boxes: Box[];
   /** Streuung der Umgebungsfarbe je Bereich (für Diagnose) */
   spreads: number[];
 }
@@ -43,46 +45,6 @@ interface Box {
   y: number;
   w: number;
   h: number;
-}
-
-/**
- * Abdeckfarbe eines Bereichs: Median der Pixel auf einem schmalen Ring knapp
- * außerhalb des Elements. Liegt ein Text auf einer Fläche, ist das die Farbe der
- * Fläche – genau das, was vor dem Aufdecken zu sehen sein soll.
- */
-function sampleFill(data: ImageData, box: Box): { fill: string; spread: number } {
-  const { width, height } = data;
-  const x0 = Math.round(box.x * width) - 3;
-  const y0 = Math.round(box.y * height) - 3;
-  const x1 = Math.round((box.x + box.w) * width) + 2;
-  const y1 = Math.round((box.y + box.h) * height) + 2;
-  const r: number[] = [];
-  const g: number[] = [];
-  const b: number[] = [];
-  const take = (x: number, y: number) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return;
-    const i = (y * width + x) * 4;
-    r.push(data.data[i]!);
-    g.push(data.data[i + 1]!);
-    b.push(data.data[i + 2]!);
-  };
-  // Gleichmäßiger Abstand entlang des ganzen Rings, damit kurze Seiten nicht überwiegen
-  const step = Math.max(1, Math.round((2 * (x1 - x0) + 2 * (y1 - y0)) / 240));
-  for (let x = x0; x <= x1; x += step) {
-    take(x, y0);
-    take(x, y1);
-  }
-  for (let y = y0 + step; y < y1; y += step) {
-    take(x0, y);
-    take(x1, y);
-  }
-  if (r.length === 0) return { fill: '#ffffff', spread: 0 };
-  const sorted = [r, g, b].map((v) => v.sort((a, c) => a - c));
-  const at = (v: number[], q: number) => v[Math.min(v.length - 1, Math.floor(v.length * q))]!;
-  // Spannweite ohne die äußersten 10 % (einzelne Linien oder Kanten im Ring stören nicht)
-  const spread = Math.max(...sorted.map((v) => at(v, 0.9) - at(v, 0.1)));
-  const fill = '#' + sorted.map((v) => at(v, 0.5).toString(16).padStart(2, '0')).join('');
-  return { fill, spread };
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
@@ -152,16 +114,30 @@ export async function* renderPdfPages(
       const boxes = regionsFor(i - 1);
       let fills: (string | null)[] = [];
       let spreads: number[] = [];
+      let fitted: Box[] = [];
       if (boxes.length > 0) {
+        // Auf dem unkomprimierten Bild messen – nach WebP/JPEG lägen Artefakte um jede Kante
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const samples = boxes.map((box) => sampleFill(data, box));
+        const samples = boxes.map((box) => fitBuildBox(data, box));
         fills = samples.map((x) => (x.spread <= MAX_FILL_SPREAD ? x.fill : null));
         spreads = samples.map((x) => x.spread);
+        fitted = samples.map((x) => x.box);
       }
 
       const [full, thumb, title] = await Promise.all([canvasToBlob(canvas, 0.86), canvasToBlob(thumbCanvas, 0.8), pageTitle(page)]);
       page.cleanup();
-      yield { index: i - 1, total: doc.numPages, width: canvas.width, height: canvas.height, full, thumb, title, fills, spreads };
+      yield {
+        index: i - 1,
+        total: doc.numPages,
+        width: canvas.width,
+        height: canvas.height,
+        full,
+        thumb,
+        title,
+        fills,
+        boxes: fitted,
+        spreads,
+      };
     }
   } finally {
     await task.destroy();
@@ -298,7 +274,10 @@ function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string,
       // Konturen liegen mittig auf der Kante und ragen halb über die Box hinaus
       const ln = kid(props, 'ln');
       const line = ln && !kid(ln, 'noFill') ? Number(ln.getAttribute('w') ?? 12700) : 0;
-      if (id) boxes.set(id, { x: ax / slideW, y: ay / slideH, w: (cx * sx) / slideW, h: (cy * sy) / slideH, line });
+      // Gedrehte Elemente (rot in 1/60000 Grad): umschließendes Rechteck abdecken
+      const rot = Number(xfrm?.getAttribute('rot') ?? 0) / 60000;
+      const b = rotatedBounds(ax, ay, cx * sx, cy * sy, Number.isFinite(rot) ? rot : 0);
+      if (id) boxes.set(id, { x: b.x / slideW, y: b.y / slideH, w: b.w / slideW, h: b.h / slideH, line });
       if (el.localName === 'grpSp') {
         // Kinder einer Gruppe liegen in eigenen Koordinaten (chOff/chExt)
         const chOff = kid(xfrm, 'chOff');

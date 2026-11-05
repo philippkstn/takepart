@@ -227,11 +227,11 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       if (slide.config.mode !== 'collect') return reply.code(400).send({ error: 'Auf dieser Folie werden keine Karten gesammelt' });
       if (body.data.text.length > 300) return reply.code(400).send({ error: 'Höchstens 300 Zeichen' });
       // Beim Parkplatz zählen die Karten aller Sammel-Folien der Wand zusammen
-      const own = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id IN (?) AND participant_id = ?', [
-        p.runId,
-        collectSlideIds(ctx.slides, slide),
-        p.id,
-      ]);
+      const own = await one<{ n: number }>(
+        db,
+        'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id IN (?) AND participant_id = ?',
+        [p.runId, collectSlideIds(ctx.slides, slide), p.id],
+      );
       if (Number(own?.n ?? 0) >= slide.config.maxCards) {
         return reply.code(429).send({ error: `Höchstens ${slide.config.maxCards} ${slide.config.maxCards === 1 ? 'Karte' : 'Karten'}` });
       }
@@ -241,6 +241,9 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       }
     }
     if (slide.type === 'pinboard') {
+      // Mehrere Bereiche: Die Person muss einen wählen (sonst landete alles stillschweigend im ersten)
+      if (body.data.column === undefined && slide.config.columns.length > 1)
+        return reply.code(400).send({ error: 'Bitte zuerst einen Bereich wählen' });
       column = body.data.column ?? 0;
       if (column >= slide.config.columns.length) return reply.code(400).send({ error: 'Unbekannte Spalte' });
     }
