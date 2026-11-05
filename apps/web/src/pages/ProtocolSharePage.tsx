@@ -2,13 +2,14 @@ import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { useParams } from 'react-router';
 import { LegalLinks } from '../components/LegalLinks.tsx';
-import { ProtocolView, type ProtocolData } from '../components/protocol/ProtocolView.tsx';
+import { ProtocolView, printProtocol, type ProtocolData } from '../components/protocol/ProtocolView.tsx';
 import { FullScreenSpinner } from '../components/ui.tsx';
 import { api } from '../lib/api.ts';
 
 /**
  * Geteiltes Fotoprotokoll (`/p/:token`) – ohne Admin-Navigation, druckbar.
- * Enthält Kartentexte und Freitexte; Namen nur, wenn die Moderation sie nicht weggelassen hat.
+ * Enthält Kartentexte und Freitexte; Namen nur, wenn die Moderation sie nicht weggelassen hat,
+ * Folien nur, wenn sie mitgeteilt wurden.
  */
 export default function ProtocolSharePage() {
   const { token = '' } = useParams();
@@ -34,11 +35,12 @@ export default function ProtocolSharePage() {
     <>
       <ProtocolView
         run={data.data}
+        showSlides={!!data.data.withSlides}
         toolbar={
           <div className="protocol-toolbar no-print">
             <span className="grow" />
             <span className="small faint">Im Druckdialog „Als PDF sichern“ wählen.</span>
-            <button className="btn btn-primary" onClick={() => window.print()}>
+            <button className="btn btn-primary" onClick={() => void printProtocol()}>
               <Printer /> Als PDF speichern
             </button>
           </div>

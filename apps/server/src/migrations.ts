@@ -351,4 +351,9 @@ export const migrations: Migration[] = [
         ADD UNIQUE KEY uq_runs_protocol_token (protocol_token)`,
     ],
   },
+  {
+    // Geteiltes Fotoprotokoll wahlweise mit den Folien (Folienbilder); Standard aus
+    name: '012_protocol_slides',
+    statements: [`ALTER TABLE runs ADD COLUMN protocol_slides TINYINT NOT NULL DEFAULT 0 AFTER protocol_names`],
+  },
 ];

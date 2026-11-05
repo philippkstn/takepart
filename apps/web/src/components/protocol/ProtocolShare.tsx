@@ -9,6 +9,8 @@ import './protocol-extra.css';
 export interface ProtocolShareState {
   url: string;
   names: boolean;
+  /** Folienbilder mitgeteilt */
+  slides: boolean;
 }
 
 /**
@@ -19,13 +21,14 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
   const toast = useToast();
   const queryClient = useQueryClient();
   const [withoutNames, setWithoutNames] = useState(protocol ? !protocol.names : false);
+  const [withSlides, setWithSlides] = useState(protocol?.slides ?? false);
   const [busy, setBusy] = useState(false);
   const absolute = protocol ? `${location.origin}${protocol.url}` : '';
 
-  const send = async (enabled: boolean, names = !withoutNames) => {
+  const send = async (enabled: boolean, names = !withoutNames, slides = withSlides) => {
     setBusy(true);
     try {
-      await api(`/api/runs/${runId}/protocol-share`, { body: { enabled, names } });
+      await api(`/api/runs/${runId}/protocol-share`, { body: { enabled, names, slides } });
       await queryClient.invalidateQueries({ queryKey: ['run-results', runId] });
       toast(enabled ? (protocol ? 'Einstellung gespeichert' : 'Link erzeugt') : 'Link zurückgezogen – er funktioniert nicht mehr');
     } catch (err) {
@@ -51,8 +54,8 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
       </h2>
       <p className="protocol-share-warning">
         Anders als die Freigabe der Folien enthält dieser Link alle Kartentexte, Freitexte, Fragen und Gruppen
-        {withoutNames ? '' : ' sowie die Namen in Gruppeneinteilung und Q&A'}. Wer den Link hat, kann alles lesen – nur an Beteiligte
-        weitergeben.
+        {withoutNames ? '' : ' sowie die Namen in Gruppeneinteilung und Q&A'}
+        {withSlides ? ', dazu alle Folien' : ''}. Wer den Link hat, kann alles lesen – nur an Beteiligte weitergeben.
       </p>
       <label className="row small">
         <input
@@ -65,6 +68,18 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
           }}
         />
         Namen weglassen (Gruppeneinteilung nur mit Anzahl, Fragen ohne Namen)
+      </label>
+      <label className="row small">
+        <input
+          type="checkbox"
+          checked={withSlides}
+          disabled={busy}
+          onChange={(e) => {
+            setWithSlides(e.target.checked);
+            if (protocol) void send(true, !withoutNames, e.target.checked);
+          }}
+        />
+        Folien mitteilen (alle Folien in ihrer Reihenfolge, importierte Folien als Bild)
       </label>
       {protocol ? (
         <div className="protocol-share-link">

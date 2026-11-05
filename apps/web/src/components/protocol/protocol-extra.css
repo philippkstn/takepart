@@ -65,9 +65,60 @@
   color: var(--ink-3);
 }
 
+/* Folien mitdrucken: Folienbild bzw. Titel im Format der Bühne (16:9) */
+.protocol-slide {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-s);
+  background: var(--surface-2);
+  overflow: hidden;
+  break-inside: avoid;
+}
+.protocol-slide img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.protocol-slide.is-text {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 6% 8%;
+  text-align: center;
+}
+.protocol-slide.is-text h2 {
+  font-size: 1.8rem;
+  line-height: 1.2;
+  margin: 0;
+  overflow-wrap: break-word;
+}
+.protocol-slide.is-text p {
+  margin: 0;
+  max-width: 60ch;
+  white-space: pre-wrap;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.protocol-page.is-slide {
+  gap: 12px;
+}
+
 @media print {
   .print-only {
     display: grid;
+  }
+  /* Eine Folie samt Kopfzeile passt auf eine Seite A4 quer (ca. 186 mm Höhe) */
+  .protocol-slide {
+    width: min(100%, calc(150mm * 16 / 9));
+    margin: 0 auto;
+    background: #fff;
+  }
+  /* Keine leere Seite am Ende */
+  .protocol > section:last-child {
+    break-after: auto;
   }
 }
 
