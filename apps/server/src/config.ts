@@ -27,6 +27,15 @@ const schema = z.object({
    * Bestimmt, welche IP aus X-Forwarded-For gilt – zu hoch erlaubt gefälschte IPs.
    */
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+  /**
+   * Microsoft-Teams-App (Meeting-Bühne). Standard aus. `1` erlaubt Teams, die
+   * Seiten unter /teams einzubetten, und bietet das App-Paket zum Download an.
+   * Zurück auf `0` (und Neustart) zieht das Feature vollständig zurück.
+   */
+  TEAMS_APP: z
+    .enum(['0', '1', 'false', 'true'])
+    .default('0')
+    .transform((v) => v === '1' || v === 'true'),
 });
 
 export type Config = z.infer<typeof schema> & { rpId: string; secureCookies: boolean };

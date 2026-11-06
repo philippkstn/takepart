@@ -670,8 +670,11 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   rehearsal: boolean;
   /** Davon simulierte Testteilnehmende (in `participants` mitgezählt) */
   fakeParticipants: number;
-  /** Geöffnete Beamer-Fenster und wie viele davon gerade verdeckt bzw. minimiert sind */
-  displays: { connected: number; hidden: number };
+  /**
+   * Geöffnete Beamer-Fenster und wie viele davon gerade verdeckt bzw. minimiert sind;
+   * `teamsStage` = Meeting-Fenster, die die Teams-Bühne zeigen (zählen nicht als Beamer)
+   */
+  displays: { connected: number; hidden: number; teamsStage: number };
 }
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────

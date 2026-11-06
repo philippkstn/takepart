@@ -43,6 +43,13 @@ npm run build
 - Bühne ist immer **16:9** (Beamer letterboxt). Laserpointer/Zeichnen nutzen auf die Bühne normierte Koordinaten und laufen direkt über den Host-WebSocket (`live.ts`, `inkEvent`) – die einzige bewusste Ausnahme von „Live-Zustand liegt in der DB“: flüchtig, gelöscht bei Folienwechsel.
 - Freigabe (`/h/:token`, `handoutData` in `runs.ts`) enthält nur Folien und zusammengefasste Ergebnisse – keine Namen, Freitexte, Fragen, Kommentare, Ranglisten. Das geteilte Fotoprotokoll (`/p/:token`) ist davon getrennt und enthält mehr (siehe „Nach dem Workshop“).
 
+## Microsoft Teams (Meeting-Bühne)
+
+- Abschaltbar über `TEAMS_APP` (Standard aus, `config.ts`). Aus = überall `frame-ancestors 'none'`, kein App-Paket, `/teams/*` zeigt nur einen Hinweis – Rückzug ohne Deployment (`docs/deployment.md`). Neue Teams-Funktionen müssen am selben Schalter hängen.
+- Server `apps/server/src/msteams.ts` (nicht verwechseln mit `teams.ts` = Gruppen bilden): `frameAncestors` (nur `/teams/*`), Manifest 1.19 je Instanz aus `APP_ORIGIN` (feste App-ID `teamsAppId`), `GET /api/teams/app.zip` (angemeldet; Icons und ZIP ohne Abhängigkeiten gerechnet). Web: `pages/MsTeamsPage.tsx`, `lib/msteams.ts` (SDK `@microsoft/teams-js` nur dort, dynamisch geladen).
+- `/teams/einrichten` = Konfigurationsseite (Anzeige-Link einfügen → `setConfig`), `/teams/tab/:token` = Seitenleiste (Knopf „Auf Bühne teilen“, `shareAppContentToStage`) bzw. Bühne (`frameContext === 'meetingStage'` → `DisplayPage embedded`). Keine Anmeldung im iframe – der Anzeige-Link ist die Zugriffskontrolle.
+- Bühnen-Verbindungen kommen als `/ws?display=…&embed=teams`: eine je Meeting-Fenster, zählen nicht als Beamer und melden keine Sichtbarkeit (`HostView.displays.teamsStage`, Pill „Teams-Bühne“ im Steuerpult).
+
 ## Kartenwand (Workshops)
 
 - Folientyp `board` mit `mode`: `collect` (Karten sammeln), `cluster` (Wand/Mindmap), `place` (Bahnen mit Feldern – Spalten, Prozess, 2×2-Matrix), `dots` (Klebepunkte), `rate` (1–2 Kriterien, bei zweien Matrix), `table` (Top-N mit Verantwortlichen). Folien mit gleichem `config.board` teilen Karten und Gruppen – verknüpft über den Namen, nie über Folien-IDs (Duplizieren!).

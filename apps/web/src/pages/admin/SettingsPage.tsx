@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Plus, Trash2 } from 'lucide-react';
+import { Download, KeyRound, Plus, Trash2 } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Spinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
+import { usePublicConfig } from '../../lib/publicConfig.ts';
 import { authStatus, MIN_PASSWORD_LENGTH, passkeyError, registerPasskey, type Account } from '../../lib/passkey.ts';
 import { BrandSettings } from './BrandSettings.tsx';
 import { UsersSettings } from './UsersSettings.tsx';
@@ -26,6 +27,7 @@ export default function SettingsPage() {
       <PasskeySettings list={passkeys.data} loading={passkeys.isLoading} hasPassword={!!account?.hasPassword} />
       {account?.isAdmin && <UsersSettings ownId={account.id} />}
       <BrandSettings />
+      <TeamsSettings />
     </main>
   );
 }
@@ -217,6 +219,28 @@ function PasskeySettings({ list, loading, hasPassword }: { list: Passkey[] | und
           <Plus /> Passkey hinzufügen
         </button>
       </div>
+    </section>
+  );
+}
+
+/** App-Paket für Microsoft Teams – nur, wenn TEAMS_APP auf dem Server eingeschaltet ist */
+function TeamsSettings() {
+  const config = usePublicConfig();
+  if (!config?.teams) return null;
+  return (
+    <section className="card card-pad stack">
+      <div className="stack-s">
+        <h2>Microsoft Teams</h2>
+        <p className="muted small">
+          Zeigt die Beamer-Ansicht auf der Bühne eines Teams-Meetings, scharf und live in jedem Meeting-Fenster statt als
+          Bildschirmfreigabe. Lade das App-Paket herunter und lade es in Teams unter „Apps → Apps verwalten → App hochladen“ hoch
+          (oder lass es von der IT freigeben). Im Meeting fügst du TakePart über „Apps“ hinzu und fügst den Anzeige-Link aus dem
+          Steuerpult ein.
+        </p>
+      </div>
+      <a className="btn" href="/api/teams/app.zip" download style={{ justifySelf: 'start' }}>
+        <Download /> App-Paket herunterladen
+      </a>
     </section>
   );
 }

@@ -21,6 +21,8 @@ const DisplayPage = lazy(() => import('./pages/DisplayPage.tsx'));
 const HandoutPage = lazy(() => import('./pages/HandoutPage.tsx'));
 const ProtocolSharePage = lazy(() => import('./pages/ProtocolSharePage.tsx'));
 const ComparePage = lazy(() => import('./pages/admin/ComparePage.tsx'));
+const TeamsConfigPage = lazy(() => import('./pages/MsTeamsPage.tsx').then((m) => ({ default: m.TeamsConfigPage })));
+const TeamsTabPage = lazy(() => import('./pages/MsTeamsPage.tsx').then((m) => ({ default: m.TeamsTabPage })));
 
 function CodeRoute() {
   const { code = '' } = useParams();
@@ -34,6 +36,9 @@ const router = createBrowserRouter([
   { path: '/d/:token', element: <DisplayPage /> },
   { path: '/h/:token', element: <HandoutPage /> },
   { path: '/p/:token', element: <ProtocolSharePage /> },
+  // Microsoft-Teams-App (nur mit TEAMS_APP auf dem Server einbettbar)
+  { path: '/teams/einrichten', element: <TeamsConfigPage /> },
+  { path: '/teams/tab/:token', element: <TeamsTabPage /> },
   {
     path: '/admin',
     element: <AdminLayout />,

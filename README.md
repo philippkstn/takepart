@@ -80,6 +80,7 @@ Set these as environment variables (with Compose, e.g. in a `.env` file next to 
 | `SETUP_TOKEN`                                             | generated               | Fixed token for the first account instead of the generated one.                                                                           |
 | `IMPRINT_URL`, `PRIVACY_URL`                              | –                       | Legal links in the footer (shown only if set).                                                                                            |
 | `SOURCE_URL`                                              | this repository         | Source code link in the footer. If you run a modified version, link your code (AGPL).                                                     |
+| `TEAMS_APP`                                               | `0`                     | `1` enables the Microsoft Teams app (display view on the meeting stage, app package in the settings). `0` withdraws it.                   |
 | `TAKEPART_PORT`                                           | `8080`                  | Host port in `docker-compose.yml`.                                                                                                        |
 
 Example `.env` for a public instance:

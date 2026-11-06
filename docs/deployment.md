@@ -46,8 +46,19 @@ Manuell erneut ausrollen: Actions → Deploy → „Run workflow“.
 - Das geteilte Beamer-Fenster nicht vollständig verdecken (am besten eigener Bildschirm): Chrome und Safari zeichnen verdeckte Fenster nicht neu, dann sieht das Publikum ein stehendes Bild.
 - Keine Deployments während eines Vortrags – Teilnehmende verbinden sich zwar automatisch neu, aber es ruckelt kurz.
 
+## Microsoft Teams (Meeting-Bühne)
+
+Optional, standardmäßig aus. Zeigt die Beamer-Ansicht als App auf der Bühne eines Teams-Meetings – jedes Meeting-Fenster lädt sie selbst, scharf und live statt als Bildschirmfreigabe.
+
+**Einschalten:** `TEAMS_APP=1` in `~/slides/shared/.env`, dann `supervisorctl restart slides`. Danach in TakePart unter Einstellungen → „Microsoft Teams“ das App-Paket herunterladen (Manifest und Icons passend zu `APP_ORIGIN`) und in Teams hochladen: selbst unter „Apps → Apps verwalten → App hochladen“ (wenn der Tenant eigene Apps erlaubt) oder über die IT im Teams Admin Center. Im Meeting: „Apps“ → TakePart → Anzeige-Link aus dem Steuerpult einfügen → in der Seitenleiste „Auf Bühne teilen“.
+
+**Zurückziehen:** `TEAMS_APP=0` (oder Zeile löschen) und `supervisorctl restart slides`. Wirkung sofort und ohne Deployment: Teams darf keine TakePart-Seite mehr einbetten (`frame-ancestors 'none'` wie überall), das App-Paket ist weg, schon installierte Apps zeigen nur noch „Teams-App ausgeschaltet“ bzw. nichts. Die in Teams hochgeladene App danach dort entfernen. Daten sind nicht betroffen – die App speichert nichts eigenes.
+
+Grenzen (Microsoft): Gäste ohne Microsoft-Konto (anonym) sehen geteilte Apps nicht – für sie weiter Teilnahme-Link/QR-Code und notfalls Bildschirmfreigabe. Teilen dürfen nur Organisation und Referierende. Keine Apps in Ende-zu-Ende-verschlüsselten Anrufen.
+
 ## Sicherheit
 
+- **Einbetten:** Alle Seiten senden `frame-ancestors 'none'`. Einzige Ausnahme mit `TEAMS_APP=1`: die Seiten unter `/teams/` für die Teams-Domains (`msteams.ts`). Sie zeigen nur die Beamer-Ansicht über den Anzeige-Link – keine Anmeldung, kein Steuerpult.
 - **Proxy-Kette:** `TRUST_PROXY_HOPS` in der `.env` muss zur Kette passen – Uberspace allein `1`, mit Cloudflare-Proxy davor `2`. Ein zu hoher Wert lässt gefälschte `X-Forwarded-For`-IPs durch und hebelt die IP-Limits aus.
 - **Konten:** jedes Konto sieht nur seine eigenen Präsentationen, Durchführungen und Brandings (`access.ts`, fremde Objekte antworten mit 404). Admins verwalten Konten, sehen aber auch nur ihre eigenen Präsentationen. Ein gelöschtes Konto nimmt seine Präsentationen mit.
 - **Passkeys** verlangen Benutzerverifizierung (Fingerabdruck, Gesicht, PIN). **Passwörter** (mind. 10 Zeichen) liegen als scrypt-Hash in der DB. Jedes Konto behält mindestens eine Anmeldeart. Wird ein Passkey gelöscht oder das Passwort geändert, enden alle anderen Sitzungen des Kontos.

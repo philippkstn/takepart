@@ -22,13 +22,14 @@ import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
 import { rehearsalRoutes } from './rehearsal.ts';
+import { frameAncestors, teamsRoutes } from './msteams.ts';
 import { isIndexable, renderIndex, seoRoutes } from './seo.ts';
 import { protocolRoutes } from './protocol.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
 import { userRoutes } from './users.ts';
 
-function contentSecurityPolicy(origin: string): string {
+function contentSecurityPolicy(origin: string, ancestors: string): string {
   // Ältere Safari-Versionen zählen wss: nicht zu 'self' – deshalb explizit.
   const ws = origin.replace(/^http/, 'ws');
   return [
@@ -39,7 +40,8 @@ function contentSecurityPolicy(origin: string): string {
     "img-src 'self' data: blob:",
     "font-src 'self'",
     `connect-src 'self' ${ws}`,
-    "frame-ancestors 'none'",
+    // Einbetten nur für die Teams-Seiten und nur mit TEAMS_APP (teams.ts)
+    `frame-ancestors ${ancestors}`,
     "base-uri 'self'",
     "form-action 'self'",
   ].join('; ');
@@ -66,7 +68,8 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   cleanupTimer.unref();
   app.addHook('onReady', async () => void cleanup());
   app.addHook('onClose', async () => clearInterval(cleanupTimer));
-  const csp = contentSecurityPolicy(config.APP_ORIGIN);
+  const csp = contentSecurityPolicy(config.APP_ORIGIN, "'none'");
+  const teamsCsp = contentSecurityPolicy(config.APP_ORIGIN, frameAncestors('/teams/', config.TEAMS_APP));
   app.addHook('onClose', async () => live.close());
 
   await app.register(cookie);
@@ -76,7 +79,8 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   app.addHook('onSend', async (request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Referrer-Policy', 'same-origin');
-    if (!request.url.startsWith('/api/')) reply.header('Content-Security-Policy', csp);
+    if (!request.url.startsWith('/api/'))
+      reply.header('Content-Security-Policy', frameAncestors(request.url, config.TEAMS_APP) === "'none'" ? csp : teamsCsp);
     // Token-Links (Teilnahme, Beamer, Freigabe, Fotoprotokoll), Admin und API nie in den Suchindex
     if (!isIndexable(request.url)) reply.header('X-Robots-Tag', 'noindex, nofollow');
     return payload;
@@ -103,7 +107,12 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   /** Öffentliche Einstellungen für die Web-App (Fußzeilen-Links) */
   app.get('/api/config', async (_request, reply) => {
     reply.header('Cache-Control', 'public, max-age=300');
-    return { imprintUrl: config.IMPRINT_URL ?? null, privacyUrl: config.PRIVACY_URL ?? null, sourceUrl: config.SOURCE_URL };
+    return {
+      imprintUrl: config.IMPRINT_URL ?? null,
+      privacyUrl: config.PRIVACY_URL ?? null,
+      sourceUrl: config.SOURCE_URL,
+      teams: config.TEAMS_APP,
+    };
   });
 
   /** Öffentliche Freigabe: Folien und zusammengefasste Ergebnisse einer Durchführung */
@@ -137,6 +146,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   followupRoutes(app, db);
   compareRoutes(app, db);
   seoRoutes(app, config);
+  teamsRoutes(app, db, config);
 
   /**
    * Live-Verbindung. Drei Rollen:
@@ -146,7 +156,13 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
    */
   app.get('/ws', { websocket: true }, async (socket, request) => {
     const q = z
-      .object({ token: z.string().optional(), display: z.string().optional(), run: z.coerce.number().int().optional() })
+      .object({
+        token: z.string().optional(),
+        display: z.string().optional(),
+        run: z.coerce.number().int().optional(),
+        /** Beamer-Ansicht auf der Teams-Bühne: eine je Meeting-Fenster, zählt nicht als Beamer */
+        embed: z.literal('teams').optional(),
+      })
       .safeParse(request.query);
     const reject = (code: number, reason: string) => socket.close(code, reason);
     if (!q.success) return reject(4000, 'Ungültige Anfrage');
@@ -161,7 +177,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     if (q.data.display) {
       const run = await one<{ id: number }>(db, 'SELECT id FROM runs WHERE display_token = ?', [q.data.display]);
       if (!run) return reject(4001, 'Anzeige-Link ungültig');
-      const client = { ws: socket, role: 'display' as const, alive: true };
+      const client = { ws: socket, role: 'display' as const, alive: true, embedded: q.data.embed === 'teams' };
       if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
       // Der Beamer meldet nur, ob sein Fenster sichtbar ist (Anzeige im Steuerpult)
       socket.on('message', (raw) => live.displayMessage(run.id, client, raw));

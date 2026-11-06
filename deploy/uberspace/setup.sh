@@ -69,6 +69,8 @@ TRUST_PROXY_HOPS=${TRUST_PROXY_HOPS:-1}
 # Optional: rechtliche Links in der Fußzeile
 # IMPRINT_URL=https://example.org/impressum
 # PRIVACY_URL=https://example.org/datenschutz
+# Optional: Microsoft-Teams-App (Beamer-Ansicht auf der Meeting-Bühne), 1 = an, 0 = zurückziehen
+# TEAMS_APP=1
 # Einmal-Token für den ersten Passkey. Nach der Einrichtung entfernen.
 SETUP_TOKEN=$(openssl rand -hex 16)
 ENV

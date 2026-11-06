@@ -20,11 +20,16 @@ import './display.css';
  * außer du bist im selben Browser angemeldet: Dann blättern Pfeiltasten,
  * Leertaste und Presenter durch Folien und Animationen, B/W schaltet Schwarz-
  * bzw. Weißbild.
+ *
+ * `embedded`: auf der Teams-Meeting-Bühne (eine Ansicht je Meeting-Fenster) –
+ * zählt nicht als Beamer, meldet keine Sichtbarkeit, kein Vollbild-Knopf.
  */
-export default function DisplayPage() {
+export default function DisplayPage({ embedded = false }: { embedded?: boolean }) {
   const { token = '' } = useParams();
-  const { view, status, offset, ink, send } = useLive<DisplayView>(`display=${encodeURIComponent(token)}`);
-  const wasHidden = useVisibilityReport(status === 'open', send);
+  const { view, status, offset, ink, send } = useLive<DisplayView>(
+    `display=${encodeURIComponent(token)}${embedded ? '&embed=teams' : ''}`,
+  );
+  const wasHidden = useVisibilityReport(status === 'open' && !embedded, send);
   const auth = useQuery({ queryKey: ['auth'], queryFn: authStatus });
   const isHost = !!auth.data?.loggedIn;
   const [fullscreen, setFullscreen] = useState(false);
@@ -135,14 +140,16 @@ export default function DisplayPage() {
             <VolumeX /> Ton aktivieren
           </button>
         )}
-        <button
-          className="display-fs icon-btn"
-          onClick={toggleFullscreen}
-          aria-label={fullscreen ? 'Vollbild verlassen' : 'Vollbild'}
-          title="Vollbild (F)"
-        >
-          {fullscreen ? <Minimize /> : <Maximize />}
-        </button>
+        {!embedded && (
+          <button
+            className="display-fs icon-btn"
+            onClick={toggleFullscreen}
+            aria-label={fullscreen ? 'Vollbild verlassen' : 'Vollbild'}
+            title="Vollbild (F)"
+          >
+            {fullscreen ? <Minimize /> : <Maximize />}
+          </button>
+        )}
       </div>
     </HiresSlides.Provider>
   );

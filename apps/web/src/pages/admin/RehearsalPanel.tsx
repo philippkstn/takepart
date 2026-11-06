@@ -47,6 +47,14 @@ export function InviteButton({ code }: { code: string | null }) {
 
 /** Ist das Beamer-Fenster geöffnet und sichtbar? Verdeckte Fenster zeichnen Browser nicht neu. */
 export function DisplayStatus({ displays }: { displays: HostView['displays'] | undefined }) {
+  // Teams-Bühne: jedes Meeting-Fenster lädt die Beamer-Ansicht selbst – kein Beamer, der verdeckt sein könnte
+  const stage = displays?.teamsStage ? ` · Teams-Bühne in ${displays.teamsStage} Meeting-Fenster${displays.teamsStage === 1 ? '' : 'n'}` : '';
+  if (displays && displays.connected === 0 && displays.teamsStage > 0)
+    return (
+      <span className="pill pill-good" title={stage.slice(3)}>
+        <Monitor /> Teams-Bühne
+      </span>
+    );
   if (!displays || displays.connected === 0)
     return (
       <span className="pill" title="Kein Beamer-Fenster verbunden">
@@ -66,7 +74,7 @@ export function DisplayStatus({ displays }: { displays: HostView['displays'] | u
   return (
     <span
       className="pill pill-good"
-      title={displays.connected === 1 ? 'Beamer-Fenster sichtbar' : `${displays.connected} Beamer-Fenster sichtbar`}
+      title={(displays.connected === 1 ? 'Beamer-Fenster sichtbar' : `${displays.connected} Beamer-Fenster sichtbar`) + stage}
     >
       <Monitor /> Beamer sichtbar
     </span>

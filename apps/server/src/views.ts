@@ -306,7 +306,7 @@ export function hostView(
   snap: Snapshot,
   participants: number,
   online: ReadonlySet<number> = new Set(),
-  displays: HostView['displays'] = { connected: 0, hidden: 0 },
+  displays: HostView['displays'] = { connected: 0, hidden: 0, teamsStage: 0 },
 ): HostView {
   const { state } = snap.run;
   const slide = snap.current;

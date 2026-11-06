@@ -26,6 +26,8 @@ services:
       # Optional: eigene Rechtstexte in der Fußzeile
       IMPRINT_URL: ${IMPRINT_URL:-}
       PRIVACY_URL: ${PRIVACY_URL:-}
+      # Optional: Microsoft-Teams-App (Beamer-Ansicht auf der Meeting-Bühne), 1 = an
+      TEAMS_APP: ${TEAMS_APP:-0}
     depends_on:
       db:
         condition: service_healthy

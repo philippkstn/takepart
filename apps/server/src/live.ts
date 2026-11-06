@@ -35,6 +35,8 @@ type Client =
       inkCount?: number;
       /** Beamer-Fenster meldet, dass es verdeckt/minimiert ist (Page Visibility) – nur flüchtig */
       hidden?: boolean;
+      /** Beamer-Ansicht auf der Teams-Meeting-Bühne (je Meeting-Fenster eine) – kein Beamer im Raum */
+      embedded?: boolean;
     };
 
 interface Room {
@@ -171,7 +173,7 @@ export class LiveHub {
 
   /** Nachricht eines Beamer-Fensters: Sichtbarkeit für die Anzeige im Steuerpult merken. */
   displayMessage(runId: number, sender: Client, raw: unknown) {
-    if (sender.role !== 'display') return;
+    if (sender.role !== 'display' || sender.embedded) return;
     let hidden: boolean;
     try {
       const result = displayMessage.safeParse(JSON.parse(String(raw)));
@@ -241,9 +243,13 @@ export class LiveHub {
       for (const c of room.clients) if (c.role === 'participant') participantIds.add(c.participantId);
       // Probelauf: simulierte Testteilnehmende zählen mit (sie haben keine Verbindung)
       const participants = participantIds.size + snap.run.fakeParticipants;
-      const displays = { connected: 0, hidden: 0 };
+      const displays = { connected: 0, hidden: 0, teamsStage: 0 };
       for (const c of room.clients) {
         if (c.role !== 'display' || c.ws.readyState !== c.ws.OPEN) continue;
+        if (c.embedded) {
+          displays.teamsStage++;
+          continue;
+        }
         displays.connected++;
         if (c.hidden) displays.hidden++;
       }

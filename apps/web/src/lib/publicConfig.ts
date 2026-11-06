@@ -5,6 +5,8 @@ export interface PublicConfig {
   imprintUrl: string | null;
   privacyUrl: string | null;
   sourceUrl: string;
+  /** Teams-App auf diesem Server eingeschaltet (TEAMS_APP) */
+  teams: boolean;
 }
 
 /** Fußzeilen-Links kommen vom Server – jede Instanz verlinkt ihr eigenes Impressum. */

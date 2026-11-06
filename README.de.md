@@ -68,15 +68,16 @@ Im Editor **„PDF importieren“** klicken und den PDF-Export deiner Präsentat
 
 Als Umgebungsvariablen setzen (in Compose z. B. über eine `.env`-Datei neben der `docker-compose.yml`).
 
-| Variable                                                  | Standard                | Zweck                                                                                                                      |
-| --------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `APP_ORIGIN`                                              | `http://localhost:8080` | Öffentliche Adresse im Browser. Passkeys sind daran gebunden.                                                              |
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | siehe Compose-Datei     | MariaDB/MySQL-Verbindung. **`DB_PASSWORD` ändern.**                                                                        |
-| `TRUST_PROXY_HOPS`                                        | `0` (Compose)           | Anzahl Proxys vor TakePart: keiner `0`, Reverse-Proxy `1`, Reverse-Proxy + Cloudflare `2`. Zu hoch erlaubt gefälschte IPs. |
-| `SETUP_TOKEN`                                             | wird erzeugt            | Fester Token für das erste Konto statt des erzeugten.                                                                      |
-| `IMPRINT_URL`, `PRIVACY_URL`                              | –                       | Impressum und Datenschutz in der Fußzeile (nur wenn gesetzt).                                                              |
-| `SOURCE_URL`                                              | dieses Repo             | Quellcode-Link in der Fußzeile. Wer eine veränderte Version betreibt, verlinkt den eigenen Code (AGPL).                    |
-| `TAKEPART_PORT`                                           | `8080`                  | Port auf dem Host in der `docker-compose.yml`.                                                                             |
+| Variable                                                  | Standard                | Zweck                                                                                                                                  |
+| --------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_ORIGIN`                                              | `http://localhost:8080` | Öffentliche Adresse im Browser. Passkeys sind daran gebunden.                                                                          |
+| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`, `DB_NAME` | siehe Compose-Datei     | MariaDB/MySQL-Verbindung. **`DB_PASSWORD` ändern.**                                                                                    |
+| `TRUST_PROXY_HOPS`                                        | `0` (Compose)           | Anzahl Proxys vor TakePart: keiner `0`, Reverse-Proxy `1`, Reverse-Proxy + Cloudflare `2`. Zu hoch erlaubt gefälschte IPs.             |
+| `SETUP_TOKEN`                                             | wird erzeugt            | Fester Token für das erste Konto statt des erzeugten.                                                                                  |
+| `IMPRINT_URL`, `PRIVACY_URL`                              | –                       | Impressum und Datenschutz in der Fußzeile (nur wenn gesetzt).                                                                          |
+| `SOURCE_URL`                                              | dieses Repo             | Quellcode-Link in der Fußzeile. Wer eine veränderte Version betreibt, verlinkt den eigenen Code (AGPL).                                |
+| `TEAMS_APP`                                               | `0`                     | `1` schaltet die Microsoft-Teams-App ein (Beamer-Ansicht auf der Meeting-Bühne, App-Paket in den Einstellungen). `0` zieht sie zurück. |
+| `TAKEPART_PORT`                                           | `8080`                  | Port auf dem Host in der `docker-compose.yml`.                                                                                         |
 
 Beispiel-`.env` für eine öffentliche Instanz:
 
