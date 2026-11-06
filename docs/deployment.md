@@ -58,7 +58,7 @@ Grenzen (Microsoft): Gäste ohne Microsoft-Konto (anonym) sehen geteilte Apps ni
 
 ## Sicherheit
 
-- **Einbetten:** Alle Seiten senden `frame-ancestors 'none'`. Einzige Ausnahme mit `TEAMS_APP=1`: die Seiten unter `/teams/` für die Teams-Domains (`msteams.ts`). Sie zeigen nur die Beamer-Ansicht über den Anzeige-Link – keine Anmeldung, kein Steuerpult.
+- **Einbetten:** Alle Seiten senden `frame-ancestors 'none'`. Einzige Ausnahme mit `TEAMS_APP=1`: die Seiten unter `/teams/` für die Teams-Domains (`msteams.ts`). Sie zeigen nur die Beamer-Ansicht über den Anzeige-Link – keine Anmeldung, kein Steuerpult. Dafür erreicht der Anzeige-Link jedes Meeting-Fenster (die Bühne lädt ihn dort): Er gilt nur für eine Durchführung und zeigt nur, was der Beamer ohnehin zeigt; bei Bedarf im Steuerpult erneuern.
 - **Proxy-Kette:** `TRUST_PROXY_HOPS` in der `.env` muss zur Kette passen – Uberspace allein `1`, mit Cloudflare-Proxy davor `2`. Ein zu hoher Wert lässt gefälschte `X-Forwarded-For`-IPs durch und hebelt die IP-Limits aus.
 - **Konten:** jedes Konto sieht nur seine eigenen Präsentationen, Durchführungen und Brandings (`access.ts`, fremde Objekte antworten mit 404). Admins verwalten Konten, sehen aber auch nur ihre eigenen Präsentationen. Ein gelöschtes Konto nimmt seine Präsentationen mit.
 - **Passkeys** verlangen Benutzerverifizierung (Fingerabdruck, Gesicht, PIN). **Passwörter** (mind. 10 Zeichen) liegen als scrypt-Hash in der DB. Jedes Konto behält mindestens eine Anmeldeart. Wird ein Passkey gelöscht oder das Passwort geändert, enden alle anderen Sitzungen des Kontos.

@@ -45,6 +45,8 @@ describe('Suchindex', () => {
       '/123456',
       '/d/abcdef',
       '/h/abcdef',
+      '/teams/tab/abcdef',
+      '/teams/einrichten',
       '/p/abcdef',
       '/login',
       '/admin',

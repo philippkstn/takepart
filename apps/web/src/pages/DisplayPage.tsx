@@ -122,7 +122,7 @@ export default function DisplayPage({ embedded = false }: { embedded?: boolean }
           />
         </div>
         <Preload urls={view.preload} />
-        {wasHidden.shown && (
+        {!embedded && wasHidden.shown && (
           <div className="display-hidden-note" role="status">
             <EyeOff size={16} aria-hidden />
             <span>
