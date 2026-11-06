@@ -670,7 +670,6 @@
   border-radius: 0.4em;
   background: var(--surface);
   border: 1px solid var(--border);
-  animation: rise 320ms var(--ease) both;
 }
 .leaderboard li.is-first {
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);

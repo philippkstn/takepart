@@ -1,6 +1,8 @@
 import type { SlideResults, PublicSlide, WordCount } from '@slides/shared';
 import { Check, Star } from 'lucide-react';
+import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ReactNode } from 'react';
+import { AnimatedNumber, EASE, useBump } from '../lib/liveMotion.tsx';
 import './results.css';
 
 /*
@@ -26,35 +28,47 @@ interface BarItem {
 export function BarList({ items, max, inline = false }: { items: BarItem[]; max: number; inline?: boolean }) {
   return (
     <ul className={`bars ${inline ? 'bars-inline' : ''}`} role="list">
-      {items.map((item) => {
-        const width = max === 0 ? 0 : (item.value / max) * 100;
-        return (
-          <li
-            key={item.key}
-            className={`bar-row ${item.correct ? 'is-correct' : ''} ${item.dim ? 'is-dim' : ''}`}
-            title={`${item.label}: ${item.display}`}
-            style={{ ['--bar' as string]: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%` }}
-          >
-            <div className="bar-label">
-              {item.correct !== undefined && (
-                <span className={`bar-mark ${item.correct ? 'ok' : ''}`} aria-hidden>
-                  {item.correct ? <Check /> : null}
-                </span>
-              )}
-              <span className="bar-text">{item.label}</span>
-              {item.extra}
-              {item.correct && <span className="visually-hidden">(richtig)</span>}
-            </div>
-            <div className="bar-track">
-              <div className="bar-area">
-                <div className="bar-fill" />
-              </div>
-              <span className="bar-value tabular">{item.display}</span>
-            </div>
-          </li>
-        );
-      })}
+      {items.map((item) => (
+        <BarRow key={item.key} item={item} max={max} />
+      ))}
     </ul>
+  );
+}
+
+/**
+ * Eine Zeile: Balken wächst weich, eine neue Stimme lässt ihn kurz aufleuchten, und
+ * ändert sich die Reihenfolge (Ranking), gleitet die Zeile an ihren neuen Platz.
+ */
+function BarRow({ item, max }: { item: BarItem; max: number }) {
+  const width = max === 0 ? 0 : (item.value / max) * 100;
+  const bump = useBump(item.value);
+  // Auch außerhalb der Bühne (Steuerpult, Handy) ohne Bewegung, wenn das System es wünscht
+  const reduce = useReducedMotion();
+  return (
+    <motion.li
+      layout="position"
+      transition={{ layout: reduce ? { duration: 0 } : { duration: 0.45, ease: EASE } }}
+      className={`bar-row ${item.correct ? 'is-correct' : ''} ${item.dim ? 'is-dim' : ''} ${bump}`}
+      title={`${item.label}: ${item.display}`}
+      style={{ ['--bar' as string]: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%` }}
+    >
+      <div className="bar-label">
+        {item.correct !== undefined && (
+          <span className={`bar-mark ${item.correct ? 'ok' : ''}`} aria-hidden>
+            {item.correct ? <Check /> : null}
+          </span>
+        )}
+        <span className="bar-text">{item.label}</span>
+        {item.extra}
+        {item.correct && <span className="visually-hidden">(richtig)</span>}
+      </div>
+      <div className="bar-track">
+        <div className="bar-area">
+          <div className="bar-fill" />
+        </div>
+        <span className="bar-value tabular">{item.display}</span>
+      </div>
+    </motion.li>
   );
 }
 
@@ -88,26 +102,35 @@ function ScaleResults({
   return (
     <div className="scale-results">
       <div className="hero-figure">
-        <span className="hero-value tabular">
-          {results.average === null ? '–' : results.average.toLocaleString('de-DE', { maximumFractionDigits: 1 })}
-        </span>
+        {results.average === null ? (
+          <span className="hero-value tabular">–</span>
+        ) : (
+          <AnimatedNumber className="hero-value tabular" value={results.average} decimals={1} />
+        )}
         <span className="hero-label">Durchschnitt von {max}</span>
       </div>
       <div className="columns" style={{ gridTemplateColumns: `repeat(${max}, 1fr)` }}>
         {results.distribution.map((n, i) => (
-          <div key={i} className="column" title={`${i + 1}: ${n} Stimmen`}>
-            <span className="column-value tabular">{n > 0 ? n : ''}</span>
-            <div className="column-track">
-              <div className="column-fill" style={{ height: `${(n / top) * 100}%` }} />
-            </div>
-            <span className="column-label tabular">{i + 1}</span>
-          </div>
+          <ScaleColumn key={i} n={n} top={top} label={i + 1} />
         ))}
       </div>
       <div className="row-between scale-ends">
         <span>{minLabel}</span>
         <span>{maxLabel}</span>
       </div>
+    </div>
+  );
+}
+
+function ScaleColumn({ n, top, label }: { n: number; top: number; label: number }) {
+  const bump = useBump(n);
+  return (
+    <div className={`column ${bump}`} title={`${label}: ${n} Stimmen`}>
+      <span className="column-value tabular">{n > 0 ? n : ''}</span>
+      <div className="column-track">
+        <div className="column-fill" style={{ height: `${(n / top) * 100}%` }} />
+      </div>
+      <span className="column-label tabular">{label}</span>
     </div>
   );
 }
@@ -124,20 +147,33 @@ export function WordCloud({ words, limit = 60, highlight = false }: { words: Wor
   shown.forEach((w, rank) => (rank % 2 === 0 ? arranged.push({ ...w, rank }) : arranged.unshift({ ...w, rank })));
   return (
     <div className="wordcloud">
-      {arranged.map((w) => {
-        const t = max === min ? 1 : (w.count - min) / (max - min);
-        return (
-          <span
-            key={w.key}
-            className={`cloud-word ${highlight && w.rank < leaders ? 'is-top' : ''}`}
-            style={{ fontSize: `${0.9 + t * 2.6}em`, opacity: 0.6 + t * 0.4 }}
-            title={`${w.word}: ${w.count}×`}
-          >
-            {w.word}
-          </span>
-        );
-      })}
+      <AnimatePresence initial={false}>
+        {arranged.map((w) => {
+          const t = max === min ? 1 : (w.count - min) / (max - min);
+          return <CloudWord key={w.key} word={w.word} count={w.count} t={t} top={highlight && w.rank < leaders} />;
+        })}
+      </AnimatePresence>
     </div>
+  );
+}
+
+/**
+ * Wort der Wolke: Die Schriftgröße wird animiert (nicht skaliert), damit die Nachbarn
+ * mitfließen – ein neues Wort wächst aus dem Nichts, statt die Wolke umzuwerfen.
+ */
+function CloudWord({ word, count, t, top }: { word: string; count: number; t: number; top: boolean }) {
+  const reduce = useReducedMotion();
+  return (
+    <motion.span
+      className={`cloud-word ${top ? 'is-top' : ''}`}
+      initial={{ fontSize: '0.3em', opacity: 0 }}
+      animate={{ fontSize: `${0.9 + t * 2.6}em`, opacity: 0.6 + t * 0.4 }}
+      exit={{ fontSize: '0.3em', opacity: 0 }}
+      transition={reduce ? { duration: 0 } : { duration: 0.5, ease: EASE }}
+      title={`${word}: ${count}×`}
+    >
+      {word}
+    </motion.span>
   );
 }
 
@@ -146,9 +182,11 @@ function FeedbackResults({ results }: { results: Extract<SlideResults, { type: '
   return (
     <div className="feedback-results">
       <div className="hero-figure">
-        <span className="hero-value tabular">
-          {results.average === null ? '–' : results.average.toLocaleString('de-DE', { maximumFractionDigits: 1 })}
-        </span>
+        {results.average === null ? (
+          <span className="hero-value tabular">–</span>
+        ) : (
+          <AnimatedNumber className="hero-value tabular" value={results.average} decimals={1} />
+        )}
         <Stars value={results.average ?? 0} />
         <span className="hero-label">
           {results.voters} {results.voters === 1 ? 'Bewertung' : 'Bewertungen'}

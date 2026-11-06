@@ -1,5 +1,5 @@
 import { assetUrl, hiresUrl } from '@slides/shared';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
 
 /**
  * Folienbilder in doppelter Auflösung zeigen? Nur der Beamer setzt das (über
@@ -82,10 +82,18 @@ export function useDecodedSlide<T extends { id: number; config: { asset: string 
   const url = useSlideSrc(slide?.config.asset);
   const [readyUrl, setReadyUrl] = useState<string | null>(() => (url && isReady(url) ? url : null));
   const [shown, setShown] = useState<T | null>(() => (url && readyUrl === url ? slide : null));
+  // Seit wann die gezeigte Folie veraltet ist: Beim schnellen Durchblättern zählt die
+  // Wartezeit ab dem ersten Wechsel, nicht je Folie neu – sonst bliebe die alte Folie
+  // stehen, solange man schneller als alle 1,5 s klickt.
+  const staleSince = useRef<number | null>(null);
 
   useEffect(() => {
     if (!url) return;
-    if (readyUrl === url) return;
+    if (readyUrl === url) {
+      staleSince.current = null;
+      return;
+    }
+    staleSince.current ??= Date.now();
     let done = false;
     const show = () => {
       if (done) return;
@@ -96,7 +104,7 @@ export function useDecodedSlide<T extends { id: number; config: { asset: string 
     img.src = url;
     // decode() schlägt z. B. bei abgebrochenen Ladevorgängen fehl – dann trotzdem wechseln
     img.decode().then(show, show);
-    const timer = setTimeout(show, MAX_WAIT_MS);
+    const timer = setTimeout(show, Math.max(0, MAX_WAIT_MS - (Date.now() - staleSince.current)));
     return () => {
       done = true;
       clearTimeout(timer);

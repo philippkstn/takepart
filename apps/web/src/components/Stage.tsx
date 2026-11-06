@@ -12,6 +12,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion } from 'motion/react
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { brandStyle } from '../lib/brand.ts';
 import { useCountdown } from '../lib/live.ts';
+import { AnimatedNumber, EASE } from '../lib/liveMotion.tsx';
 import { useDecodedSlide, useSlideSrc } from '../lib/slideImage.ts';
 import { BoardStage } from './board/BoardStage.tsx';
 import { StageCallback } from './board/Breakout.tsx';
@@ -336,7 +337,10 @@ function HiddenResults({ answers }: { answers: number }) {
     <div className="stage-waiting">
       <EyeOff />
       <span>
-        <strong className="tabular">{answers}</strong> {answers === 1 ? 'Antwort' : 'Antworten'} – Ergebnisse folgen
+        <strong className="tabular">
+          <AnimatedNumber value={answers} />
+        </strong>{' '}
+        {answers === 1 ? 'Antwort' : 'Antworten'} – Ergebnisse folgen
       </span>
     </div>
   );
@@ -345,7 +349,7 @@ function HiddenResults({ answers }: { answers: number }) {
 function AnswerCount({ answers }: { answers: number }) {
   return (
     <span className="stage-pill">
-      <span className="tabular">{answers}</span> {answers === 1 ? 'Antwort' : 'Antworten'}
+      <AnimatedNumber className="tabular" value={answers} /> {answers === 1 ? 'Antwort' : 'Antworten'}
     </span>
   );
 }
@@ -512,7 +516,10 @@ function QuizStage({ view, slide, offset }: { view: DisplayView; slide: Extract<
       </ScrollingResults>
       {quiz.phase === 'open' && (
         <div className="stage-footer-note">
-          <strong className="tabular">{view.answers}</strong> {view.answers === 1 ? 'Antwort' : 'Antworten'}
+          <strong className="tabular">
+            <AnimatedNumber value={view.answers} />
+          </strong>{' '}
+          {view.answers === 1 ? 'Antwort' : 'Antworten'}
         </div>
       )}
     </>
@@ -569,14 +576,24 @@ function LeaderboardStage({ view }: { view: DisplayView }) {
       ) : (
         <ol className="leaderboard">
           {board.map((e) => (
-            <li key={e.participantId} className={e.rank === 1 ? 'is-first' : ''}>
+            // Überholt jemand, gleitet die Zeile an ihren neuen Platz
+            <motion.li
+              key={e.participantId}
+              layout="position"
+              // Einblenden über motion statt CSS-Animation: deren `transform` bliebe sonst
+              // stehen und überdeckte das Gleiten beim Überholen
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.32, ease: EASE, layout: { duration: 0.5, ease: EASE } }}
+              className={e.rank === 1 ? 'is-first' : ''}
+            >
               <span className="lb-rank tabular">{e.rank}</span>
               <span className="lb-name">{e.name}</span>
               <span className="lb-bar">
                 <span style={{ width: `${(e.points / max) * 100}%` }} />
               </span>
-              <span className="lb-points tabular">{e.points.toLocaleString('de-DE')}</span>
-            </li>
+              <AnimatedNumber className="lb-points tabular" value={e.points} />
+            </motion.li>
           ))}
         </ol>
       )}

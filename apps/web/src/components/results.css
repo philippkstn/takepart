@@ -166,8 +166,6 @@
 .cloud-word {
   font-weight: 650;
   color: var(--ink-2);
-  animation: pop 300ms var(--ease) both;
-  transition: font-size 400ms var(--ease);
   overflow-wrap: break-word;
 }
 .cloud-word.is-top {
@@ -239,4 +237,51 @@
   font-weight: 600;
   box-shadow: var(--shadow-2);
   animation: rise 240ms var(--ease);
+}
+
+/* Neue Stimme: der betroffene Balken bzw. die Säule leuchtet kurz auf, der Wert
+   hebt sich leicht (useBump in lib/liveMotion.tsx; zwei Klassen, damit die Animation
+   bei jeder Stimme neu startet). Nur Helligkeit und Größe – keine Farbe, kein Schein. */
+.is-bump-a .bar-fill,
+.is-bump-a .column-fill {
+  animation: bump-fill-a 650ms var(--ease);
+}
+.is-bump-b .bar-fill,
+.is-bump-b .column-fill {
+  animation: bump-fill-b 650ms var(--ease);
+}
+.is-bump-a .bar-value,
+.is-bump-a .column-value {
+  animation: bump-value-a 450ms var(--ease);
+}
+.is-bump-b .bar-value,
+.is-bump-b .column-value {
+  animation: bump-value-b 450ms var(--ease);
+}
+.bar-value {
+  transform-origin: left center;
+}
+.column-value,
+[data-layout='columns'] .bar-value {
+  transform-origin: center bottom;
+}
+@keyframes bump-fill-a {
+  30% {
+    filter: brightness(1.25) saturate(1.1);
+  }
+}
+@keyframes bump-fill-b {
+  30% {
+    filter: brightness(1.25) saturate(1.1);
+  }
+}
+@keyframes bump-value-a {
+  35% {
+    transform: scale(1.18);
+  }
+}
+@keyframes bump-value-b {
+  35% {
+    transform: scale(1.18);
+  }
 }

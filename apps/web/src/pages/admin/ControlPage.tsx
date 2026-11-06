@@ -84,9 +84,17 @@ export default function ControlPage() {
       setBusy(false);
     }
   };
+  /**
+   * Blättern (Knöpfe, Wischen, Tasten) sperrt nichts: Schritte sind relativ und der
+   * Server führt sie der Reihe nach aus (`withRunLock`) – schnelles Klicken landet
+   * genau so viele Folien weiter, statt auf jede Antwort zu warten.
+   */
+  const send = (cmd: HostCommand) =>
+    api(`/api/runs/${runId}/command`, { body: cmd }).catch((err: unknown) => toast(errorMessage(err), 'error'));
+  const step = (delta: 1 | -1) => void send({ action: 'step', delta });
 
   // Tastatur und Presenter wie in PowerPoint (siehe presenterKeys.ts)
-  usePresenterKeys(command, view?.display.blank ?? null, undefined, !!view?.pause);
+  usePresenterKeys(send, view?.display.blank ?? null, undefined, !!view?.pause);
 
   if (loading) return <FullScreenSpinner />;
   if (!loggedIn) return <Navigate to="/login" replace />;
@@ -251,9 +259,9 @@ export default function ControlPage() {
               const start = swipe.current;
               const t = e.changedTouches[0];
               swipe.current = null;
-              if (!start || !t || tool !== 'none' || slide?.type === 'board' || busy || ended) return;
+              if (!start || !t || tool !== 'none' || slide?.type === 'board' || ended) return;
               const dx = t.clientX - start.x;
-              if (Math.abs(dx) > 60 && Math.abs(t.clientY - start.y) < 40) void command({ action: 'step', delta: dx < 0 ? 1 : -1 });
+              if (Math.abs(dx) > 60 && Math.abs(t.clientY - start.y) < 40) step(dx < 0 ? 1 : -1);
             }}
           >
             <Stage
@@ -282,8 +290,8 @@ export default function ControlPage() {
           <div className="control-nav">
             <button
               className="btn btn-large"
-              onClick={() => command({ action: 'step', delta: -1 })}
-              disabled={busy || (view.slideIndex <= 0 && build === 0)}
+              onClick={() => step(-1)}
+              disabled={ended || (view.slideIndex <= 0 && build === 0)}
               aria-label="Zurück"
             >
               <ChevronLeft />
@@ -300,8 +308,8 @@ export default function ControlPage() {
             </span>
             <button
               className="btn btn-large btn-ink"
-              onClick={() => command({ action: 'step', delta: 1 })}
-              disabled={busy || (view.slideIndex >= view.slideCount - 1 && build >= builds)}
+              onClick={() => step(1)}
+              disabled={ended || (view.slideIndex >= view.slideCount - 1 && build >= builds)}
               aria-label={build < builds ? 'Nächste Animation' : 'Nächste Folie'}
             >
               Weiter <ChevronRight />
