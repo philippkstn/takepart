@@ -168,6 +168,18 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       .safeParse(request.query);
     const reject = (code: number, reason: string) => socket.close(code, reason);
     if (!q.success) return reject(4000, 'Ungültige Anfrage');
+    // Was der Client gleich nach dem Öffnen schickt (z. B. „Tab verdeckt“), kommt an, während
+    // hier noch die Datenbank gefragt wird – bis der eigentliche Handler steht, zwischenspeichern.
+    const early: unknown[] = [];
+    const buffer = (raw: unknown) => {
+      if (early.length < 20) early.push(raw);
+    };
+    socket.on('message', buffer);
+    const listen = (handler: (raw: unknown) => void) => {
+      socket.off('message', buffer);
+      socket.on('message', handler);
+      for (const raw of early.splice(0)) handler(raw);
+    };
 
     if (q.data.token) {
       const p = await participantByToken(db, q.data.token);
@@ -175,7 +187,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       const client = { ws: socket, role: 'participant' as const, participantId: p.id, alive: true, hidden: false };
       if (!live.attach(p.runId, client)) return reject(1013, 'Zu viele Verbindungen');
       // Handys melden nur, ob ihr Tab sichtbar ist (Laserpointer/Zeichnungen nur an sichtbare)
-      socket.on('message', (raw) => live.participantMessage(p.runId, client, raw));
+      listen((raw) => live.participantMessage(p.runId, client, raw));
       return;
     }
     if (q.data.display) {
@@ -184,7 +196,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       const client = { ws: socket, role: 'display' as const, alive: true };
       if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
       // Der Beamer meldet nur, ob sein Fenster sichtbar ist (Anzeige im Steuerpult)
-      socket.on('message', (raw) => live.displayMessage(run.id, client, raw));
+      listen((raw) => live.displayMessage(run.id, client, raw));
       return;
     }
     if (q.data.run) {
@@ -197,7 +209,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       const client = { ws: socket, role: 'host' as const, alive: true };
       if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
       // Nur Hosts senden: Laserpointer und Zeichnen
-      socket.on('message', (raw) => live.ink(run.id, client, raw));
+      listen((raw) => live.ink(run.id, client, raw));
       return;
     }
     reject(4000, 'Ungültige Anfrage');
