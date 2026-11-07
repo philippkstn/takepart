@@ -17,8 +17,7 @@ export const ABOUT = {
   tagline: 'Interaktive Vorträge und Workshops',
   description:
     'TakePart ist eine kostenlose Open-Source-App für interaktive Vorträge und Workshops: Abstimmungen, Fragen, Quiz, Kartenwand und Gruppenarbeit live – Teilnehmende machen mit Code oder QR-Code auf dem Handy mit, ohne Konto und ohne App. Selbst hostbar per Docker.',
-  /** Überschrift der Startseite – spricht das Publikum an, das mit einem Code kommt */
-  headline: 'Mitmachen mit dem Code vom Beamer',
+  /** Unterzeile der Startseite unter der Tagline */
   lead: 'Abstimmen, Fragen stellen, Ideen sammeln – direkt vom Handy, ohne Konto und ohne App.',
   /** Ablauf aus Sicht des Publikums */
   steps: [

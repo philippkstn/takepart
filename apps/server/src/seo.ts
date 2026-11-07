@@ -216,7 +216,7 @@ export function renderIndex(template: string, config: LinkConfig, page: 'home' |
     '<div class="p-shell takepart-scope home-page">',
     '<header class="home-top"><span class="home-brand"><span class="display-font">TakePart</span></span>',
     '<a class="home-top-link" href="/login">Für Vortragende</a></header>',
-    `<main class="home-hero"><div class="home-join"><h1 class="home-title">${escapeHtml(ABOUT.headline)}</h1><p class="home-lead">${escapeHtml(ABOUT.lead)}</p><p>${d}</p></div></main>`,
+    `<main class="home-hero"><div class="home-intro"><h1 class="home-title">${escapeHtml(ABOUT.tagline)}</h1><p class="home-lead">${escapeHtml(ABOUT.lead)}</p><p>${d}</p></div></main>`,
     `<section class="home-section"><h2>So läuft’s</h2><ol class="home-steps">${ABOUT.steps.map((s) => item(s.title, s.text)).join('')}</ol></section>`,
     `<section class="home-section"><h2>Funktionen</h2><ul class="home-features">${ABOUT.features.map((f) => item(f.title, f.text)).join('')}</ul></section>`,
     `<section class="home-section home-presenters"><h2>Für Vortragende</h2><div class="home-presenter-text"><p>${escapeHtml(ABOUT.presenters)}</p>`,

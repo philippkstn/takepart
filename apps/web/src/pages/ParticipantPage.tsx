@@ -12,29 +12,12 @@ import { CountdownBadge } from '../components/Countdown.tsx';
 import { PhaseBanner } from '../components/participant/PhaseBanner.tsx';
 import { TurnStrip } from '../components/participant/TurnStrip.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
-import { api, errorMessage } from '../lib/api.ts';
+import { errorMessage } from '../lib/api.ts';
+import { joinRun } from '../lib/join.ts';
 import { brandStyle } from '../lib/brand.ts';
 import { useLive } from '../lib/live.ts';
 import { usePreload } from '../lib/slideImage.ts';
 import './participant.css';
-
-const storageKey = (code: string) => `slides:participant:${code}`;
-
-function readToken(code: string): string | undefined {
-  try {
-    return localStorage.getItem(storageKey(code)) ?? undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function writeToken(code: string, token: string) {
-  try {
-    localStorage.setItem(storageKey(code), token);
-  } catch {
-    /* privater Modus: Token gilt dann nur für diesen Tab */
-  }
-}
 
 /** Breite auf dem Desktop: Kartenwand, Pinnwand und freigegebene Folien nutzen den Platz, Sammeln etwas schmaler */
 function mainWidth(view: ParticipantView): string {
@@ -64,9 +47,7 @@ export default function ParticipantPage({ code }: { code: string }) {
   const join = useCallback(async () => {
     setJoinError(null);
     try {
-      const res = await api<{ token: string }>('/api/join', { body: { code, token: readToken(code) } });
-      writeToken(code, res.token);
-      setToken(res.token);
+      setToken(await joinRun(code));
     } catch (err) {
       setJoinError(errorMessage(err));
     }

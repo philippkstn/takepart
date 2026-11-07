@@ -7,6 +7,8 @@ import { SiteFooter } from '../components/LegalLinks.tsx';
 import { BarList } from '../components/Results.tsx';
 import { BrandMark } from '../components/ui.tsx';
 import { AnimatedNumber } from '../lib/liveMotion.tsx';
+import { errorMessage } from '../lib/api.ts';
+import { joinRun } from '../lib/join.ts';
 import { usePublicConfig } from '../lib/publicConfig.ts';
 import './participant.css';
 
@@ -28,11 +30,24 @@ export function HomePage() {
   const navigate = useNavigate();
   const config = usePublicConfig();
   const [code, setCode] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [joining, setJoining] = useState(false);
   const digits = code.replace(/\D/g, '').slice(0, 6);
 
-  const submit = (e: FormEvent) => {
+  // Code hier prüfen, damit ein Tippfehler gleich unter dem Feld steht – die
+  // Teilnahme-Seite tritt danach mit dem gemerkten Token bei (lib/join.ts)
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (digits.length === 6) navigate(`/${digits}`);
+    if (digits.length !== 6 || joining) return;
+    setJoining(true);
+    setError(null);
+    try {
+      await joinRun(digits);
+      navigate(`/${digits}`);
+    } catch (err) {
+      setError(errorMessage(err));
+      setJoining(false);
+    }
   };
 
   return (
@@ -48,28 +63,39 @@ export function HomePage() {
       </header>
 
       <main className="home-hero">
-        <div className="home-join anim-rise">
-          <h1 className="home-title">{ABOUT.headline}</h1>
+        <div className="home-intro anim-rise">
+          <h1 className="home-title">{ABOUT.tagline}</h1>
           <p className="home-lead">{ABOUT.lead}</p>
-          <form className="card card-pad stack home-form" onSubmit={submit}>
-            <label className="label" htmlFor="code">
-              Sechsstelliger Code
-            </label>
-            <input
-              id="code"
-              className="input code-input"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              placeholder="123 456"
-              value={digits.length > 3 ? `${digits.slice(0, 3)} ${digits.slice(3)}` : digits}
-              onChange={(e) => setCode(e.target.value)}
-              autoFocus
-            />
-            <button className="btn btn-primary btn-large btn-block" disabled={digits.length !== 6}>
-              Beitreten <ArrowRight />
-            </button>
-          </form>
         </div>
+        {/* Code-Karte und Vorschau stehen in derselben Zeile – oben und unten bündig */}
+        <form className="card card-pad stack home-form anim-rise" onSubmit={submit}>
+          <label className="label" htmlFor="code">
+            Code vom Beamer
+          </label>
+          <input
+            id="code"
+            className="input code-input"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            placeholder="123 456"
+            value={digits.length > 3 ? `${digits.slice(0, 3)} ${digits.slice(3)}` : digits}
+            onChange={(e) => {
+              setCode(e.target.value);
+              setError(null);
+            }}
+            aria-invalid={error ? true : undefined}
+            aria-describedby={error ? 'code-error' : undefined}
+            autoFocus
+          />
+          {error && (
+            <div id="code-error" className="error-box" role="alert">
+              {error}
+            </div>
+          )}
+          <button className="btn btn-primary btn-large btn-block" disabled={digits.length !== 6 || joining}>
+            {joining ? 'Wird geprüft …' : 'Beitreten'} <ArrowRight />
+          </button>
+        </form>
         <StagePreview />
       </main>
 

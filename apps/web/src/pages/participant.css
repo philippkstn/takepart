@@ -52,6 +52,11 @@
 .p-activity[hidden] {
   display: none;
 }
+/* Teilnahme-Seite: Fehler, Ende – eine Karte mittig */
+.p-main.home {
+  align-content: center;
+  min-height: 80dvh;
+}
 /* ───────────── Startseite (HomePage.tsx; ausgeliefertes HTML mit denselben Klassen, server/seo.ts) ───────────── */
 .home-page {
   /* Kopf, Hero, drei Abschnitte – den Rest der Höhe nimmt die Fußzeile */
@@ -89,19 +94,20 @@
 .home-top-link:hover {
   color: var(--ink);
 }
-/* Hero: links Code (Hauptaufgabe), rechts die Bühne als Beispiel */
+/* Hero: oben die Überschrift, darunter in einer Zeile Code-Karte (Hauptaufgabe) und
+   die Bühne als Beispiel – beide gleich hoch, oben und unten bündig */
 .home-hero {
   width: min(var(--home-width), 100%);
   margin: 0 auto;
   padding: 48px 16px 64px;
   display: grid;
   grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
-  gap: 56px;
-  align-items: center;
+  gap: 24px 56px;
 }
-.home-join {
+.home-intro {
   display: grid;
   gap: 16px;
+  align-content: end;
 }
 .home-title {
   font-size: clamp(2rem, 1.4rem + 2.2vw, 2.9rem);
@@ -112,7 +118,7 @@
   text-wrap: balance;
 }
 .home-lead {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 1.1rem;
   line-height: 1.5;
   color: var(--ink-2);
@@ -120,19 +126,26 @@
   text-wrap: pretty;
 }
 .home-form {
+  grid-column: 1;
   box-shadow: var(--shadow-1);
+  /* So hoch wie die Vorschau – Feld und Knopf behalten ihre Höhe, der Inhalt steht mittig */
+  align-content: center;
 }
 .home-preview {
+  grid-column: 2;
+  grid-row: 2;
   margin: 0;
+  display: grid;
   animation-delay: 80ms;
 }
-/* Wie der Beamer: 16:9-Fläche mit Frage, Balken und Code in der Statuszeile */
+/* Wie der Beamer: Frage, Balken und Code in der Statuszeile. Balken in TakePart-Orange
+   (Logo-Farbe; reine Grafik, Text bleibt Tinte) */
 .home-stage {
-  aspect-ratio: 16 / 10;
+  --chart: #e0532f;
   display: grid;
   grid-template-rows: auto 1fr auto;
-  gap: 20px;
-  padding: 32px 36px 24px;
+  gap: 16px;
+  padding: 24px 32px 20px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-l);
@@ -232,11 +245,16 @@
 @media (max-width: 860px) {
   .home-hero {
     grid-template-columns: minmax(0, 1fr);
-    gap: 40px;
+    gap: 24px;
     padding: 32px 16px 48px;
   }
-  .home-join {
+  .home-form {
     max-width: 480px;
+  }
+  .home-preview {
+    grid-column: 1;
+    grid-row: auto;
+    margin-top: 16px;
   }
   .home-section,
   .home-presenters {
@@ -256,7 +274,6 @@
     gap: 24px;
   }
   .home-stage {
-    aspect-ratio: auto;
     padding: 20px 20px 16px;
     font-size: 0.95rem;
   }
