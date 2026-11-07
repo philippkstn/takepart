@@ -344,3 +344,97 @@ export const BUILTIN_BLOCKS: SlideBlock[] = [
 export function blockSlides(block: SlideBlock, board?: string, context: BlockContext = { boards: [] }): BlockSlide[] {
   return block.slides((board ?? block.board ?? 'Karten').trim().slice(0, 60) || 'Karten', context);
 }
+
+/** Wand für Fragen und Themen, die jederzeit vom Handy aus abgelegt werden können */
+export const PARKING_BOARD = 'Parkplatz';
+
+/**
+ * Startfolien einer neuen Präsentation („Mit Startfolien“): das Gerüst eines
+ * Workshops – Ankommen, Parkplatz, wer ist da, Erwartungen; am Ende Vorsatz,
+ * Vorher-Nachher-Vergleich, offene Punkte, Fragen und Feedback mit Rückblick auf
+ * die eigenen Erwartungen. Dazwischen kommt der Inhalt (Import, Bausteine).
+ */
+export const STARTER_SLIDES: BlockSlide[] = [
+  {
+    type: 'content',
+    config: { title: 'Gleich geht’s los.', body: 'Mach schon mal mit: Link öffnen oder QR-Code scannen.', showJoin: true },
+    notes: 'Läuft, während alle ankommen. Wer schon beigetreten ist, ist bei den ersten Fragen gleich dabei.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: PARKING_BOARD,
+      mode: 'collect',
+      prompt: 'Parkplatz: Fragen und Themen für später',
+      task: 'Was dir zwischendurch einfällt, kannst du jederzeit vom Handy aus hier ablegen – auf jeder Folie.',
+      maxCards: 10,
+      anytime: true,
+    },
+    notes: 'Kurz zeigen, dass der Parkplatz den ganzen Termin über offen ist. Am Ende schauen wir gemeinsam darauf.',
+  },
+  {
+    type: 'wordcloud',
+    config: { question: 'Aus welchem Bereich kommst du?', maxWords: 1 },
+    notes: 'Zeigt, wer im Raum ist. Zwei oder drei große Begriffe aufgreifen.',
+  },
+  {
+    type: 'choice',
+    config: {
+      question: 'Wie viel hast du mit dem Thema heute schon zu tun?',
+      options: ['Täglich', 'Mehrmals pro Woche', 'Ab und zu', 'Noch gar nicht'],
+    },
+  },
+  {
+    type: 'scale',
+    config: { question: 'Wie sicher fühlst du dich heute mit dem Thema?', max: 5, minLabel: 'unsicher', maxLabel: 'sehr sicher' },
+    notes: 'Dieselbe Frage kommt am Ende noch einmal – so wird der Unterschied sichtbar.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: EXPECTATIONS_BOARD,
+      mode: 'collect',
+      prompt: 'Was erhoffst du dir von diesem Termin?',
+      maxCards: 2,
+      askName: true,
+    },
+    notes: 'Reihum: Jede Person nennt ihre Erwartung und tippt sie selbst ein. Die Feedbackrunde am Ende zeigt jeder Person ihre eigenen Karten wieder.',
+  },
+  {
+    type: 'board',
+    config: {
+      board: EXPECTATIONS_BOARD,
+      mode: 'place',
+      prompt: 'Was davon schaffen wir heute?',
+      lanes: [{ title: '', cells: ['Heute', 'Später', 'Parkplatz'] }],
+    },
+    notes: 'Gemeinsam einordnen – ehrlich sagen, was heute nicht drin ist.',
+  },
+  {
+    type: 'board',
+    config: { board: 'Vorsatz', mode: 'collect', prompt: 'Was probierst du als Erstes aus?', maxCards: 2 },
+    notes: 'Möglichst konkret: was, wann, mit wem.',
+  },
+  {
+    type: 'scale',
+    config: { question: 'Wie sicher fühlst du dich jetzt mit dem Thema?', max: 5, minLabel: 'unsicher', maxLabel: 'sehr sicher' },
+    notes: 'Mit dem Anfang vergleichen.',
+  },
+  {
+    type: 'board',
+    config: { board: PARKING_BOARD, mode: 'collect', prompt: 'Parkplatz: Was ist offen geblieben?', maxCards: 10 },
+    notes: 'Hier liegen alle Karten vom Parkplatz. Durchgehen: beantworten, mitnehmen oder bewusst streichen.',
+  },
+  { type: 'qa', config: { title: 'Eure Fragen' } },
+  {
+    type: 'feedback',
+    config: {
+      question: 'Wie hat es dir gefallen?',
+      withComment: true,
+      commentLabel: 'Was nimmst du mit?',
+      recall: EXPECTATIONS_BOARD,
+    },
+    notes: 'Jedes Handy zeigt die eigenen Erwartungen vom Anfang.',
+  },
+  { type: 'content', config: { title: 'Danke!', body: 'Schön, dass du dabei warst.' } },
+];

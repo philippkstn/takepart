@@ -6,6 +6,8 @@ import {
   expectationsBoard,
   MAX_BATCH_SLIDES,
   PAIR_INTERVIEW_PHASES,
+  PARKING_BOARD,
+  STARTER_SLIDES,
   uniqueBoardName,
 } from './blocks.ts';
 import { schedulePhases } from './schedule.ts';
@@ -203,5 +205,18 @@ describe('Probelauf: Zufallsantworten', () => {
       expect(text.length).toBeGreaterThan(0);
       expect(text.length).toBeLessThanOrEqual(Math.min(300, defaultConfig('open').maxLength));
     }
+  });
+});
+
+describe('Startfolien einer neuen Präsentation', () => {
+  it('sind gültig und hängen über die Wand-Namen zusammen', () => {
+    expect(batchSlides.safeParse(STARTER_SLIDES).success).toBe(true);
+    const parsed = STARTER_SLIDES.map((s) => ({ type: s.type, config: parseConfig(s.type, s.config) as Record<string, unknown> }));
+    const boards = parsed.filter((s) => s.type === 'board').map((s) => s.config);
+    // Parkplatz von jeder Folie aus, am Ende derselbe Parkplatz zum Durchgehen
+    expect(boards.filter((b) => b.board === PARKING_BOARD).map((b) => b.anytime)).toEqual([true, false]);
+    // Feedback blickt auf die gesammelten Erwartungen zurück
+    const feedback = parsed.find((s) => s.type === 'feedback')!.config;
+    expect(boards.some((b) => b.board === feedback.recall && b.mode === 'collect')).toBe(true);
   });
 });

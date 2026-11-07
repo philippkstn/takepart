@@ -5,7 +5,7 @@ import {
   defaultConfig,
   parseConfig,
   scheduleInput,
-  SENTENCE_STARTERS,
+  STARTER_SLIDES,
   type SlideSchedule,
   type SlideType,
 } from '@slides/shared';
@@ -24,13 +24,6 @@ import { loadSchedule, SCHEDULE_COLUMNS, scheduleFromRow, scheduleValues, type S
 const idParam = z.object({ id: z.coerce.number().int() });
 
 /** Vorlage für eine neue Präsentation: Begrüßung mit Code, die beiden Satz-Spiele, Q&A, Feedback. */
-const STARTER_SLIDES: { type: SlideType; config: unknown }[] = [
-  { type: 'content', config: { title: 'Willkommen!', body: 'Mach mit – auf dem Handy oder im Browser.', showJoin: true } },
-  ...SENTENCE_STARTERS.map((start) => ({ type: 'sentence' as const, config: { start } })),
-  { type: 'qa', config: {} },
-  { type: 'feedback', config: {} },
-];
-
 async function insertSlide(
   conn: Conn,
   presentationId: number,
@@ -106,7 +99,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub) 
     const id = await transaction(db, async (conn) => {
       const result = await exec(conn, 'INSERT INTO presentations (user_id, title) VALUES (?, ?)', [accountOf(request).id, body.title]);
       if (body.template) {
-        for (const [i, s] of STARTER_SLIDES.entries()) await insertSlide(conn, result.insertId, i, s.type, s.config);
+        for (const [i, s] of STARTER_SLIDES.entries()) await insertSlide(conn, result.insertId, i, s.type, s.config, s.notes);
       }
       return result.insertId;
     });
