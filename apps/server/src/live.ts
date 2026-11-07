@@ -1,8 +1,18 @@
-import { displayMessage, inkEvent, type InkEvent, type InkStroke, type ServerMessage } from '@slides/shared';
+import {
+  collectInk,
+  displayMessage,
+  emptyPendingInk,
+  inkEvent,
+  takeInk,
+  type InkEvent,
+  type InkStroke,
+  type PendingInk,
+  type ServerMessage,
+} from '@slides/shared';
 import type { FastifyBaseLogger } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { Db } from './db.ts';
-import { effectiveQuiz, loadSnapshot } from './snapshot.ts';
+import { effectiveQuiz, loadSnapshot, type Snapshot } from './snapshot.ts';
 import { displayView, hostView, participantView } from './views.ts';
 
 /**
@@ -24,9 +34,18 @@ const MAX_CONNECTIONS_PER_PARTICIPANT = 5;
 const INK_MAX_MESSAGES_PER_SECOND = 80;
 const INK_MAX_STROKES = 300;
 const INK_MAX_POINTS_PER_STROKE = 3000;
+/** Handys bekommen Laserpointer und Striche höchstens alle INK_PARTICIPANT_MS gesammelt (~12 Sendungen/s) */
+const INK_PARTICIPANT_MS = 80;
 
 type Client =
-  | { ws: WebSocket; role: 'participant'; participantId: number; alive: boolean }
+  | {
+      ws: WebSocket;
+      role: 'participant';
+      participantId: number;
+      alive: boolean;
+      /** Tab verdeckt (Page Visibility) – bekommt dann keine Zeichnungen, beim Zurückkehren den Stand */
+      hidden?: boolean;
+    }
   | {
       ws: WebSocket;
       role: 'display' | 'host';
@@ -49,8 +68,36 @@ interface Room {
    * „Live-Zustand liegt in der Datenbank“): flüchtig, gehen bei Folienwechsel und
    * Neustart verloren.
    */
-  ink: { slideId: number | null; strokes: Map<string, [number, number][]> };
+  ink: {
+    slideId: number | null;
+    strokes: Map<string, [number, number][]>;
+    /** Zeigen die Handys gerade die Folie, auf der gezeichnet wird? (siehe `inkAudience`) */
+    audience: boolean;
+    /** Für die Handys gesammelte Änderungen bis zur nächsten Sendung */
+    pending: PendingInk;
+    flushTimer: NodeJS.Timeout | null;
+    lastFlush: number;
+  };
 }
+
+/**
+ * Laserpointer und Zeichnungen gehen nur an Handys, die dieselbe Bildfolie zeigen:
+ * „Folien auf Handys zeigen“ an, Bildfolie, keine Rangliste, kein Schwarz-/Weißbild,
+ * keine Pause.
+ */
+export function inkAudience(snap: Pick<Snapshot, 'run' | 'current'>): boolean {
+  const state = snap.run.state;
+  return snap.run.shareSlides && snap.current?.type === 'image' && !state.leaderboard && !state.blank && !state.pause;
+}
+
+const emptyInk = (slideId: number | null): Room['ink'] => ({
+  slideId,
+  strokes: new Map(),
+  audience: false,
+  pending: emptyPendingInk(),
+  flushTimer: null,
+  lastFlush: 0,
+});
 
 export class LiveHub {
   private rooms = new Map<number, Room>();
@@ -82,6 +129,7 @@ export class LiveHub {
     for (const room of this.rooms.values()) {
       if (room.timer) clearTimeout(room.timer);
       if (room.quizTimer) clearTimeout(room.quizTimer);
+      if (room.ink.flushTimer) clearTimeout(room.ink.flushTimer);
       for (const c of room.clients) c.ws.close(1001, 'Server startet neu');
     }
   }
@@ -96,7 +144,7 @@ export class LiveHub {
         running: false,
         again: false,
         quizTimer: null,
-        ink: { slideId: null, strokes: new Map() },
+        ink: emptyInk(null),
       };
       this.rooms.set(runId, room);
     }
@@ -118,13 +166,14 @@ export class LiveHub {
       room.clients.delete(client);
       if (room.clients.size === 0 && !room.timer) {
         if (room.quizTimer) clearTimeout(room.quizTimer);
+        if (room.ink.flushTimer) clearTimeout(room.ink.flushTimer);
         this.rooms.delete(runId);
       } else {
         this.notify(runId); // Teilnehmerzahl aktualisieren
       }
     });
     client.ws.on('error', () => client.ws.terminate());
-    if (client.role !== 'participant' && room.ink.strokes.size > 0) {
+    if ((client.role !== 'participant' || room.ink.audience) && room.ink.strokes.size > 0) {
       client.ws.send(JSON.stringify({ type: 'ink-state', strokes: this.strokes(room) } satisfies ServerMessage));
     }
     this.notify(runId, true);
@@ -155,11 +204,15 @@ export class LiveHub {
     }
     const room = this.rooms.get(runId);
     if (!room) return;
+    // Für die Handys nur, was der Server sich auch merkt (Obergrenzen je Strich)
+    let forParticipants: InkEvent = parsed;
     if (parsed.type === 'clear') room.ink.strokes.clear();
     if (parsed.type === 'stroke') {
       const points = room.ink.strokes.get(parsed.id);
       if (points) {
-        if (points.length < INK_MAX_POINTS_PER_STROKE) points.push(...parsed.points.slice(0, INK_MAX_POINTS_PER_STROKE - points.length));
+        const added = parsed.points.slice(0, Math.max(0, INK_MAX_POINTS_PER_STROKE - points.length));
+        points.push(...added);
+        forParticipants = { ...parsed, points: added };
       } else if (room.ink.strokes.size < INK_MAX_STROKES) {
         room.ink.strokes.set(parsed.id, [...parsed.points]);
       } else {
@@ -167,6 +220,45 @@ export class LiveHub {
       }
     }
     this.relayInk(room, { type: 'ink', event: parsed });
+    if (room.ink.audience) {
+      collectInk(room.ink.pending, forParticipants);
+      this.scheduleInkFlush(room);
+    }
+  }
+
+  /** Gesammelte Änderungen höchstens alle INK_PARTICIPANT_MS an die Handys – einmal serialisiert. */
+  private scheduleInkFlush(room: Room) {
+    if (room.ink.flushTimer) return;
+    const ink = room.ink;
+    const wait = Math.max(0, ink.lastFlush + INK_PARTICIPANT_MS - Date.now());
+    ink.flushTimer = setTimeout(() => {
+      ink.flushTimer = null;
+      ink.lastFlush = Date.now();
+      // Nach Folienwechsel gehört der Timer zu einem verworfenen Stand
+      if (room.ink !== ink || !ink.audience) return;
+      const events = takeInk(ink.pending);
+      if (events.length > 0) this.sendParticipants(room, { type: 'ink-batch', events });
+    }, wait);
+  }
+
+  /** Nachricht eines Handys: Sichtbarkeit des Tabs. Beim Zurückkehren bekommt es den aktuellen Stand. */
+  participantMessage(runId: number, sender: Client, raw: unknown) {
+    if (sender.role !== 'participant') return;
+    let hidden: boolean;
+    try {
+      const result = displayMessage.safeParse(JSON.parse(String(raw)));
+      if (!result.success) return;
+      hidden = result.data.hidden;
+    } catch {
+      return;
+    }
+    if (sender.hidden === hidden) return;
+    sender.hidden = hidden;
+    const room = this.rooms.get(runId);
+    if (hidden || !room || sender.ws.readyState !== sender.ws.OPEN) return;
+    // Auch ohne Striche: Im verdeckten Tab kann ein Löschen verpasst worden sein
+    const strokes = room.ink.audience ? this.strokes(room) : [];
+    sender.ws.send(JSON.stringify({ type: 'ink-state', strokes } satisfies ServerMessage));
   }
 
   /** Nachricht eines Beamer-Fensters: Sichtbarkeit für die Anzeige im Steuerpult merken. */
@@ -188,6 +280,12 @@ export class LiveHub {
   private relayInk(room: Room, message: ServerMessage) {
     const msg = JSON.stringify(message);
     for (const c of room.clients) if (c.role !== 'participant' && c.ws.readyState === c.ws.OPEN) c.ws.send(msg);
+  }
+
+  /** An alle sichtbaren Handys – einmal serialisiert. */
+  private sendParticipants(room: Room, message: ServerMessage) {
+    const msg = JSON.stringify(message);
+    for (const c of room.clients) if (c.role === 'participant' && !c.hidden && c.ws.readyState === c.ws.OPEN) c.ws.send(msg);
   }
 
   /** Neue Daten für eine Durchführung – gebündelt verschicken. */
@@ -234,8 +332,21 @@ export class LiveHub {
       if (!snap) return;
       if (room.ink.slideId !== snap.run.state.slideId) {
         const hadInk = room.ink.strokes.size > 0;
-        room.ink = { slideId: snap.run.state.slideId, strokes: new Map() };
-        if (hadInk) this.relayInk(room, { type: 'ink', event: { type: 'clear' } });
+        const { audience, flushTimer } = room.ink;
+        if (flushTimer) clearTimeout(flushTimer);
+        room.ink = { ...emptyInk(snap.run.state.slideId), audience };
+        if (hadInk) {
+          this.relayInk(room, { type: 'ink', event: { type: 'clear' } });
+          if (audience) this.sendParticipants(room, { type: 'ink', event: { type: 'clear' } });
+        }
+      }
+      // Handys zeigen die Folie nicht (mehr) bzw. wieder: leeren bzw. den Stand nachreichen
+      const audience = inkAudience(snap);
+      if (audience !== room.ink.audience) {
+        room.ink.audience = audience;
+        room.ink.pending = emptyPendingInk();
+        if (!audience) this.sendParticipants(room, { type: 'ink-state', strokes: [] });
+        else if (room.ink.strokes.size > 0) this.sendParticipants(room, { type: 'ink-state', strokes: this.strokes(room) });
       }
       const participantIds = new Set<number>();
       for (const c of room.clients) if (c.role === 'participant') participantIds.add(c.participantId);
@@ -258,7 +369,10 @@ export class LiveHub {
         } else if (c.role === 'display') {
           msg = display ??= JSON.stringify({ type: 'view', view: displayView(snap, participants) } satisfies ServerMessage);
         } else {
-          msg = host ??= JSON.stringify({ type: 'view', view: hostView(snap, participants, participantIds, displays) } satisfies ServerMessage);
+          msg = host ??= JSON.stringify({
+            type: 'view',
+            view: hostView(snap, participants, participantIds, displays),
+          } satisfies ServerMessage);
         }
         c.ws.send(msg);
       }

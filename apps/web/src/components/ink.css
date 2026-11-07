@@ -32,8 +32,13 @@
 .ink-pointer {
   transition: transform 40ms linear;
 }
+/* Handys bekommen die Position gesammelt (~12-mal pro Sekunde): weicher nachführen */
+.ink-overlay.is-slide .ink-pointer {
+  transition-duration: 90ms;
+}
 @media (prefers-reduced-motion: reduce) {
-  .ink-pointer {
+  .ink-pointer,
+  .ink-overlay.is-slide .ink-pointer {
     transition: none;
   }
 }

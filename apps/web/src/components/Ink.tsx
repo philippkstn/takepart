@@ -1,4 +1,4 @@
-import type { InkEvent } from '@slides/shared';
+import { slideFrame, type InkEvent } from '@slides/shared';
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { InkState } from '../lib/live.ts';
 import './ink.css';
@@ -13,7 +13,11 @@ const H = 900;
 /** Laserpunkt ausblenden, wenn er sich so lange nicht bewegt hat */
 const POINTER_IDLE_MS = 2500;
 
-export function InkOverlay({ ink }: { ink: InkState }) {
+/**
+ * `slide` (nur Handys): Seitenverhältnis des Folienbilds. Das Overlay zeigt dann
+ * genau den Ausschnitt der 16:9-Bühne, in dem der Beamer die Folie zeigt.
+ */
+export function InkOverlay({ ink, slide }: { ink: InkState; slide?: { width: number; height: number } }) {
   const [, tick] = useState(0);
   useEffect(() => {
     if (!ink.pointer) return;
@@ -23,8 +27,10 @@ export function InkOverlay({ ink }: { ink: InkState }) {
   const pointer = ink.pointer && Date.now() - ink.pointer.at < POINTER_IDLE_MS ? ink.pointer : null;
 
   if (ink.strokes.length === 0 && !pointer) return null;
+  const f = slide ? slideFrame(slide.width, slide.height) : { x: 0, y: 0, w: 1, h: 1 };
+  const viewBox = `${f.x * W} ${f.y * H} ${f.w * W} ${f.h * H}`;
   return (
-    <svg className="ink-overlay" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
+    <svg className={`ink-overlay${slide ? ' is-slide' : ''}`} viewBox={viewBox} preserveAspectRatio="none" aria-hidden>
       {ink.strokes.map((s) => {
         const d = s.points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${(x * W).toFixed(1)} ${(y * H).toFixed(1)}`).join(' ');
         const single = s.points.length === 1;

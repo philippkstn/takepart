@@ -13,7 +13,7 @@ function wsBase(): string {
 
 export type LiveStatus = 'connecting' | 'open' | 'reconnecting' | 'ended' | 'rejected';
 
-/** Laserpointer und Zeichnungen auf der aktuellen Folie (nur Beamer und Steuerpult) */
+/** Laserpointer und Zeichnungen auf der aktuellen Folie (Beamer, Steuerpult und – auf Bildfolien – Handys) */
 export interface InkState {
   strokes: InkStroke[];
   pointer: { x: number; y: number; at: number } | null;
@@ -50,7 +50,7 @@ export function useLive<V>(query: string | null): {
   ink: InkState;
   /** Nur für Hosts: Laserpointer/Zeichnen senden */
   sendInk: (event: InkEvent) => void;
-  /** Nur für den Beamer: Sichtbarkeit seines Fensters melden */
+  /** Beamer und Handys: Sichtbarkeit des Fensters bzw. Tabs melden */
   send: (message: DisplayMessage) => void;
   handoutUrl: string | null;
 } {
@@ -88,6 +88,8 @@ export function useLive<V>(query: string | null): {
       socket.onopen = () => {
         window.clearTimeout(openTimeout);
         attempt.current = 0;
+        // Ein verpasstes Löschen darf nicht stehen bleiben – der Server schickt den Stand neu
+        setInk({ strokes: [], pointer: null });
         setStatus('open');
       };
       socket.onmessage = (event) => {
@@ -101,6 +103,8 @@ export function useLive<V>(query: string | null): {
           setStatus('ended');
         } else if (msg.type === 'ink') {
           setInk((s) => applyInk(s, msg.event));
+        } else if (msg.type === 'ink-batch') {
+          setInk((s) => msg.events.reduce(applyInk, s));
         } else if (msg.type === 'ink-state') {
           setInk({ strokes: msg.strokes, pointer: null });
         }

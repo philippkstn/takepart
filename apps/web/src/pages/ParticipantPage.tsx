@@ -57,7 +57,23 @@ export default function ParticipantPage({ code }: { code: string }) {
     void join();
   }, [join]);
 
-  const { view, status, offset, handoutUrl: endedHandout } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
+  const {
+    view,
+    status,
+    offset,
+    ink,
+    send,
+    handoutUrl: endedHandout,
+  } = useLive<ParticipantView>(token ? `token=${encodeURIComponent(token)}` : null);
+  // Sichtbarkeit melden: Verdeckte Tabs bekommen keine Zeichnungen, beim Zurückkehren den Stand
+  const open = status === 'open';
+  useEffect(() => {
+    if (!open) return;
+    const report = () => send({ type: 'visibility', hidden: document.visibilityState === 'hidden' });
+    report();
+    document.addEventListener('visibilitychange', report);
+    return () => document.removeEventListener('visibilitychange', report);
+  }, [open, send]);
   const handoutUrl = endedHandout ?? view?.handoutUrl ?? null;
   usePreload(view?.preload ?? []);
 
@@ -157,7 +173,7 @@ export default function ParticipantPage({ code }: { code: string }) {
         {view.pause && <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.length > 0} />}
         {/* Während der Pause nur versteckt, damit angefangene Eingaben (z. B. eine Karte) erhalten bleiben */}
         <div className="p-activity" hidden={!!view.pause}>
-          <ParticipantActivity key={activityKey(view)} view={view} token={token} />
+          <ParticipantActivity key={activityKey(view)} view={view} token={token} ink={ink} />
         </div>
       </main>
       <footer className="p-footer">

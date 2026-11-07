@@ -676,7 +676,8 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────
  * Laufen direkt über den WebSocket des Hosts und werden an Beamer und Hosts
- * weitergereicht – flüchtig, nicht in der Datenbank. Koordinaten sind auf die
+ * weitergereicht, gebündelt auch an Handys, die gerade dieselbe Bildfolie zeigen –
+ * flüchtig, nicht in der Datenbank. Koordinaten sind auf die
  * 16:9-Bühne normiert (0…1).
  */
 const coord = z.number().min(0).max(1);
@@ -709,7 +710,9 @@ export type ServerMessage =
   | { type: 'error'; message: string }
   | { type: 'ended'; handoutUrl?: string | null }
   | { type: 'ink'; event: InkEvent }
-  | { type: 'ink-state'; strokes: InkStroke[] };
+  | { type: 'ink-state'; strokes: InkStroke[] }
+  /** Nur an Handys: gesammelte Änderungen seit der letzten Sendung (siehe `ink.ts`) */
+  | { type: 'ink-batch'; events: InkEvent[] };
 
 /* ───────────── Freigabe für Teilnehmende (/h/:token) ───────────── */
 

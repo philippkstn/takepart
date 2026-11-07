@@ -10,9 +10,10 @@ import {
 import { Check, ChevronUp, Clock, Hourglass, Lock, MessageCircleQuestion, RotateCcw, Send, Star, Trophy } from 'lucide-react';
 import { useState, type CSSProperties, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
-import { useCountdown } from '../../lib/live.ts';
+import { useCountdown, type InkState } from '../../lib/live.ts';
 import { useDecodedSlide } from '../../lib/slideImage.ts';
 import { BuildLayer } from '../BuildLayer.tsx';
+import { InkOverlay } from '../Ink.tsx';
 import { usePageVisible } from '../Stage.tsx';
 import { BoardActivity } from './BoardActivity.tsx';
 import { useToast } from '../ui.tsx';
@@ -117,7 +118,7 @@ function NameGate({ view, token, reason, children }: { view: ParticipantView; to
 /* ───────────── Aktivitäten ───────────── */
 
 /** Importierte Folie zum Mitlesen; antippen öffnet sie groß zum Zoomen. */
-function ImageSlide({ slide, step }: { slide: Slide<'image'>; step: number }) {
+function ImageSlide({ slide, step, ink }: { slide: Slide<'image'>; step: number; ink?: InkState }) {
   const visible = usePageVisible();
   // Bleibt über mehrere Bildfolien hinweg stehen (siehe ParticipantPage); das neue Bild
   // erscheint erst dekodiert, bis dahin bleibt die vorige Folie sichtbar.
@@ -134,6 +135,8 @@ function ImageSlide({ slide, step }: { slide: Slide<'image'>; step: number }) {
     <div className="p-slide anim-rise" style={{ '--slide-ratio': shown.config.width / shown.config.height } as CSSProperties}>
       <img src={src} alt={shown.config.title || 'Aktuelle Folie'} width={shown.config.width} height={shown.config.height} />
       <BuildLayer builds={shown.config.builds} step={shownStep} image={src} animate={visible && shown.id === slide.id} slideId={shown.id} />
+      {/* Laserpointer und Zeichnungen der Moderation – erst, wenn die neue Folie wirklich steht */}
+      {ink && shown.id === slide.id && <InkOverlay ink={ink} slide={shown.config} />}
     </div>
   );
 }
@@ -776,7 +779,7 @@ function Leaderboard({ view }: { view: ParticipantView }) {
   );
 }
 
-export function ParticipantActivity({ view, token }: { view: ParticipantView; token: string }) {
+export function ParticipantActivity({ view, token, ink }: { view: ParticipantView; token: string; ink?: InkState }) {
   const slide = view.slide;
   if (view.leaderboard) return <Leaderboard view={view} />;
   if (!slide) return <Info icon={<Hourglass size={20} />}>Gleich geht es los.</Info>;
@@ -784,7 +787,7 @@ export function ParticipantActivity({ view, token }: { view: ParticipantView; to
     case 'content':
       return <Content slide={slide} />;
     case 'image':
-      return <ImageSlide slide={slide} step={view.buildStep} />;
+      return <ImageSlide slide={slide} step={view.buildStep} ink={ink} />;
     case 'choice':
       return <Choice view={view} slide={slide} token={token} />;
     case 'scale':

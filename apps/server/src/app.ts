@@ -172,8 +172,10 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     if (q.data.token) {
       const p = await participantByToken(db, q.data.token);
       if (!p) return reject(4001, 'Unbekannt oder beendet');
-      if (!live.attach(p.runId, { ws: socket, role: 'participant', participantId: p.id, alive: true }))
-        reject(1013, 'Zu viele Verbindungen');
+      const client = { ws: socket, role: 'participant' as const, participantId: p.id, alive: true, hidden: false };
+      if (!live.attach(p.runId, client)) return reject(1013, 'Zu viele Verbindungen');
+      // Handys melden nur, ob ihr Tab sichtbar ist (Laserpointer/Zeichnungen nur an sichtbare)
+      socket.on('message', (raw) => live.participantMessage(p.runId, client, raw));
       return;
     }
     if (q.data.display) {
