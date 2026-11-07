@@ -22,7 +22,7 @@ import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
 import { rehearsalRoutes } from './rehearsal.ts';
-import { isIndexable, renderIndex, seoRoutes } from './seo.ts';
+import { isIndexable, linkPreview, renderIndex, seoRoutes, sharedLink } from './seo.ts';
 import { protocolRoutes } from './protocol.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
@@ -43,6 +43,24 @@ function contentSecurityPolicy(origin: string): string {
     "base-uri 'self'",
     "form-action 'self'",
   ].join('; ');
+}
+
+/**
+ * Titel der Präsentation für die Vorschau – nur bei Freigabe und Fotoprotokoll
+ * (zufällige Tokens, Fotoprotokoll nur solange gültig), nie über den Teilnahme-Code.
+ */
+async function presentationTitle(db: Db, link: NonNullable<ReturnType<typeof sharedLink>>): Promise<string | null> {
+  if (link.kind === 'code') return null;
+  const where =
+    link.kind === 'handout'
+      ? 'r.handout_token = ?'
+      : 'r.protocol_token = ? AND (r.protocol_expires IS NULL OR r.protocol_expires > UTC_TIMESTAMP(3))';
+  const row = await one<{ title: string }>(
+    db,
+    `SELECT p.title FROM runs r JOIN presentations p ON p.id = r.presentation_id WHERE ${where}`,
+    [link.token],
+  ).catch(() => null);
+  return row?.title ?? null;
 }
 
 export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyInstance; live: LiveHub }> {
@@ -197,8 +215,8 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       },
     });
     const template = readFileSync(join(staticDir, 'index.html'), 'utf8');
-    const homeHtml = renderIndex(template, config, true);
-    const appHtml = renderIndex(template, config, false);
+    const homeHtml = renderIndex(template, config, 'home');
+    const appHtml = renderIndex(template, config, linkPreview('/', null));
     const html = (reply: FastifyReply, body: string) =>
       reply.header('Cache-Control', 'no-cache').type('text/html; charset=utf-8').send(body);
     app.get('/', (_request, reply) => html(reply, homeHtml));
@@ -207,7 +225,11 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       if (request.method !== 'GET' || request.url.startsWith('/api/') || request.url === '/ws') {
         return reply.code(404).send({ error: 'Nicht gefunden' });
       }
-      return html(reply, appHtml);
+      // Geteilte Links (Teilnahme, Freigabe, Fotoprotokoll) bekommen eine eigene Vorschau
+      const path = request.url.split(/[?#]/, 1)[0] ?? '/';
+      const link = sharedLink(path);
+      if (!link) return html(reply, appHtml);
+      return presentationTitle(db, link).then((title) => html(reply, renderIndex(template, config, linkPreview(path, link, title))));
     });
   }
 

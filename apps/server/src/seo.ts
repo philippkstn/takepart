@@ -82,7 +82,7 @@ function jsonLd(config: LinkConfig): string {
     alternateName: ABOUT.title,
     description: ABOUT.description,
     url: `${origin}/`,
-    image: `${origin}/icon-512.png`,
+    image: `${origin}${OG_IMAGE.path}`,
     applicationCategory: 'BusinessApplication',
     applicationSubCategory: 'Interaktive Präsentation, Audience Response, Workshop-Moderation',
     operatingSystem: 'Web (Browser)',
@@ -101,32 +101,112 @@ function jsonLd(config: LinkConfig): string {
 export const HEAD_MARK = '<!--#seo-->';
 const ROOT = '<div id="root"></div>';
 
+/** Vorschaubild geteilter Links (`apps/web/scripts/og-image.html` → `public/og-image.png`) */
+export const OG_IMAGE = {
+  path: '/og-image.png',
+  width: 1200,
+  height: 630,
+  alt: 'TakePart: eine Live-Abstimmung mit Balken und Teilnahme-Code',
+} as const;
+
+/** Was ein geteilter Link in Messenger, Mail und sozialen Netzen als Vorschau zeigt */
+export interface LinkPreview {
+  title: string;
+  description: string;
+  /** Pfad der Seite, z. B. `/123456` */
+  path: string;
+}
+
+const formatCode = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}`;
+const JOIN_HINT = 'Link öffnen und mitmachen: abstimmen, Fragen stellen, Karten sammeln – ohne Konto, ohne App.';
+
 /**
- * Ausgeliefertes HTML. Startseite: Titel, canonical, Open Graph, JSON-LD und
- * lesbarer Inhalt im `#root`, den React beim Start ersetzt (Crawler ohne
- * JavaScript, Link-Vorschauen, KI-Suchen). Alle anderen Seiten: unverändert
- * plus `noindex` – und ohne Startseiten-Inhalt, damit er dort nicht aufblitzt.
+ * Welche Art Link ist das? Teilnahme-Links bekommen ihre Vorschau ohne Datenbank –
+ * sonst ließen sich über die HTML-Seite (ohne Sperre wie bei `/api/join`) die Titel
+ * laufender Präsentationen durchprobieren. Freigabe und Fotoprotokoll haben
+ * zufällige Tokens; dort darf der Titel in die Vorschau.
  */
-export function renderIndex(template: string, config: LinkConfig, home: boolean): string {
-  if (!home) return template.replace(HEAD_MARK, () => '<meta name="robots" content="noindex, nofollow" />');
-  const origin = originOf(config);
-  const url = `${origin}/`;
-  const t = escapeHtml(ABOUT.title);
-  const d = escapeHtml(ABOUT.description);
-  const head = [
-    `<link rel="canonical" href="${escapeHtml(url)}" />`,
+export function sharedLink(path: string): { kind: 'code'; code: string } | { kind: 'handout' | 'protocol'; token: string } | null {
+  const clean = path.split(/[?#]/, 1)[0] ?? '';
+  const code = /^\/(\d{6})$/.exec(clean);
+  if (code) return { kind: 'code', code: code[1]! };
+  const token = /^\/([hp])\/([\w-]{8,100})$/.exec(clean);
+  if (token) return { kind: token[1] === 'h' ? 'handout' : 'protocol', token: token[2]! };
+  return null;
+}
+
+/** Vorschau je Link-Art; `title` = Titel der Präsentation, falls bekannt und freigegeben */
+export function linkPreview(path: string, link: ReturnType<typeof sharedLink>, title: string | null = null): LinkPreview {
+  switch (link?.kind) {
+    case 'code':
+      return { title: `Mach mit – Code ${formatCode(link.code)}`, description: JOIN_HINT, path };
+    case 'handout':
+      return {
+        title: title ? `Folien und Ergebnisse: ${title}` : 'Folien und Ergebnisse',
+        description: 'Folien und zusammengefasste Ergebnisse aus dem Vortrag, geteilt mit TakePart.',
+        path,
+      };
+    case 'protocol':
+      return {
+        title: title ? `Fotoprotokoll: ${title}` : 'Fotoprotokoll',
+        description: 'Das Fotoprotokoll des Workshops: Ergebnisse, Karten und Notizen, geteilt mit TakePart.',
+        path,
+      };
+    default:
+      return { title: ABOUT.name, description: ABOUT.description, path };
+  }
+}
+
+/** Open Graph und Twitter-Karte – auf jeder Seite, damit geteilte Links eine Vorschau haben */
+function previewTags(origin: string, title: string, description: string, url: string): string[] {
+  const t = escapeHtml(title);
+  const d = escapeHtml(description);
+  const image = escapeHtml(`${origin}${OG_IMAGE.path}`);
+  const alt = escapeHtml(OG_IMAGE.alt);
+  return [
     '<meta property="og:type" content="website" />',
     `<meta property="og:site_name" content="${escapeHtml(ABOUT.name)}" />`,
     `<meta property="og:title" content="${t}" />`,
     `<meta property="og:description" content="${d}" />`,
     `<meta property="og:url" content="${escapeHtml(url)}" />`,
-    `<meta property="og:image" content="${escapeHtml(origin)}/icon-512.png" />`,
-    '<meta property="og:image:width" content="512" />',
-    '<meta property="og:image:height" content="512" />',
+    `<meta property="og:image" content="${image}" />`,
+    `<meta property="og:image:width" content="${OG_IMAGE.width}" />`,
+    `<meta property="og:image:height" content="${OG_IMAGE.height}" />`,
+    `<meta property="og:image:alt" content="${alt}" />`,
     '<meta property="og:locale" content="de_DE" />',
-    '<meta name="twitter:card" content="summary" />',
+    '<meta name="twitter:card" content="summary_large_image" />',
     `<meta name="twitter:title" content="${t}" />`,
     `<meta name="twitter:description" content="${d}" />`,
+    `<meta name="twitter:image" content="${image}" />`,
+    `<meta name="twitter:image:alt" content="${alt}" />`,
+  ];
+}
+
+/**
+ * Ausgeliefertes HTML. Startseite: Titel, canonical, Open Graph, JSON-LD und
+ * lesbarer Inhalt im `#root`, den React beim Start ersetzt (Crawler ohne
+ * JavaScript, Link-Vorschauen, KI-Suchen). Alle anderen Seiten: Vorschau für
+ * geteilte Links (`page`) plus `noindex`, ohne canonical und ohne
+ * Startseiten-Inhalt, damit er dort nicht aufblitzt.
+ */
+export function renderIndex(template: string, config: LinkConfig, page: 'home' | LinkPreview): string {
+  const origin = originOf(config);
+  if (page !== 'home') {
+    const head = [
+      '<meta name="robots" content="noindex, nofollow" />',
+      ...previewTags(origin, page.title, page.description, `${origin}${page.path}`),
+    ].join('\n    ');
+    return template
+      .replace(/<title>[^<]*<\/title>/, () => `<title>${escapeHtml(page.title)}</title>`)
+      .replace(/<meta\s+name="description"\s+content="[^"]*"\s*\/>/, () => `<meta name="description" content="${escapeHtml(page.description)}" />`)
+      .replace(HEAD_MARK, () => head);
+  }
+  const url = `${origin}/`;
+  const t = escapeHtml(ABOUT.title);
+  const d = escapeHtml(ABOUT.description);
+  const head = [
+    `<link rel="canonical" href="${escapeHtml(url)}" />`,
+    ...previewTags(origin, ABOUT.title, ABOUT.description, url),
     `<script type="application/ld+json">${jsonLd(config)}</script>`,
   ].join('\n    ');
   // Gleiche Klassen wie die Startseite: Der Text steht dort, wo React ihn gleich wieder zeigt.

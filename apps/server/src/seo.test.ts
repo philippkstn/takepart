@@ -1,6 +1,6 @@
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
-import { HEAD_MARK, isIndexable, llmsTxt, renderIndex, robotsTxt, seoRoutes, sitemapXml } from './seo.ts';
+import { HEAD_MARK, isIndexable, linkPreview, llmsTxt, renderIndex, robotsTxt, seoRoutes, sharedLink, sitemapXml } from './seo.ts';
 
 const config = {
   APP_ORIGIN: 'https://takepart.example.org',
@@ -85,10 +85,11 @@ describe('robots.txt, sitemap.xml, llms.txt', () => {
 
 describe('ausgeliefertes HTML', () => {
   it('Startseite: Titel, canonical, Open Graph, JSON-LD und lesbarer Inhalt', () => {
-    const html = renderIndex(template, config, true);
+    const html = renderIndex(template, config, 'home');
     expect(html).toContain('<title>TakePart – interaktive Vorträge und Workshops, Open Source</title>');
     expect(html).toContain('<link rel="canonical" href="https://takepart.example.org/" />');
-    expect(html).toContain('<meta property="og:image" content="https://takepart.example.org/icon-512.png" />');
+    expect(html).toContain('<meta property="og:image" content="https://takepart.example.org/og-image.png" />');
+    expect(html).toContain('<meta name="twitter:card" content="summary_large_image" />');
     expect(html).not.toContain('content="alt"');
     expect(html).not.toContain(HEAD_MARK);
     const ld = html.match(/<script type="application\/ld\+json">(.*?)<\/script>/)?.[1];
@@ -104,16 +105,42 @@ describe('ausgeliefertes HTML', () => {
     expect(html).not.toContain('noindex');
   });
 
-  it('andere Seiten: noindex, kein Startseiten-Inhalt, kein canonical', () => {
-    const html = renderIndex(template, config, false);
+  it('andere Seiten: noindex, kein Startseiten-Inhalt, kein canonical – aber eine Vorschau', () => {
+    const html = renderIndex(template, config, linkPreview('/admin', sharedLink('/admin')));
     expect(html).toContain('<meta name="robots" content="noindex, nofollow" />');
     expect(html).toContain('<div id="root"></div>');
     expect(html).toContain('<title>TakePart</title>');
     expect(html).not.toContain('canonical');
+    expect(html).not.toContain('ld+json');
+    expect(html).toContain('<meta property="og:image" content="https://takepart.example.org/og-image.png" />');
+  });
+
+  it('erkennt geteilte Links', () => {
+    expect(sharedLink('/123456')).toEqual({ kind: 'code', code: '123456' });
+    expect(sharedLink('/123456?x=1')).toEqual({ kind: 'code', code: '123456' });
+    expect(sharedLink('/h/AbC_def-1234567890')).toEqual({ kind: 'handout', token: 'AbC_def-1234567890' });
+    expect(sharedLink('/p/AbC_def-1234567890')).toEqual({ kind: 'protocol', token: 'AbC_def-1234567890' });
+    for (const path of ['/', '/12345', '/1234567', '/d/AbC_def-1234567890', '/admin', '/login', '/h/']) expect(sharedLink(path), path).toBeNull();
+  });
+
+  it('Teilnahme-Link: Code in der Vorschau, nie ein Titel aus der Datenbank', () => {
+    const html = renderIndex(template, config, linkPreview('/123456', sharedLink('/123456'), 'Geheimer Titel'));
+    expect(html).toContain('<meta property="og:title" content="Mach mit – Code 123 456" />');
+    expect(html).toContain('<meta property="og:url" content="https://takepart.example.org/123456" />');
+    expect(html).toContain('<title>Mach mit – Code 123 456</title>');
+    expect(html).not.toContain('Geheimer Titel');
+    expect(html).toContain('noindex');
+  });
+
+  it('Freigabe und Fotoprotokoll: Titel der Präsentation, maskiert', () => {
+    const handout = renderIndex(template, config, linkPreview('/h/abcdefgh12', sharedLink('/h/abcdefgh12'), 'KI & "Recht"'));
+    expect(handout).toContain('<meta property="og:title" content="Folien und Ergebnisse: KI &amp; &quot;Recht&quot;" />');
+    const protocol = renderIndex(template, config, linkPreview('/p/abcdefgh12', sharedLink('/p/abcdefgh12'), null));
+    expect(protocol).toContain('<meta property="og:title" content="Fotoprotokoll" />');
   });
 
   it('maskiert Konfigurationswerte', () => {
-    const html = renderIndex(template, { ...config, SOURCE_URL: 'https://example.org/"><script>$&' }, true);
+    const html = renderIndex(template, { ...config, SOURCE_URL: 'https://example.org/"><script>$&' }, 'home');
     expect(html).not.toContain('"><script>');
     expect(html).toContain('&quot;&gt;&lt;script&gt;$&amp;');
   });

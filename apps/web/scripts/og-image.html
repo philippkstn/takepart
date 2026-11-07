@@ -1,0 +1,137 @@
+<!doctype html>
+<!--
+  Quelle für public/og-image.png (Vorschaubild geteilter Links, 1200 × 630).
+  Neu rendern: node apps/web/scripts/render-og-image.mjs
+-->
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: 'Figtree';
+        src: url('../../../node_modules/@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2') format('woff2');
+        font-weight: 300 900;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+        overflow: hidden;
+      }
+      body {
+        font-family: 'Figtree', sans-serif;
+        background: #f7f7f6;
+        color: #18181a;
+        display: grid;
+        grid-template-columns: 1fr 470px;
+        gap: 56px;
+        align-items: center;
+        padding: 0 72px 0 80px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        font-size: 34px;
+        font-weight: 750;
+        letter-spacing: -0.01em;
+        margin-bottom: 44px;
+      }
+      h1 {
+        font-size: 64px;
+        line-height: 1.04;
+        font-weight: 750;
+        letter-spacing: -0.025em;
+        margin-bottom: 26px;
+      }
+      p {
+        font-size: 27px;
+        line-height: 1.4;
+        color: #505157;
+        max-width: 560px;
+      }
+      /* Bühne: eine Abstimmung mit Live-Ergebnis */
+      .stage {
+        background: #fff;
+        border: 1px solid #e4e4e1;
+        border-radius: 14px;
+        padding: 30px 32px 32px;
+        box-shadow: 0 1px 2px rgba(24, 24, 26, 0.04);
+      }
+      .q {
+        font-size: 25px;
+        font-weight: 700;
+        line-height: 1.25;
+        margin-bottom: 24px;
+      }
+      .row {
+        display: grid;
+        grid-template-columns: 1fr 52px;
+        gap: 12px;
+        align-items: center;
+        margin-top: 14px;
+      }
+      .label {
+        grid-column: 1 / -1;
+        font-size: 18px;
+        font-weight: 600;
+        color: #505157;
+        margin-bottom: -6px;
+      }
+      .bar {
+        height: 20px;
+        border-radius: 0 4px 4px 0;
+        background: #2563c9;
+      }
+      .val {
+        font-size: 18px;
+        font-weight: 650;
+        color: #505157;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+      }
+      .foot {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 26px;
+        padding-top: 18px;
+        border-top: 1px solid #e4e4e1;
+        font-size: 18px;
+        color: #7a7b81;
+        font-weight: 600;
+      }
+      .code {
+        color: #18181a;
+        font-weight: 750;
+        letter-spacing: 0.04em;
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="brand">
+        <svg width="52" height="52" viewBox="0 0 32 32" aria-hidden="true">
+          <rect width="32" height="32" rx="9" fill="#E0532F" />
+          <rect x="8" y="17" width="4" height="7" rx="2" fill="#fff" />
+          <rect x="14" y="10" width="4" height="14" rx="2" fill="#fff" />
+          <rect x="20" y="13" width="4" height="11" rx="2" fill="#fff" />
+        </svg>
+        TakePart
+      </div>
+      <h1>Mitmachen bei Vorträgen und Workshops</h1>
+      <p>Abstimmen, Fragen stellen, Karten sammeln – live auf dem Handy. Ohne Konto, ohne App.</p>
+    </div>
+    <div class="stage" aria-hidden="true">
+      <div class="q">Wie bist du heute dabei?</div>
+      <div class="row"><span class="label">Am Handy</span><div class="bar" style="width: 100%"></div><span class="val">18</span></div>
+      <div class="row"><span class="label">Am Laptop</span><div class="bar" style="width: 61%"></div><span class="val">11</span></div>
+      <div class="row"><span class="label">Am Tablet</span><div class="bar" style="width: 22%"></div><span class="val">4</span></div>
+      <div class="foot"><span>33 Antworten</span><span>Code <span class="code">482 913</span></span></div>
+    </div>
+  </body>
+</html>
