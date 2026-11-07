@@ -79,7 +79,7 @@
 }
 .home-top-link {
   color: var(--ink-2);
-  font-weight: 600;
+  font-weight: 500;
   font-size: 0.95rem;
   text-decoration: none;
   padding: 8px 4px;
@@ -105,16 +105,19 @@
 }
 .home-title {
   font-size: clamp(2rem, 1.4rem + 2.2vw, 2.9rem);
+  font-weight: 650;
   line-height: 1.08;
   letter-spacing: -0.02em;
   margin: 0;
+  text-wrap: balance;
 }
 .home-lead {
   margin: 0 0 8px;
   font-size: 1.1rem;
   line-height: 1.5;
   color: var(--ink-2);
-  max-width: 34ch;
+  max-width: 36ch;
+  text-wrap: pretty;
 }
 .home-form {
   box-shadow: var(--shadow-1);
@@ -139,7 +142,7 @@
 .home-stage-q {
   margin: 0;
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 650;
   line-height: 1.2;
 }
 .home-stage .bars {
@@ -153,10 +156,11 @@
   border-top: 1px solid var(--border);
   color: var(--ink-3);
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 500;
 }
 .home-stage-foot strong {
   color: var(--ink);
+  font-weight: 650;
   letter-spacing: 0.04em;
 }
 /* Abschnitte darunter: feine Linie oben, Überschrift links, Inhalt im Raster */
@@ -170,11 +174,13 @@
   gap: 24px 56px;
 }
 .home-section h2 {
-  font-size: 1.3rem;
+  font-size: 1.25rem;
+  font-weight: 600;
   margin: 0;
 }
 .home-section h3 {
-  font-size: 1.02rem;
+  font-size: 1rem;
+  font-weight: 600;
   margin: 0 0 4px;
 }
 .home-section p {
@@ -200,12 +206,12 @@
   border-radius: 8px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
-  font-weight: 700;
+  font-weight: 600;
 }
 .home-feature-icon {
   width: 20px;
   height: 20px;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   color: var(--ink-2);
   stroke-width: 1.75;
 }

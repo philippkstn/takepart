@@ -49,8 +49,8 @@ export function HomePage() {
 
       <main className="home-hero">
         <div className="home-join anim-rise">
-          <h1 className="home-title">{ABOUT.tagline}</h1>
-          <p className="home-lead">Code von der Präsentation eingeben und mitmachen – ohne Konto, ohne App.</p>
+          <h1 className="home-title">{ABOUT.headline}</h1>
+          <p className="home-lead">{ABOUT.lead}</p>
           <form className="card card-pad stack home-form" onSubmit={submit}>
             <label className="label" htmlFor="code">
               Sechsstelliger Code
@@ -89,7 +89,7 @@ export function HomePage() {
       </section>
 
       <section className="home-section" aria-labelledby="home-features">
-        <h2 id="home-features">Was alles geht</h2>
+        <h2 id="home-features">Funktionen</h2>
         <ul className="home-features">
           {ABOUT.features.map((f) => {
             const Icon = FEATURE_ICONS[f.id];
