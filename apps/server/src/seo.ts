@@ -1,4 +1,4 @@
-import { ABOUT } from '@slides/shared';
+import { ABOUT, featureLine } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import type { Config } from './config.ts';
 
@@ -57,10 +57,11 @@ export function llmsTxt(config: LinkConfig): string {
     '',
     '## Funktionen',
     '',
-    ...ABOUT.features.map((f) => `- ${f}`),
+    ...ABOUT.features.map((f) => `- ${featureLine(f)}`),
     '',
     '## Betrieb',
     '',
+    `- ${ABOUT.presenters}`,
     `- ${ABOUT.selfHosting}`,
     '- Vortragende melden sich mit Passkey oder Passwort an; Teilnehmende brauchen kein Konto.',
     '- Keine externen Dienste, kein Tracking.',
@@ -91,7 +92,7 @@ function jsonLd(config: LinkConfig): string {
     isAccessibleForFree: true,
     license: 'https://www.gnu.org/licenses/agpl-3.0.html',
     codeRepository: config.SOURCE_URL,
-    featureList: [...ABOUT.features],
+    featureList: ABOUT.features.map(featureLine),
     offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
   };
   return JSON.stringify(data).replace(/</g, '\\u003c');
@@ -210,12 +211,16 @@ export function renderIndex(template: string, config: LinkConfig, page: 'home' |
     `<script type="application/ld+json">${jsonLd(config)}</script>`,
   ].join('\n    ');
   // Gleiche Klassen wie die Startseite: Der Text steht dort, wo React ihn gleich wieder zeigt.
+  const item = (title: string, text: string) => `<li><h3>${escapeHtml(title)}</h3><p>${escapeHtml(text)}</p></li>`;
   const body = [
-    '<div class="p-shell takepart-scope">',
-    '<main class="p-main home"><div class="home-brand"><span class="display-font">TakePart</span></div></main>',
-    `<section class="home-about"><h1>${escapeHtml(ABOUT.tagline)}</h1><p>${d}</p>`,
-    `<ul>${ABOUT.features.map((f) => `<li>${escapeHtml(f)}</li>`).join('')}</ul>`,
-    `<p>${escapeHtml(ABOUT.selfHosting)} <a href="${escapeHtml(config.SOURCE_URL)}">Quellcode</a></p></section>`,
+    '<div class="p-shell takepart-scope home-page">',
+    '<header class="home-top"><span class="home-brand"><span class="display-font">TakePart</span></span>',
+    '<a class="home-top-link" href="/login">Für Vortragende</a></header>',
+    `<main class="home-hero"><div class="home-join"><h1 class="home-title">${escapeHtml(ABOUT.tagline)}</h1><p class="home-lead">${d}</p></div></main>`,
+    `<section class="home-section"><h2>So läuft’s</h2><ol class="home-steps">${ABOUT.steps.map((s) => item(s.title, s.text)).join('')}</ol></section>`,
+    `<section class="home-section"><h2>Was alles geht</h2><ul class="home-features">${ABOUT.features.map((f) => item(f.title, f.text)).join('')}</ul></section>`,
+    `<section class="home-section home-presenters"><h2>Für Vortragende</h2><div class="home-presenter-text"><p>${escapeHtml(ABOUT.presenters)}</p>`,
+    `<p>${escapeHtml(ABOUT.selfHosting)} <a href="${escapeHtml(config.SOURCE_URL)}">Quellcode</a></p></div></section>`,
     '</div>',
   ].join('');
   // Ersetzungen als Funktion: `$` in Konfigurationswerten bleibt wörtlich

@@ -52,42 +52,211 @@
 .p-activity[hidden] {
   display: none;
 }
-.p-main.home {
-  align-content: center;
-  min-height: 80dvh;
+/* ───────────── Startseite (HomePage.tsx; ausgeliefertes HTML mit denselben Klassen, server/seo.ts) ───────────── */
+.home-page {
+  /* Kopf, Hero, drei Abschnitte – den Rest der Höhe nimmt die Fußzeile */
+  grid-template-rows: repeat(5, auto) 1fr;
+  --home-width: 1080px;
 }
-.home-brand {
+.home-page > .site-footer {
+  align-self: end;
+}
+.home-top {
+  width: min(var(--home-width), 100%);
+  margin: 0 auto;
+  padding: 20px 16px 0;
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 1.4rem;
-  font-weight: 700;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 16px;
 }
-/* Startseite: kurze Beschreibung unter dem Code-Feld (auch im ausgelieferten HTML, siehe server/seo.ts) */
-.home-about {
-  width: min(560px, 100%);
-  margin: 0 auto;
-  padding: 8px 16px 24px;
+.home-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+.home-top-link {
   color: var(--ink-2);
+  font-weight: 600;
   font-size: 0.95rem;
+  text-decoration: none;
+  padding: 8px 4px;
+  border-radius: 6px;
+  transition: color 150ms var(--ease);
+}
+.home-top-link:hover {
+  color: var(--ink);
+}
+/* Hero: links Code (Hauptaufgabe), rechts die Bühne als Beispiel */
+.home-hero {
+  width: min(var(--home-width), 100%);
+  margin: 0 auto;
+  padding: 48px 16px 64px;
+  display: grid;
+  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  gap: 56px;
+  align-items: center;
+}
+.home-join {
+  display: grid;
+  gap: 16px;
+}
+.home-title {
+  font-size: clamp(2rem, 1.4rem + 2.2vw, 2.9rem);
+  line-height: 1.08;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.home-lead {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: var(--ink-2);
+  max-width: 34ch;
+}
+.home-form {
+  box-shadow: var(--shadow-1);
+}
+.home-preview {
+  margin: 0;
+  animation-delay: 80ms;
+}
+/* Wie der Beamer: 16:9-Fläche mit Frage, Balken und Code in der Statuszeile */
+.home-stage {
+  aspect-ratio: 16 / 10;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 20px;
+  padding: 32px 36px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-l);
+  box-shadow: var(--shadow-1);
+  font-size: 1.1rem;
+}
+.home-stage-q {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.home-stage .bars {
+  align-content: center;
+}
+.home-stage-foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+  color: var(--ink-3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.home-stage-foot strong {
+  color: var(--ink);
+  letter-spacing: 0.04em;
+}
+/* Abschnitte darunter: feine Linie oben, Überschrift links, Inhalt im Raster */
+.home-section {
+  width: min(var(--home-width), 100%);
+  margin: 0 auto;
+  padding: 48px 16px;
+  border-top: 1px solid var(--border);
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 24px 56px;
+}
+.home-section h2 {
+  font-size: 1.3rem;
+  margin: 0;
+}
+.home-section h3 {
+  font-size: 1.02rem;
+  margin: 0 0 4px;
+}
+.home-section p {
+  margin: 0;
+  color: var(--ink-2);
   line-height: 1.5;
 }
-.home-about h1,
-.home-about h2 {
-  font-size: 1.1rem;
-  color: var(--ink);
-  margin: 0 0 8px;
+.home-steps,
+.home-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px 32px;
 }
-.home-about p {
-  margin: 0 0 10px;
+.home-step-no {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-bottom: 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-weight: 700;
 }
-.home-about ul {
-  margin: 0 0 10px;
-  padding-left: 1.2em;
+.home-feature-icon {
+  width: 20px;
+  height: 20px;
+  margin-bottom: 10px;
+  color: var(--ink-2);
+  stroke-width: 1.75;
 }
-.home-about a {
-  color: inherit;
+.home-presenters {
+  grid-template-columns: 220px minmax(0, 1fr) auto;
+  align-items: start;
+}
+.home-presenter-text {
+  display: grid;
+  gap: 8px;
+}
+.home-presenter-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 860px) {
+  .home-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 40px;
+    padding: 32px 16px 48px;
+  }
+  .home-join {
+    max-width: 480px;
+  }
+  .home-section,
+  .home-presenters {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 40px 16px;
+  }
+  .home-steps,
+  .home-features {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 520px) {
+  .home-steps,
+  .home-features {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .home-stage {
+    aspect-ratio: auto;
+    padding: 20px 20px 16px;
+    font-size: 0.95rem;
+  }
+  .home-stage-q {
+    font-size: 1.2rem;
+  }
 }
 /* Anmeldung: Passwort-Formular unter dem Passkey-Knopf, abgesetzt durch eine feine Linie */
 .login-password {

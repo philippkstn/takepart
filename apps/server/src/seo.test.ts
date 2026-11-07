@@ -101,7 +101,7 @@ describe('ausgeliefertes HTML', () => {
       url: 'https://takepart.example.org/',
     });
     expect(data.codeRepository).toBe('https://example.org/code');
-    expect(html).toMatch(/<div id="root">.*<h1>Interaktive Vorträge und Workshops<\/h1>.*<\/div>/s);
+    expect(html).toMatch(/<div id="root">.*<h1 class="home-title">Interaktive Vorträge und Workshops<\/h1>.*<\/div>/s);
     expect(html).not.toContain('noindex');
   });
 
