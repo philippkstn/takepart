@@ -105,7 +105,10 @@ export function useCountdownMoments(countdown: Countdown | null, offset: number,
   const observed = useRef<Observed | null>(null);
   const cdRef = useRef(countdown);
   cdRef.current = countdown;
-  const key = countdown ? `${countdown.endsAt}:${countdown.seconds}:${countdown.phases?.length ?? 0}` : null;
+  // Kennung ohne Zeiten: „Nächste Phase“ (rückt `endsAt` vor) und Verlängern bleiben derselbe
+  // Countdown – sonst ginge genau der Phasenwechsel verloren, den die Moderation auslöst.
+  // Ein neuer Countdown gleicher Form beginnt wieder bei Phase 1 und meldet erst den nächsten Wechsel.
+  const key = countdown ? `${countdown.phases?.length ?? 0}:${countdown.phases?.map((p) => p.label).join('\u0000') ?? ''}` : null;
 
   useEffect(() => {
     observed.current = null;
