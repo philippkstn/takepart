@@ -4,6 +4,7 @@ import {
   choiceResults,
   feedbackResults,
   isAnytimeSlide,
+  qaSlideIds,
   isPostType,
   type AnytimeSlide,
   leaderboard,
@@ -167,6 +168,8 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
       responses = rows.map((r) => ({ participantId: r.participant_id, payload: json(r.payload) }));
     }
   } else if (current && isPostType(current.type)) {
+    // Fragen gelten für die ganze Durchführung – jede Q&A-Folie zeigt alle
+    const postSlideIds = current.type === 'qa' ? qaSlideIds(slides) : [current.id];
     const rows = await query<{
       id: number;
       participant_id: number;
@@ -179,8 +182,8 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     }>(
       db,
       `SELECT id, participant_id, author_name, text, column_index, status, votes, created_at
-         FROM posts WHERE run_id = ? AND slide_id = ? ORDER BY created_at, id`,
-      [runId, current.id],
+         FROM posts WHERE run_id = ? AND slide_id IN (?) ORDER BY created_at, id`,
+      [runId, postSlideIds],
     );
     posts = rows.map((r) => ({
       id: r.id,
@@ -196,8 +199,8 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
       const voteRows = await query<{ post_id: number; participant_id: number }>(
         db,
         `SELECT v.post_id, v.participant_id FROM post_votes v JOIN posts p ON p.id = v.post_id
-          WHERE p.run_id = ? AND p.slide_id = ?`,
-        [runId, current.id],
+          WHERE p.run_id = ? AND p.slide_id IN (?)`,
+        [runId, postSlideIds],
       );
       for (const v of voteRows) {
         let set = votes.get(v.participant_id);
@@ -257,16 +260,20 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
 
   // Jederzeit offene Folien (Parkplatz, Q&A mit „jederzeit“) – immer alle; ob sie gerade
   // gezeigt werden, entscheiden die Ansichten (`here`)
-  const anytimeSlides = slides.filter(isAnytimeSlide);
+  // Fragen nur einmal (die erste Q&A-Folie mit „jederzeit“ nimmt sie an), aber mit allen Fragen der Durchführung
+  const anytimeQa = slides.find((s) => s.type === 'qa' && isAnytimeSlide(s));
+  const anytimeSlides = slides.filter((s) => isAnytimeSlide(s) && (s.type === 'board' || s === anytimeQa)) as AnytimeSlide[];
   // Beim Parkplatz zählen die Karten aller Sammel-Folien der Wand, nicht nur die über den Knopf angelegten
-  const anytimeIds = new Map(anytimeSlides.map((s) => [s.id, new Set(s.type === 'board' ? collectSlideIds(slides, s) : [s.id])]));
+  const anytimeIds = new Map(
+    anytimeSlides.map((s) => [s.id, new Set(s.type === 'board' ? collectSlideIds(slides, s) : qaSlideIds(slides))]),
+  );
   const anytimeCards = await loadCards(db, runId, [...new Set([...anytimeIds.values()].flatMap((ids) => [...ids]))]);
   const collectingHere = current?.type === 'board' && current.config.mode === 'collect' ? current.config.board : null;
   const parking = anytimeSlides.map((slide) => {
     const ids = anytimeIds.get(slide.id)!;
     return {
       slide,
-      here: slide.type === 'board' ? slide.config.board === collectingHere : slide.id === current?.id,
+      here: slide.type === 'board' ? slide.config.board === collectingHere : current?.type === 'qa',
       posts: withAuthorNames(anytimeCards.filter((c) => ids.has(c.slideId)).map(cardToPost), names),
     };
   });

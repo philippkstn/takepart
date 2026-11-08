@@ -420,6 +420,15 @@ export function isPostType(type: SlideType): type is PostSlideType {
   return (POST_TYPES as readonly string[]).includes(type);
 }
 
+/**
+ * Fragen gelten für die ganze Durchführung: Alle Q&A-Folien zeigen dieselben Fragen
+ * (z. B. Fragen-Abgleich vor der Pause und Fragerunde am Ende). Gespeichert wird
+ * jede Frage an der Folie, auf der sie gestellt wurde.
+ */
+export function qaSlideIds(slides: readonly Slide[]): number[] {
+  return slides.filter((s) => s.type === 'qa').map((s) => s.id);
+}
+
 /** Folie, die jederzeit Beiträge annimmt: Parkplatz (Sammel-Folie) oder Q&A mit „jederzeit“ */
 export type AnytimeSlide = Extract<Slide, { type: 'board' }> | Extract<Slide, { type: 'qa' }>;
 export function isAnytimeSlide(slide: Slide): slide is AnytimeSlide {

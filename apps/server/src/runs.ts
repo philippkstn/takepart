@@ -13,6 +13,7 @@ import {
   hostCommand,
   initialRunState,
   isPostType,
+  qaSlideIds,
   quizState,
   sentenceStart,
   sentenceState,
@@ -408,7 +409,11 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
             await exec(conn, 'DELETE FROM responses WHERE run_id = ? AND slide_id = ?', [id, cmd.slideId]);
             // Kartenwand: Karten gehören zur Wand – nur das Sammeln löscht sie
             if (slide.type !== 'board' || slide.config.mode === 'collect')
-              await exec(conn, 'DELETE FROM posts WHERE run_id = ? AND slide_id = ?', [id, cmd.slideId]);
+              // Fragen gehören der ganzen Durchführung – alle Q&A-Folien zeigen dieselben
+              await exec(conn, 'DELETE FROM posts WHERE run_id = ? AND slide_id IN (?)', [
+                id,
+                slide.type === 'qa' ? qaSlideIds(slides) : [cmd.slideId],
+              ]);
           });
           const state = structuredClone(run.state);
           delete state.quiz[cmd.slideId];

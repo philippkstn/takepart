@@ -7,6 +7,7 @@ import {
   type ResponsePayloads,
   FINAL_RESPONSE_TYPES,
   isAnytimeSlide,
+  qaSlideIds,
   isPostType,
   isResponseType,
   participantName,
@@ -250,11 +251,13 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     }
     if (slide.type === 'qa' && !p.name) return reply.code(409).send({ error: 'Bitte zuerst deinen Namen eingeben' });
 
-    const count = await one<{ n: number }>(db, 'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id = ? AND participant_id = ?', [
-      p.runId,
-      slide.id,
-      p.id,
-    ]);
+    // Fragen zählen über alle Q&A-Folien der Durchführung
+    const countIds = slide.type === 'qa' ? qaSlideIds(ctx.slides) : [slide.id];
+    const count = await one<{ n: number }>(
+      db,
+      'SELECT COUNT(*) AS n FROM posts WHERE run_id = ? AND slide_id IN (?) AND participant_id = ?',
+      [p.runId, countIds, p.id],
+    );
     if ((count?.n ?? 0) >= MAX_POSTS_PER_SLIDE) return reply.code(429).send({ error: 'Du hast hier schon sehr viel beigetragen' });
 
     const status = slide.type === 'qa' && slide.config.moderated ? 'pending' : 'visible';
@@ -367,7 +370,17 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       p.runId,
     ]);
     if (!post || post.status !== 'visible') return reply.code(404).send({ error: 'Beitrag nicht gefunden' });
-    const ctx = await currentSlide(p.runId, post.slide_id);
+    let ctx = await currentSlide(p.runId, post.slide_id);
+    // Fragen gelten für die ganze Durchführung: abstimmen auf jeder gerade gezeigten Q&A-Folie
+    if (ctx && 'error' in ctx) {
+      const run = await one<{ state: string }>(db, 'SELECT state FROM runs WHERE id = ?', [p.runId]);
+      const shown = run ? json<RunState>(run.state).slideId : null;
+      if (shown !== null && shown !== post.slide_id) {
+        const here = await currentSlide(p.runId, shown);
+        if (here && !('error' in here) && here.slide.type === 'qa' && here.slides.find((s) => s.id === post.slide_id)?.type === 'qa')
+          ctx = here;
+      }
+    }
     if (!ctx) return reply.code(404).send({ error: 'Nicht gefunden' });
     if ('error' in ctx) return reply.code(409).send({ error: ctx.error });
     const votable = ctx.slide.type === 'qa' || (ctx.slide.type === 'brainstorm' && ctx.slide.config.allowVotes);

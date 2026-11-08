@@ -465,7 +465,9 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
             choose: 'Alle Stimmen und Festlegungen dieser Folie löschen?',
             table: 'Alle Zeilen der Tabelle löschen?',
           }[slide.config.mode]
-        : 'Alle Antworten dieser Folie in dieser Durchführung löschen?';
+        : slide.type === 'qa'
+          ? 'Alle Fragen dieser Durchführung löschen? Sie verschwinden von allen Fragen-Folien.'
+          : 'Alle Antworten dieser Folie in dieser Durchführung löschen?';
     if (window.confirm(question)) void command({ action: 'clear-responses', slideId: slide.id });
   };
 
