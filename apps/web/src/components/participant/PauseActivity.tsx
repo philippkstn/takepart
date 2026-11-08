@@ -3,6 +3,7 @@ import { Check, Coffee, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useCountdownMoments, type CountdownMoment } from '../../lib/countdownSound.ts';
+import { vibrate, VIBRATE } from '../../lib/vibrate.ts';
 import { formatRemaining } from '../Countdown.tsx';
 import { pauseClock, usePauseTime } from '../PauseScreen.tsx';
 import { useToast } from '../ui.tsx';
@@ -93,10 +94,13 @@ export function PauseActivity({
   );
 }
 
-/** Hinweis eine Minute vor Ende und bei Ablauf der Pause – ohne Ton (den gibt es nur auf dem Beamer). */
+/** Hinweis eine Minute vor Ende und bei Ablauf der Pause (mit Vibration) – ohne Ton (den gibt es nur auf dem Beamer). */
 export function PauseAlert({ pause, offset }: { pause: ParticipantPause | null | undefined; offset: number }) {
   const [moment, setMoment] = useState<CountdownMoment | null>(null);
-  useCountdownMoments(pause ?? null, offset, setMoment);
+  useCountdownMoments(pause ?? null, offset, (m) => {
+    setMoment(m);
+    if (m.kind === 'end') vibrate(VIBRATE.end);
+  });
   useEffect(() => {
     if (!moment) return;
     const t = window.setTimeout(() => setMoment(null), moment.kind === 'warning' ? 6000 : 12000);

@@ -1,4 +1,5 @@
 import {
+  activeAnnouncement,
   activeCallback,
   boardRights,
   cardKey,
@@ -271,6 +272,7 @@ export function participantView(snap: Snapshot, participantId: number): Particip
     ...participantModeration(snap, participantId),
     myTurn: participantTurn(snap, participantId),
     callback: activeCallback(state.callback, snap.now),
+    announcement: activeAnnouncement(state.announcement, snap.now),
     recall: snap.recall ? snap.recall.filter((c) => c.participantId === participantId).map((c) => c.text) : null,
   };
 }

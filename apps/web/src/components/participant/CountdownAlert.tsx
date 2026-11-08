@@ -2,25 +2,23 @@ import type { Countdown } from '@slides/shared';
 import { Timer, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { playEnd, playPhase, useCountdownMoments, type CountdownMoment } from '../../lib/countdownSound.ts';
+import { vibrate, VIBRATE } from '../../lib/vibrate.ts';
 import { momentText } from '../countdownText.ts';
 
 /**
  * Hinweis auf dem Gerät der Teilnehmenden eine Minute vor Ende, beim
- * Phasenwechsel und bei Ablauf des Countdowns. Ton und Vibration nur bei
- * Phasen (Gruppenarbeit, oft ohne Blick auf den Beamer).
+ * Phasenwechsel und bei Ablauf des Countdowns. Vibration bei Phasenwechsel und
+ * Ablauf, der Ton nur bei Phasen (Gruppenarbeit, oft ohne Blick auf den Beamer).
  */
 export function CountdownAlert({ countdown, offset }: { countdown: Countdown | null; offset: number }) {
   const [moment, setMoment] = useState<CountdownMoment | null>(null);
   useCountdownMoments(countdown, offset, (m) => {
     setMoment(m);
-    // Gruppenarbeit ohne Beamer: Phasenwechsel und Ende deutlich machen – Vibration
-    // und (falls freigegeben, siehe PhaseBanner) ein Ton
-    if (countdown?.phases?.length && m.kind !== 'warning') {
-      try {
-        navigator.vibrate?.(m.kind === 'end' ? [300, 150, 300] : [200, 100, 200]);
-      } catch {
-        // nicht überall erlaubt
-      }
+    if (m.kind === 'warning') return;
+    // Ablauf und Phasenwechsel spürbar machen – auch wenn das Handy auf dem Tisch liegt
+    vibrate(m.kind === 'end' ? VIBRATE.end : VIBRATE.phase);
+    // Gruppenarbeit ohne Beamer: zusätzlich ein Ton (falls freigegeben, siehe PhaseBanner)
+    if (countdown?.phases?.length) {
       if (m.kind === 'phase') playPhase();
       else playEnd();
     }

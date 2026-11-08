@@ -1,4 +1,4 @@
-import { buildSteps, currentPhase, topWords, type HostCommand, type HostView } from '@slides/shared';
+import { activeAnnouncement, buildSteps, currentPhase, topWords, type HostCommand, type HostView } from '@slides/shared';
 import {
   ArrowLeft,
   PanelLeftClose,
@@ -47,6 +47,7 @@ import { BoardPanel } from './BoardPanel.tsx';
 import { CallbackControl, hasTeams } from '../../components/board/Breakout.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { HostToasts, PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
+import { AnnounceControl } from './AnnounceControl.tsx';
 import { InboxButton } from './InboxButton.tsx';
 import { ModItem } from './ModItem.tsx';
 import { TurnsPanel } from './TurnsPanel.tsx';
@@ -105,7 +106,7 @@ export default function ControlPage() {
   const busyTabs: Record<ControlTab, boolean> = {
     beamer: !!view.blank || !!view.spotlight || view.showJoin,
     time: !!view.countdown || !!view.state.pause,
-    moderation: !!view.picker.shown || !!view.callback,
+    moderation: !!view.picker.shown || !!view.callback || !!activeAnnouncement(view.state.announcement, view.serverTime),
     share: false,
   };
 
@@ -412,6 +413,9 @@ export default function ControlPage() {
             )}
             {tab === 'moderation' && (
               <>
+                <ControlGroup label="Rundruf">
+                  <AnnounceControl view={view} command={command} offset={offset} disabled={ended} />
+                </ControlGroup>
                 <PickerControl view={view} command={command} busy={busy || ended} />
                 <TurnsPanel view={view} command={command} busy={busy || ended} />
                 {hasTeams(view) && (

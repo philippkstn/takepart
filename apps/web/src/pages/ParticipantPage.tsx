@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LegalLinks } from '../components/LegalLinks.tsx';
 import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
+import { AnnouncementPopup } from '../components/participant/AnnouncementPopup.tsx';
 import { AnytimeButtons } from '../components/participant/AnytimeButtons.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
 import { PauseActivity, PauseAlert } from '../components/participant/PauseActivity.tsx';
@@ -167,10 +168,13 @@ export default function ParticipantPage({ code }: { code: string }) {
         <PauseAlert pause={view.pause} offset={offset} />
         <PickedAlert picked={view.picked} />
       </div>
+      <AnnouncementPopup announcement={view.announcement} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
       <main className={`p-main ${view.pause ? '' : mainWidth(view)}`}>
         <CallbackNotice callback={view.callback} offset={offset} />
-        {view.pause && <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.some((p) => p.kind === 'board')} />}
+        {view.pause && (
+          <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.some((p) => p.kind === 'board')} />
+        )}
         {/* Während der Pause nur versteckt, damit angefangene Eingaben (z. B. eine Karte) erhalten bleiben */}
         <div className="p-activity" hidden={!!view.pause}>
           <ParticipantActivity key={activityKey(view)} view={view} token={token} ink={ink} />

@@ -91,10 +91,25 @@ export interface RunState {
   teamDone?: Record<string, number[]>;
   /** Sammelruf „Alle zurück ins Plenum“ */
   callback?: Callback | null;
+  /** Rundruf: Nachricht der Moderation als Hinweis auf allen Handys */
+  announcement?: Announcement | null;
   /** Reihum: feste Redereihenfolge für die ganze Durchführung */
   turns?: TurnsState | null;
   /** Automatischen Start von Countdown/Phasen beim Öffnen einer Folie für diese Durchführung abgeschaltet */
   autoCountdownOff?: boolean;
+}
+
+/** Rundruf der Moderation an alle Handys */
+export interface Announcement {
+  text: string;
+  /** Zeitpunkt (Serverzeit, ms) – Kennung zum lokalen Schließen */
+  at: number;
+}
+/** Danach erscheint ein Rundruf nicht mehr – auch nicht bei später Beitretenden (ohne Timer, gefiltert beim Lesen) */
+export const ANNOUNCEMENT_MS = 30 * 60 * 1000;
+export const ANNOUNCEMENT_MAX = 300;
+export function activeAnnouncement(a: Announcement | null | undefined, now: number): Announcement | null {
+  return a && now - a.at < ANNOUNCEMENT_MS ? a : null;
 }
 
 /** Laufende Pause – gleiche Form wie der Countdown (für Restzeit, Hinweise und Töne) */
@@ -279,6 +294,11 @@ export const hostCommand = z.discriminatedUnion('action', [
         minutes: z.number().int().min(1).max(60).nullable().default(null),
       })
       .nullable(),
+  }),
+  /** Rundruf an alle Handys (null zieht ihn zurück) */
+  z.object({
+    action: z.literal('announce'),
+    text: z.string().trim().min(1, 'Bitte eine Nachricht eingeben').max(ANNOUNCEMENT_MAX).nullable(),
   }),
   z.object({ action: z.literal('board-rights'), slideId: z.number().int(), rights: z.enum(BOARD_RIGHTS) }),
   /** Gruppen bilden: neu einteilen – n Gruppen oder Gruppen à n Personen, auf Wunsch nach Kennzeichnung gemischt */
@@ -552,6 +572,8 @@ export interface ParticipantView {
   picked?: boolean;
   /** Sammelruf „zurück ins Plenum“, solange er gilt */
   callback?: Callback | null;
+  /** Rundruf der Moderation, solange er gilt */
+  announcement?: Announcement | null;
   /** Reihum: eigene Position, solange eine Reihenfolge besteht und man darin steht */
   myTurn?: MyTurnView | null;
   /** Feedback mit Rückblick: eigene Karten der genannten Wand (z. B. Erwartungen vom Anfang) */

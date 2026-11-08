@@ -248,6 +248,9 @@ export function applyCommand(
     case 'callback':
       applyBreakoutCommand(s, cmd, now);
       break;
+    case 'announce':
+      s.announcement = cmd.text ? { text: cmd.text, at: now } : null;
+      break;
     case 'countdown-slide': {
       assertSlide(cmd.slideId);
       const countdown = scheduleCountdown(schedule.get(cmd.slideId), now);

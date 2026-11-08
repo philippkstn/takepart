@@ -198,6 +198,7 @@ export function remapState(state: RunState, slides: IdMap, posts: IdMap, partici
     // Beendete Durchführung: keine laufenden Anzeigen übernehmen
     countdown: null,
     callback: null,
+    announcement: null,
     blank: null,
     pause: null,
     pauseVotes: undefined,

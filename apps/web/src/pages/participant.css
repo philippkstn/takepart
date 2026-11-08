@@ -1367,3 +1367,29 @@ button.board-group-name:hover {
   font-weight: 700;
   color: var(--ink-2);
 }
+
+/* Rundruf der Moderation: mittig, über allem */
+.announcement-backdrop {
+  align-items: center;
+  z-index: 60;
+}
+.announcement {
+  max-width: 440px;
+}
+.announcement-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.announcement-head svg {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+}
+.announcement-text {
+  margin: 0;
+  font-size: 1.15rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
