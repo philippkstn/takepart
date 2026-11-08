@@ -480,6 +480,12 @@ function QaForm({ value, onChange }: FormProps<'qa'>) {
         checked={value.moderated}
         onChange={(moderated) => onChange({ ...value, moderated })}
       />
+      <Toggle
+        label="Jederzeit Fragen annehmen"
+        hint="Teilnehmende können von jeder Folie aus Fragen stellen. Neue Fragen meldet das Steuerpult und sammelt sie oben in der Kopfzeile."
+        checked={value.anytime}
+        onChange={(anytime) => onChange({ ...value, anytime })}
+      />
       <p className="small faint">Teilnehmende geben für Fragen ihren Namen an.</p>
     </>
   );
@@ -688,7 +694,7 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
           />
           <Toggle
             label="Jederzeit offen (Parkplatz)"
-            hint="Teilnehmende können von jeder Folie aus Karten hinzufügen – z. B. Lösungsideen, die später drankommen."
+            hint="Teilnehmende können von jeder Folie aus Karten hinzufügen – z. B. Lösungsideen, die später drankommen. Das Steuerpult meldet neue Karten und zeigt sie jederzeit oben in der Kopfzeile."
             checked={value.anytime}
             onChange={(anytime) => set({ anytime })}
           />

@@ -1,4 +1,4 @@
-import { buildSteps, currentPhase, topWords, type HostCommand, type HostView, type PostView } from '@slides/shared';
+import { buildSteps, currentPhase, topWords, type HostCommand, type HostView } from '@slides/shared';
 import {
   ArrowLeft,
   PanelLeftClose,
@@ -6,7 +6,6 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Copy,
   Crosshair,
   Eraser,
@@ -48,6 +47,8 @@ import { BoardPanel } from './BoardPanel.tsx';
 import { CallbackControl, hasTeams } from '../../components/board/Breakout.tsx';
 import { TeamsPanel } from './TeamsPanel.tsx';
 import { HostToasts, PickerControl, PresenceButton, SignalsBar } from './ModerationTools.tsx';
+import { InboxButton } from './InboxButton.tsx';
+import { ModItem } from './ModItem.tsx';
 import { TurnsPanel } from './TurnsPanel.tsx';
 import { PANEL_MAX, PANEL_MIN, PanelResizer, PresenterSidebar } from './PresenterSidebar.tsx';
 import { LiveRunNote } from '../../components/protocol/RunNoteEditor.tsx';
@@ -190,6 +191,7 @@ export default function ControlPage() {
         <PlanStatus view={view} offset={offset} />
         <SignalsBar view={view} offset={offset} command={command} />
         <HostToasts view={view} />
+        <InboxButton view={view} command={command} />
         <PresenceButton view={view} />
         <DisplayStatus displays={view.displays} />
         <div className="row control-head-actions">
@@ -775,86 +777,6 @@ function PostPanel({ view, command, onClear }: { view: HostView; command: Cmd; o
         </button>
       </div>
     </div>
-  );
-}
-
-function ModItem({
-  post,
-  command,
-  spotlight,
-  columns,
-  qa,
-}: {
-  post: PostView;
-  command: Cmd;
-  spotlight: number | null;
-  columns: string[] | null;
-  qa?: boolean;
-}) {
-  const isSpot = spotlight === post.id;
-  return (
-    <li className={`mod-item ${isSpot ? 'is-spot' : ''} ${post.status === 'hidden' ? 'is-hidden' : ''}`}>
-      <div className="mod-text">
-        <span>{post.text}</span>
-        <span className="post-meta">
-          {post.authorName && <span>{post.authorName}</span>}
-          {columns && post.column !== null && <span className="pill">{columns[post.column]}</span>}
-          {post.votes > 0 && (
-            <span className="pill">
-              <ChevronUp /> {post.votes}
-            </span>
-          )}
-          {post.status === 'answered' && <span className="pill pill-good">beantwortet</span>}
-          {post.status === 'hidden' && <span className="pill">ausgeblendet</span>}
-        </span>
-      </div>
-      <div className="mod-actions">
-        {post.status === 'pending' && (
-          <button
-            className="btn btn-small btn-primary"
-            onClick={() => command({ action: 'post-status', postId: post.id, status: 'visible' })}
-          >
-            <Check /> Freigeben
-          </button>
-        )}
-        {post.status === 'visible' && (
-          <button
-            className={`btn btn-small ${isSpot ? 'btn-ink' : ''}`}
-            onClick={() => command({ action: 'spotlight', postId: isSpot ? null : post.id })}
-          >
-            <Maximize2 /> {isSpot ? 'Groß aus' : 'Groß zeigen'}
-          </button>
-        )}
-        {qa && post.status === 'visible' && (
-          <button
-            className="btn btn-small"
-            title="Als beantwortet markieren – verschwindet auch aus dem Großformat"
-            onClick={() => command({ action: 'post-status', postId: post.id, status: 'answered' })}
-          >
-            <Check /> Beantwortet
-          </button>
-        )}
-        {post.status !== 'hidden' ? (
-          <button
-            className="icon-btn"
-            title="Ausblenden"
-            aria-label="Ausblenden"
-            onClick={() => command({ action: 'post-status', postId: post.id, status: 'hidden' })}
-          >
-            <EyeOff />
-          </button>
-        ) : (
-          <button
-            className="icon-btn"
-            title="Wieder zeigen"
-            aria-label="Wieder zeigen"
-            onClick={() => command({ action: 'post-status', postId: post.id, status: 'visible' })}
-          >
-            <Eye />
-          </button>
-        )}
-      </div>
-    </li>
   );
 }
 

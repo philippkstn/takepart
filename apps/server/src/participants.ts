@@ -6,6 +6,7 @@ import {
   PARTICIPANT_BOARD_OPS,
   type ResponsePayloads,
   FINAL_RESPONSE_TYPES,
+  isAnytimeSlide,
   isPostType,
   isResponseType,
   participantName,
@@ -95,8 +96,8 @@ export function participantRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     const state = json<RunState>(run.state);
     const slides = await loadSlides(db, run.presentation_id);
     const slide = slides.find((s) => s.id === slideId);
-    // Parkplatz: Sammel-Folien mit „jederzeit“ nehmen auch Karten an, wenn sie nicht gezeigt werden.
-    const anytime = slide?.type === 'board' && slide.config.mode === 'collect' && slide.config.anytime;
+    // Parkplatz und Q&A mit „jederzeit“ nehmen auch Beiträge an, wenn sie nicht gezeigt werden.
+    const anytime = !!slide && isAnytimeSlide(slide);
     if (state.slideId !== slideId && !anytime) return { error: 'Diese Folie ist nicht mehr aktiv' } as const;
     if (state.locked.includes(slideId)) return { error: 'Die Abstimmung ist geschlossen' } as const;
     if (!slide) return { error: 'Folie nicht gefunden' } as const;

@@ -3,7 +3,9 @@ import {
   buildSentence,
   choiceResults,
   feedbackResults,
+  isAnytimeSlide,
   isPostType,
+  type AnytimeSlide,
   leaderboard,
   quizResults,
   quizState,
@@ -26,7 +28,7 @@ import {
   type SlideType,
   type SlideSchedule,
 } from '@slides/shared';
-import { boardSlides, collectSlideIds, loadBoard, loadCards, type BoardData, type BoardSlide } from './board.ts';
+import { boardSlides, collectSlideIds, loadBoard, loadCards, type BoardData } from './board.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { json, one, query, type Conn } from './db.ts';
 import { loadTeamTags } from './teams.ts';
@@ -67,8 +69,11 @@ export interface Snapshot {
   posts: SnapshotPost[];
   /** Kartenwand der aktuellen Folie */
   board: BoardData | null;
-  /** Sammel-Folien, die jederzeit Karten annehmen (Parkplatz), mit ihren Karten */
-  parking: { slide: BoardSlide; posts: SnapshotPost[] }[];
+  /**
+   * Jederzeit offene Folien (Parkplatz, Q&A mit „jederzeit“) mit allen Beiträgen.
+   * `here`: Die Folie bzw. eine Sammel-Folie derselben Wand wird gerade gezeigt.
+   */
+  parking: { slide: AnytimeSlide; here: boolean; posts: SnapshotPost[] }[];
   /**
    * Feedback mit Rückblick: Karten der genannten Wand (nicht ausgeblendet), nur
    * geladen, wenn die aktuelle Folie es braucht. Jede Person sieht nur ihre eigenen.
@@ -250,19 +255,21 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
   const counts = new Map<number, number>();
   for (const r of countRows) counts.set(r.slide_id, (counts.get(r.slide_id) ?? 0) + Number(r.n));
 
-  // Parkplatz: Sammel-Folien, die von jeder Folie aus Karten annehmen – nicht, solange
-  // ohnehin eine Sammel-Folie derselben Wand gezeigt wird (dort schreibt man direkt)
+  // Jederzeit offene Folien (Parkplatz, Q&A mit „jederzeit“) – immer alle; ob sie gerade
+  // gezeigt werden, entscheiden die Ansichten (`here`)
+  const anytimeSlides = slides.filter(isAnytimeSlide);
+  // Beim Parkplatz zählen die Karten aller Sammel-Folien der Wand, nicht nur die über den Knopf angelegten
+  const anytimeIds = new Map(anytimeSlides.map((s) => [s.id, new Set(s.type === 'board' ? collectSlideIds(slides, s) : [s.id])]));
+  const anytimeCards = await loadCards(db, runId, [...new Set([...anytimeIds.values()].flatMap((ids) => [...ids]))]);
   const collectingHere = current?.type === 'board' && current.config.mode === 'collect' ? current.config.board : null;
-  const parkingSlides = slides.filter(
-    (s): s is BoardSlide => s.type === 'board' && s.config.mode === 'collect' && s.config.anytime && s.config.board !== collectingHere,
-  );
-  // Karten aller Sammel-Folien der Parkplatz-Wand, nicht nur die über den Knopf angelegten
-  const parkingIds = new Map(parkingSlides.map((s) => [s.id, new Set(collectSlideIds(slides, s))]));
-  const parkingCards = await loadCards(db, runId, [...new Set([...parkingIds.values()].flatMap((ids) => [...ids]))]);
-  const parking = parkingSlides.map((slide) => ({
-    slide,
-    posts: parkingCards.filter((c) => parkingIds.get(slide.id)!.has(c.slideId)).map(cardToPost),
-  }));
+  const parking = anytimeSlides.map((slide) => {
+    const ids = anytimeIds.get(slide.id)!;
+    return {
+      slide,
+      here: slide.type === 'board' ? slide.config.board === collectingHere : slide.id === current?.id,
+      posts: withAuthorNames(anytimeCards.filter((c) => ids.has(c.slideId)).map(cardToPost), names),
+    };
+  });
 
   let recall: Snapshot['recall'] = null;
   if (current?.type === 'feedback' && current.config.recall) {

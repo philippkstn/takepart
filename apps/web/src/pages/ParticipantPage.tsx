@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LegalLinks } from '../components/LegalLinks.tsx';
 import { Link } from 'react-router';
 import { ParticipantActivity } from '../components/participant/Activities.tsx';
-import { ParkingButton } from '../components/participant/BoardActivity.tsx';
+import { AnytimeButtons } from '../components/participant/AnytimeButtons.tsx';
 import { CountdownAlert } from '../components/participant/CountdownAlert.tsx';
 import { PauseActivity, PauseAlert } from '../components/participant/PauseActivity.tsx';
 import { PickedAlert, SignalButton } from '../components/participant/SignalBar.tsx';
@@ -140,7 +140,7 @@ export default function ParticipantPage({ code }: { code: string }) {
                 {view.team.name}
               </span>
             )}
-            <ParkingButton parking={view.parking} token={token} />
+            <AnytimeButtons view={view} token={token} />
             <SignalButton signals={view.signals} offset={offset} token={token} />
             {/* Phasen stehen groß darunter (PhaseBanner) */}
             {!view.countdown?.phases?.length && <CountdownBadge countdown={view.countdown} offset={offset} className="pill p-countdown" />}
@@ -170,7 +170,7 @@ export default function ParticipantPage({ code }: { code: string }) {
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
       <main className={`p-main ${view.pause ? '' : mainWidth(view)}`}>
         <CallbackNotice callback={view.callback} offset={offset} />
-        {view.pause && <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.length > 0} />}
+        {view.pause && <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.some((p) => p.kind === 'board')} />}
         {/* Während der Pause nur versteckt, damit angefangene Eingaben (z. B. eine Karte) erhalten bleiben */}
         <div className="p-activity" hidden={!!view.pause}>
           <ParticipantActivity key={activityKey(view)} view={view} token={token} ink={ink} />

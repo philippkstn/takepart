@@ -601,3 +601,23 @@
   padding-bottom: 0.2em;
   border-bottom: 1px solid var(--border);
 }
+
+/* Neue Karte: kurz aufblenden und leicht aus der Fläche wachsen (nur beim Hinzukommen) */
+.board-card.is-fresh {
+  animation: card-in 420ms var(--ease) both;
+}
+@keyframes card-in {
+  0% {
+    opacity: 0;
+    transform: translateY(0.4em) scale(0.94);
+    border-color: var(--chart);
+  }
+  60% {
+    opacity: 1;
+    transform: none;
+    border-color: var(--chart);
+  }
+  100% {
+    border-color: var(--border);
+  }
+}

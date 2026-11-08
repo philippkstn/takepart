@@ -60,6 +60,18 @@ export function HostToasts({ view }: { view: HostView }) {
     toast(`${p.status === 'pending' ? 'Neue Frage zur Freigabe' : 'Neue Frage'} – ${p.authorName ?? 'ohne Namen'}`);
   });
 
+  // Parkplatz und jederzeit offene Fragen: gleichbleibender Bereich, damit beim Blättern nichts
+  // als neu gilt; still, solange die Folie ohnehin gezeigt wird (dort meldet das Q&A selbst)
+  const inbox = view.inbox.flatMap((box) => box.posts.map((p) => ({ key: `${box.slideId}:${p.id}`, box, p })));
+  useFresh('inbox', inbox, (fresh) => {
+    const quiet = fresh.filter((f) => !f.box.here);
+    if (quiet.length === 0) return;
+    if (quiet.length > 1) return toast(`${quiet.length} neue Einträge im Eingang`);
+    const { box, p } = quiet[0]!;
+    const what = box.kind === 'qa' ? (p.status === 'pending' ? 'Neue Frage zur Freigabe' : 'Neue Frage') : 'Neu auf dem Parkplatz';
+    toast(`${what} – ${p.authorName ?? 'ohne Namen'}: ${p.text.length > 60 ? `${p.text.slice(0, 57)} …` : p.text}`);
+  });
+
   const teams = (view.board?.breakout?.teams ?? []).filter((t) => t.done).map((t) => ({ key: String(t.index), t }));
   useFresh(`teams:${slide?.id ?? ''}`, teams, (fresh) => {
     toast(fresh.length === 1 ? `Gruppe fertig – ${fresh[0]!.t.name}` : `${fresh.length} Gruppen fertig`);

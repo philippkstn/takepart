@@ -9,7 +9,6 @@ import {
   parseBoardKey,
   teamShort,
   type BoardOp,
-  type ParkingView,
   type ParticipantView,
   type PostView,
   type PublicSlide,
@@ -952,58 +951,6 @@ function TableView({ view, slide }: { view: ParticipantView; slide: BoardSlide }
           </li>
         ))}
       </ol>
-    </>
-  );
-}
-
-/* ───────────── Parkplatz ───────────── */
-
-/** Jederzeit offene Sammel-Folien (z. B. Parkplatz) – erreichbar von jeder Folie aus. */
-export function ParkingButton({ parking, token }: { parking: ParkingView[]; token: string }) {
-  const [open, setOpen] = useState<number | null>(null);
-  if (parking.length === 0) return null;
-  const current = parking.find((p) => p.slideId === open) ?? null;
-  return (
-    <>
-      {parking.map((p) => (
-        <button key={p.slideId} className="pill parking-pill" title={p.title} aria-label={p.title} onClick={() => setOpen(p.slideId)}>
-          <Plus />
-          <span className="parking-label">{p.title}</span>
-          <span className="parking-label-short">Parken</span>
-          {p.mine.length > 0 && <span className="tabular">· {p.mine.length}</span>}
-        </button>
-      ))}
-      {current && (
-        <div className="sheet-backdrop" onClick={() => setOpen(null)}>
-          <div
-            className="sheet card card-pad stack anim-rise"
-            role="dialog"
-            aria-label={current.title}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="row-between">
-              <h2>{current.title}</h2>
-              <button className="icon-btn" aria-label="Schließen" onClick={() => setOpen(null)}>
-                <X />
-              </button>
-            </div>
-            <CardComposer
-              slideId={current.slideId}
-              tags={current.tags}
-              remaining={current.remaining}
-              token={token}
-              placeholder="Deine Idee …"
-            />
-            {current.mine.length > 0 && (
-              <ul className="post-list">
-                {current.mine.map((p) => (
-                  <OwnCard key={p.id} post={p} tags={current.tags} token={token} editable />
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }

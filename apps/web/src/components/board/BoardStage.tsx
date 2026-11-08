@@ -46,6 +46,10 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
     onBoard,
     focus: view.spotlight?.id ?? null,
     tied: tiedSet(board, view.results as BoardResults | null),
+    fresh: useFreshCards(
+      slide.id,
+      view.posts.map((p) => p.id),
+    ),
   };
   const tie =
     config.top > 0 && config.mode !== 'collect' && config.mode !== 'cluster' && config.mode !== 'table'
@@ -85,6 +89,30 @@ interface Ctx {
   focus: number | null;
   /** Einträge im Gleichstand nach Punkten */
   tied: Set<string>;
+  /** Gerade hinzugekommene Karten – werden eingeblendet */
+  fresh: ReadonlySet<number>;
+}
+
+/** Wie lange eine neue Karte als neu gilt (länger als die Einblendung, kürzer als ein Umsortieren danach) */
+const FRESH_MS = 1500;
+
+/**
+ * Karten, die erst nach dem Betreten der Folie dazukommen. Was beim Betreten schon
+ * da ist, erscheint ohne Animation; eine Karte, die beim Clustern nur den Platz
+ * wechselt, wird nicht noch einmal eingeblendet.
+ */
+function useFreshCards(scope: number, ids: number[]): ReadonlySet<number> {
+  const known = useRef<{ scope: number; ids: Set<number>; at: Map<number, number> } | null>(null);
+  const now = Date.now();
+  if (known.current?.scope !== scope) known.current = { scope, ids: new Set(ids), at: new Map() };
+  const k = known.current;
+  for (const id of ids) {
+    if (k.ids.has(id)) continue;
+    k.ids.add(id);
+    k.at.set(id, now);
+  }
+  for (const [id, t] of k.at) if (now - t > FRESH_MS) k.at.delete(id);
+  return new Set(k.at.keys());
 }
 
 export function emptyBoard(config: Config): BoardView {
@@ -226,7 +254,10 @@ function Card({ post, ctx, tag = true }: { post: PostView; ctx: Ctx; tag?: boole
   // Herkunft aus der Gruppenarbeit (gruppenweises Sammeln), z. B. „G2“ – nicht beim Sammeln selbst (dort sind es Spalten)
   const team = ctx.config.mode !== 'collect' && post.team !== null && post.team !== undefined ? teamShort(post.team) : undefined;
   return (
-    <li className={`board-card ${ctx.focus === post.id ? 'is-focus' : ''}`} {...dragProps(cardKey(post.id), post.text, !!ctx.onBoard)}>
+    <li
+      className={`board-card ${ctx.focus === post.id ? 'is-focus' : ''} ${ctx.fresh.has(post.id) ? 'is-fresh' : ''}`}
+      {...dragProps(cardKey(post.id), post.text, !!ctx.onBoard)}
+    >
       <span className="board-card-text">{post.text}</span>
       {post.authorName && <span className="board-card-author">{post.authorName}</span>}
       {(label || team) && (

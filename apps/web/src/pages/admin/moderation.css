@@ -150,3 +150,41 @@
 .signal-person:focus-visible svg {
   opacity: 1;
 }
+
+/* Eingang: Parkplatz und jederzeit offene Fragen */
+.inbox-panel {
+  width: min(460px, calc(100vw - 32px));
+  max-height: min(75vh, 680px);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.inbox-panel > p:only-child,
+.inbox-panel > .inbox-boxes:only-child {
+  grid-row: 1 / -1;
+}
+.inbox-boxes {
+  display: grid;
+  gap: 16px;
+  overflow: auto;
+  min-height: 0;
+  align-content: start;
+}
+.inbox-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inbox-head .btn svg {
+  width: 14px;
+  height: 14px;
+}
+.inbox-pill-new {
+  border-color: var(--ink);
+}
+.inbox-new {
+  font-weight: 750;
+}
+@media (max-width: 700px) {
+  .inbox-label {
+    display: none;
+  }
+}

@@ -86,7 +86,7 @@ function LockedNote() {
 }
 
 /** Fragt einmalig den Namen ab (für Q&A und Quiz). */
-function NameGate({ view, token, reason, children }: { view: ParticipantView; token: string; reason: string; children: ReactNode }) {
+export function NameGate({ view, token, reason, children }: { view: ParticipantView; token: string; reason: string; children: ReactNode }) {
   const [name, setName] = useState('');
   const { send, busy } = useSend(token);
   if (view.name) return <>{children}</>;
@@ -575,7 +575,7 @@ function Sentence({ view, slide, token }: Props<'sentence'>) {
 
 /* ───────────── Beiträge ───────────── */
 
-function PostItem({ post, token, votable }: { post: PostView; token: string; votable: boolean }) {
+export function PostItem({ post, token, votable }: { post: PostView; token: string; votable: boolean }) {
   const { send, busy } = useSend(token);
   return (
     <li className={`post ${post.status === 'answered' ? 'is-answered' : ''} ${post.status === 'pending' ? 'is-pending' : ''}`}>
@@ -605,15 +605,18 @@ function PostItem({ post, token, votable }: { post: PostView; token: string; vot
   );
 }
 
-function Compose({
-  slide,
+export function Compose({
+  slideId,
+  done = 'Abgeschickt',
   token,
   placeholder,
   maxLength,
   columns,
   cta,
 }: {
-  slide: PublicSlide;
+  slideId: number;
+  /** Hinweis nach dem Abschicken */
+  done?: string;
   token: string;
   placeholder: string;
   maxLength: number;
@@ -630,10 +633,10 @@ function Compose({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (missingColumn) return;
-    if (await send('/api/p/posts', { slideId: slide.id, text, column: columns ? (column ?? 0) : undefined })) {
+    if (await send('/api/p/posts', { slideId, text, column: columns ? (column ?? 0) : undefined })) {
       setText('');
       if (choose) setColumn(null);
-      toast(slide.type === 'qa' && slide.config.moderated ? 'Danke! Deine Frage erscheint nach der Freigabe.' : 'Abgeschickt');
+      toast(done);
     }
   };
   return (
@@ -675,7 +678,7 @@ function Open({ view, slide, token }: Props<'open'>) {
       {view.locked ? (
         <LockedNote />
       ) : (
-        <Compose slide={slide} token={token} placeholder="Schreib hier …" maxLength={slide.config.maxLength} cta="Abschicken" />
+        <Compose slideId={slide.id} token={token} placeholder="Schreib hier …" maxLength={slide.config.maxLength} cta="Abschicken" />
       )}
       {view.posts.length > 0 && (
         <div className="stack-s">
@@ -695,7 +698,11 @@ function Brainstorm({ view, slide, token }: Props<'brainstorm'>) {
   return (
     <div className="stack">
       <Question kicker="Brainstorming – so viele Ideen wie du magst" text={slide.config.question} task={slideTask(slide)} />
-      {view.locked ? <LockedNote /> : <Compose slide={slide} token={token} placeholder="Deine Idee …" maxLength={280} cta="Idee teilen" />}
+      {view.locked ? (
+        <LockedNote />
+      ) : (
+        <Compose slideId={slide.id} token={token} placeholder="Deine Idee …" maxLength={280} cta="Idee teilen" />
+      )}
       {view.posts.length > 0 && (
         <ul className="post-list">
           {view.posts.map((p) => (
@@ -715,7 +722,7 @@ function Pinboard({ view, slide, token }: Props<'pinboard'>) {
       {view.locked ? (
         <LockedNote />
       ) : (
-        <Compose slide={slide} token={token} placeholder="Deine Notiz …" maxLength={280} columns={columns} cta="Anpinnen" />
+        <Compose slideId={slide.id} token={token} placeholder="Deine Notiz …" maxLength={280} columns={columns} cta="Anpinnen" />
       )}
       <div className="pin-columns">
         {columns.map((c, i) => {
@@ -737,6 +744,8 @@ function Pinboard({ view, slide, token }: Props<'pinboard'>) {
   );
 }
 
+export const questionDone = (moderated: boolean) => (moderated ? 'Danke! Deine Frage erscheint nach der Freigabe.' : 'Abgeschickt');
+
 function Qa({ view, slide, token }: Props<'qa'>) {
   return (
     <NameGate view={view} token={token} reason="Damit du gefragt werden kannst, erscheint dein Name bei deiner Frage.">
@@ -745,7 +754,14 @@ function Qa({ view, slide, token }: Props<'qa'>) {
         {view.locked ? (
           <LockedNote />
         ) : (
-          <Compose slide={slide} token={token} placeholder="Deine Frage …" maxLength={300} cta="Frage stellen" />
+          <Compose
+            slideId={slide.id}
+            done={questionDone(slide.config.moderated)}
+            token={token}
+            placeholder="Deine Frage …"
+            maxLength={300}
+            cta="Frage stellen"
+          />
         )}
         {view.posts.length === 0 ? (
           <Info icon={<MessageCircleQuestion size={20} />}>Noch keine Fragen. Trau dich!</Info>

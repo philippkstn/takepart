@@ -21,6 +21,8 @@ import {
   type SentenceView,
   type BoardView,
   type ParkingView,
+  type InboxView,
+  type AnytimeSlide,
 } from '@slides/shared';
 import { buildBoardView } from './board.ts';
 import { breakoutPosts, breakoutView, myTeamView } from './breakout.ts';
@@ -142,17 +144,41 @@ function participantBoardPosts(snap: Snapshot, board: BoardView, participantId: 
   return posts.map((p) => ({ ...stripPost(p), mine: own(p) }));
 }
 
+/** Höchstzahl Fragen je Person auf einer Q&A-Folie (wie `MAX_POSTS_PER_SLIDE` in `participants.ts`) */
+const MAX_QUESTIONS = 20;
+
+const anytimeTitle = (slide: AnytimeSlide) =>
+  slide.type === 'board' ? slide.config.prompt || slide.config.board : slide.config.title || 'Fragen';
+
 function parkingViews(snap: Snapshot, participantId: number): ParkingView[] {
-  return snap.parking.map(({ slide, posts }) => {
-    const mine = posts.filter((p) => p.participantId === participantId);
-    return {
-      slideId: slide.id,
-      title: slide.config.prompt || slide.config.board,
-      tags: slide.config.tags,
-      remaining: Math.max(0, slide.config.maxCards - mine.length),
-      mine: mine.map((p) => ({ ...stripPost(p), mine: true })),
-    };
-  });
+  // Wird die Folie gerade gezeigt, schreibt man direkt dort
+  return snap.parking
+    .filter((p) => !p.here)
+    .map(({ slide, posts }) => {
+      const mine = posts.filter((p) => p.participantId === participantId);
+      const board = slide.type === 'board';
+      return {
+        slideId: slide.id,
+        kind: slide.type,
+        title: anytimeTitle(slide),
+        tags: board ? slide.config.tags : [],
+        remaining: Math.max(0, (board ? slide.config.maxCards : MAX_QUESTIONS) - mine.length),
+        moderated: !board && slide.config.moderated,
+        mine: mine.map((p) => ({ ...stripPost(p), mine: true })),
+      };
+    });
+}
+
+/** Eingang im Steuerpult – alle Beiträge, auch nicht freigegebene, mit Namen */
+function inboxViews(snap: Snapshot): InboxView[] {
+  return snap.parking.map(({ slide, here, posts }) => ({
+    slideId: slide.id,
+    kind: slide.type,
+    title: anytimeTitle(slide),
+    here,
+    tags: slide.type === 'board' ? slide.config.tags : [],
+    posts: posts.map(stripPost),
+  }));
 }
 
 function answerCount(snap: Snapshot): number {
@@ -364,6 +390,7 @@ export function hostView(
     rehearsal: snap.run.rehearsal,
     fakeParticipants: snap.run.fakeParticipants,
     displays,
+    inbox: inboxViews(snap),
     slides: snap.slides.map((s) => ({
       id: s.id,
       type: s.type,

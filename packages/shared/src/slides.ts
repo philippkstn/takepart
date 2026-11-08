@@ -143,6 +143,8 @@ export const feedbackConfig = z.object({
 export const qaConfig = z.object({
   title: text(200).default('Eure Fragen'),
   moderated: z.boolean().default(true),
+  /** Fragen jederzeit annehmen, auch wenn die Folie nicht gezeigt wird (wie der Parkplatz) */
+  anytime: z.boolean().default(false),
   task,
 });
 export const sentenceConfig = z.object({
@@ -416,6 +418,13 @@ export const POST_TYPES = ['open', 'brainstorm', 'pinboard', 'qa', 'board'] as c
 export type PostSlideType = (typeof POST_TYPES)[number];
 export function isPostType(type: SlideType): type is PostSlideType {
   return (POST_TYPES as readonly string[]).includes(type);
+}
+
+/** Folie, die jederzeit Beiträge annimmt: Parkplatz (Sammel-Folie) oder Q&A mit „jederzeit“ */
+export type AnytimeSlide = Extract<Slide, { type: 'board' }> | Extract<Slide, { type: 'qa' }>;
+export function isAnytimeSlide(slide: Slide): slide is AnytimeSlide {
+  if (slide.type === 'board') return slide.config.mode === 'collect' && slide.config.anytime;
+  return slide.type === 'qa' && slide.config.anytime;
 }
 
 /** Die beiden Satzanfänge aus der ersten Idee – als Vorlage für neue Präsentationen. */

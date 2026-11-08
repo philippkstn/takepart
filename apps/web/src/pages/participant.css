@@ -901,6 +901,29 @@ button.board-group-name:hover {
   max-height: 85dvh;
   overflow: auto;
 }
+/* Kopf: Titel darf umbrechen, das Schließen-Kreuz bleibt oben rechts */
+.sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.sheet-head h2 {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* Namensabfrage im Blatt ohne zweiten Rahmen */
+.sheet form.card {
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  background: none;
+}
+.sheet-head .icon-btn {
+  flex-shrink: 0;
+  margin: -6px -6px 0 0;
+}
 .p-countdown.is-done {
   color: var(--danger);
 }

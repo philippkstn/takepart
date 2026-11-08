@@ -449,13 +449,30 @@ export interface BoardSummary {
   cards: PostView[];
 }
 
-/** Sammel-Folie, die jederzeit Karten annimmt (Parkplatz) – erreichbar von jeder Folie aus */
+/**
+ * Folie, die jederzeit Beiträge annimmt – Parkplatz (Sammel-Folie) oder Q&A mit
+ * „jederzeit“ –, erreichbar von jeder Folie aus. Nur die eigenen Beiträge.
+ */
 export interface ParkingView {
   slideId: number;
+  kind: 'board' | 'qa';
   title: string;
   tags: string[];
   remaining: number;
+  /** Q&A: Fragen erscheinen erst nach Freigabe */
+  moderated: boolean;
   mine: PostView[];
+}
+
+/** Eingang im Steuerpult: alle Beiträge einer jederzeit offenen Folie, unabhängig von der aktuellen Folie */
+export interface InboxView {
+  slideId: number;
+  kind: 'board' | 'qa';
+  title: string;
+  /** Wird die Folie (bzw. eine Sammel-Folie derselben Wand) gerade gezeigt? */
+  here: boolean;
+  tags: string[];
+  posts: PostView[];
 }
 
 /** Folie, wie sie das Publikum sieht – bei Quizfragen ohne Lösung, bis sie aufgelöst ist. */
@@ -672,6 +689,8 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   fakeParticipants: number;
   /** Geöffnete Beamer-Fenster und wie viele davon gerade verdeckt bzw. minimiert sind */
   displays: { connected: number; hidden: number };
+  /** Parkplatz und jederzeit offene Q&A – immer, egal welche Folie läuft */
+  inbox: InboxView[];
 }
 
 /* ───────────────────── Laserpointer & Zeichnen ─────────────────────
