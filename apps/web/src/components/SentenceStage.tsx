@@ -1,6 +1,7 @@
 import { wordKey, type SentenceView } from '@slides/shared';
 import { AnimatePresence, LayoutGroup, motion } from 'motion/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { useCloudFit } from '../lib/autoScroll.tsx';
 
 /*
  * Satz-Spiel auf dem Beamer, mit Übergängen:
@@ -47,6 +48,9 @@ export function SentenceStage({ slideId, sentence, answers }: { slideId: number;
     setPrevLength(appended.length);
     setFresh(appended.length > prevLength ? appended.length - 1 : null);
   }
+  // Viele verschiedene Wörter: die Wolke verkleinert sich, bis alles auf die Bühne passt
+  const stageRef = useRef<HTMLDivElement>(null);
+  useCloudFit(stageRef, '.sentence-cloud');
   const last = appended[appended.length - 1];
   const lastKey = last ? wordKey(last) : '';
 
@@ -58,7 +62,7 @@ export function SentenceStage({ slideId, sentence, answers }: { slideId: number;
 
   return (
     <LayoutGroup id={`sentence-${slideId}`}>
-      <div className="stage-sentence">
+      <div ref={stageRef} className="stage-sentence">
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.span
             key={done ? 'done' : `round-${round}`}

@@ -169,8 +169,36 @@
   max-height: none;
   height: 1.1em;
 }
-.stage-results .columns {
-  height: 7.5em;
+/* Skala: Säulen nutzen die volle Höhe der Bühne und werden bei wenig Platz
+   niedriger – nie scrollen */
+.stage-results > .scale-results {
+  flex: 1;
+  min-height: 0;
+  /* Durchschnitt links neben den Säulen (wie beim Feedback) – spart eine ganze Zeile Höhe */
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: minmax(5.5em, 1fr) auto;
+  gap: 0.5em 2.5em;
+}
+.stage-results > .scale-results .hero-figure {
+  grid-row: 1 / span 2;
+  align-self: center;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3em;
+}
+.stage-results > .scale-results .columns,
+.stage-results > .scale-results .scale-ends {
+  grid-column: 2;
+}
+.stage-results > .scale-results .columns {
+  height: auto;
+  min-height: 0;
+}
+.stage-results > .scale-results .column {
+  min-height: 0;
+}
+.stage-results > .scale-results .column-track {
+  min-height: 0;
 }
 /* Balken passen nicht in die Höhe: Säulen nebeneinander (data-layout aus
    ScrollingResults), Wert direkt über der Säule, Beschriftung klein darunter
@@ -222,6 +250,8 @@
 }
 .stage-results[data-layout='columns'] .bar-label {
   grid-row: 2;
+  /* Abstand zur Grundlinie, sonst klebt die Beschriftung an den Säulen */
+  padding-top: 0.55em;
   justify-content: center;
   align-items: flex-start;
   text-align: center;
@@ -295,14 +325,16 @@
   box-shadow: var(--shadow-2);
 }
 .join-qr {
-  width: 8.5em;
-  height: 8.5em;
+  width: 7em;
+  height: 7em;
   flex-shrink: 0;
 }
+/* Ruhezone in em, damit die Rundung nie an die Positionsquadrate stößt */
 .join-qr .qr {
   width: 100%;
   height: 100%;
-  border-radius: 0.6em;
+  border-radius: 0.4em;
+  padding: 0.4em;
 }
 .join-text {
   display: grid;
@@ -333,7 +365,7 @@
   z-index: 5;
 }
 .join-overlay .join-panel {
-  font-size: 1.3em;
+  font-size: 1.2em;
 }
 
 /* Satz-Spiel */
@@ -426,7 +458,8 @@
   align-items: baseline;
   gap: 0.15em 0.8em;
   line-height: 1.1;
-  font-size: 1.05em;
+  /* --cloud-scale setzt SentenceStage (useCloudFit), damit nichts überläuft */
+  font-size: calc(1.05em * var(--cloud-scale, 1));
 }
 .sentence-cloud .cloud-word {
   animation: none;
@@ -973,4 +1006,103 @@
   margin-left: 0.45em;
   color: var(--ink-3);
   font-size: 0.8em;
+}
+
+/* Dichter Modus (data-dense aus ScrollingResults): passt der Inhalt nicht auf die
+   Bühne, 2–5 Spalten nach Beamer-Breite (--stage-cols) und Schrift im selben
+   Verhältnis kleiner (--cols-scale); reicht das nicht, scrollt der Bereich. */
+.stage-scroll[data-dense] > .post-cards {
+  columns: var(--stage-cols) auto;
+  font-size: calc(0.85em * var(--cols-scale));
+}
+/* Fragen: Spalten, Reihenfolge zeilenweise (links nach rechts) */
+.stage-scroll[data-dense] > .post-rows {
+  grid-template-columns: repeat(var(--stage-cols), minmax(0, 1fr));
+  align-items: start;
+  font-size: calc(0.85em * var(--cols-scale));
+}
+.stage-scroll[data-dense] > .post-rows .stage-post {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+.stage-scroll[data-dense] > .post-rows .stage-post-meta {
+  justify-self: start;
+}
+.stage-scroll[data-dense] > .pinboard {
+  font-size: calc(0.9em * var(--cols-scale));
+}
+/* Pinnwand: breite Bereiche teilen sich in Unterspalten */
+.stage-scroll[data-dense] > .pinboard .post-rows {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 11em), 1fr));
+}
+.stage-scroll[data-dense] .stage-post {
+  padding: 0.55em 0.75em;
+}
+/* Gruppen tragen nur kurze Namen: so viele Spalten, wie mit 8,5em passen – höchstens 5 */
+.stage-results.teams-stage[data-dense] .teams-grid {
+  grid-template-columns: repeat(auto-fill, minmax(max(8.5em, calc((100% - 3em) / 5)), 1fr));
+  font-size: calc(0.9em * var(--cols-scale));
+}
+/* Feedback-Kommentare: mehr Spalten, aber die Schrift bleibt groß (Lesbarkeit) */
+.stage-scroll[data-dense] .feedback-comments {
+  grid-template-columns: repeat(var(--stage-cols), minmax(0, 1fr));
+}
+.leaderboard {
+  align-content: start;
+}
+/* Rangliste passt nicht: zwei Spalten (1–5 links, 6–10 rechts) statt scrollen */
+.stage-scroll[data-dense] > .leaderboard {
+  max-width: none;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  column-gap: 1.5em;
+}
+.stage-scroll[data-dense] > .leaderboard li {
+  grid-template-columns: 2em minmax(4em, 1fr) minmax(3em, 0.8fr) auto;
+}
+
+/* Beitritts-Hinweis, wenn einige die Verbindung verloren haben: klein unten rechts,
+   über den Ergebnissen, unter Pause/Schwarzbild (die setzt der Server ohnehin aus) */
+.rejoin-corner {
+  position: absolute;
+  right: 1.4em;
+  bottom: 0.9em;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.45em 0.8em 0.45em 0.45em;
+  border-radius: 0.5em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  font-size: 0.62em;
+}
+.rejoin-qr {
+  width: 4.2em;
+  height: 4.2em;
+  border-radius: 0.3em;
+  padding: 0.25em;
+}
+/* Platz für den Hinweis freihalten, damit er keine Beschriftungen verdeckt */
+.stage-inner {
+  transition: padding-bottom 400ms var(--ease);
+}
+.stage-inner.has-rejoin {
+  padding-bottom: 4.1em;
+}
+.rejoin-text {
+  display: grid;
+  gap: 0.1em;
+}
+.rejoin-host {
+  color: var(--ink-2);
+  font-weight: 600;
+}
+.rejoin-code {
+  font-size: 1.6em;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  line-height: 1;
 }

@@ -621,3 +621,72 @@
     border-color: var(--border);
   }
 }
+
+/* Beamer: Felder, Gruppen und Spalten wachsen mit ihren Karten, statt sie
+   abzuschneiden – die Wand scrollt dann als Ganzes (ScrollingResults
+   .board-scroll). Wenig Inhalt füllt weiter die Höhe (minmax mit 1fr). */
+.board-scroll .cluster-wall {
+  grid-auto-rows: minmax(min-content, 1fr);
+  overflow: visible;
+}
+.board-scroll .cluster-group,
+.board-scroll .cluster-cards,
+.board-scroll .place-cell,
+.board-scroll .place-cell .cluster-cards {
+  overflow: visible;
+}
+.board-scroll .place,
+.board-scroll .place-grid {
+  min-height: auto;
+}
+.board-scroll .place-grid {
+  grid-template-rows: minmax(min-content, 1fr) auto;
+}
+.board-scroll .place-lanes,
+.board-scroll .place-lane {
+  grid-auto-rows: minmax(min-content, 1fr);
+  min-height: auto;
+}
+.board-scroll .board-table {
+  flex: none;
+}
+/* Kopfzeile bleibt beim Durchscrollen stehen */
+.board-scroll .board-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--stage-bg, var(--bg));
+}
+
+/* Dichter Modus (siehe stage.css): 2–5 Spalten nach Beamer-Breite */
+.stage-scroll[data-dense] > .cluster-wall {
+  grid-template-columns: repeat(var(--stage-cols), minmax(0, 1fr));
+  font-size: calc(1em * var(--cols-scale));
+}
+/* Sammelwand: Spalten ohne Lücken (lange Karten machen keine leeren Zeilen) */
+.stage-scroll[data-dense] > .board-cards {
+  display: block;
+  columns: var(--stage-cols) auto;
+  column-gap: 0.5em;
+  font-size: calc(1em * var(--cols-scale));
+}
+.stage-scroll[data-dense] > .board-cards .board-card {
+  break-inside: avoid;
+  margin-bottom: 0.4em;
+  font-size: 0.68em;
+  padding: 0.4em 0.6em;
+  gap: 0.2em;
+}
+.stage-scroll[data-dense] > .place {
+  font-size: calc(1em * var(--cols-scale));
+}
+.stage-scroll[data-dense] > .board-table {
+  font-size: calc(0.78em * var(--cols-scale));
+}
+.stage-scroll[data-dense] .cluster-group .board-card {
+  font-size: 0.7em;
+  padding: 0.35em 0.55em;
+}
+.stage-scroll[data-dense] .cluster-group .cluster-cards {
+  gap: 0.3em;
+}

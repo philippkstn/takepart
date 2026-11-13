@@ -213,6 +213,8 @@
   border-radius: 12px;
   padding: 6px;
   flex-shrink: 0;
+  /* Grafik folgt der Rundung – keine eckigen Ränder über die Karte hinaus */
+  overflow: hidden;
 }
 .qr svg {
   display: block;

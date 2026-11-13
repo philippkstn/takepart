@@ -328,3 +328,30 @@ export interface MyTurnView {
   /** Wer gerade dran ist (null = noch niemand) */
   current: number | null;
 }
+
+/* ───────────────────────── Beitritts-Hinweis bei Verbindungsverlust ─────────────────────────
+ * Haben einige Teilnehmende ihre Verbindung verloren (Tab geschlossen, Handy
+ * gewechselt), zeigt der Beamer auf Mitmach-Folien dezent QR-Code und Code in
+ * der Ecke. Wer getrennt ist, weiß nur `live.ts` (flüchtig im Speicher); als
+ * „weg“ zählt, wer länger als REJOIN_GRACE_MS getrennt ist – kurze Aussetzer
+ * (Funkloch, Neuladen) lösen nichts aus.
+ */
+
+/** So lange darf eine Verbindung weg sein, bevor die Person als „weg“ zählt */
+export const REJOIN_GRACE_MS = 45_000;
+/** Mindestens so viele Personen müssen weg sein … */
+export const REJOIN_MIN_LOST = 2;
+/** … und mindestens dieser Anteil aller, die in dieser Sitzung verbunden waren */
+export const REJOIN_MIN_SHARE = 0.1;
+
+/** Soll der Beamer den Beitritt dezent anzeigen? `lost` = länger getrennt, `seen` = verbunden oder getrennt */
+export function rejoinWanted(lost: number, seen: number): boolean {
+  return lost >= Math.max(REJOIN_MIN_LOST, Math.ceil(seen * REJOIN_MIN_SHARE));
+}
+
+/** Wie viele der getrennten Personen schon länger als die Schonfrist weg sind */
+export function countLost(left: ReadonlyMap<number, number>, connected: ReadonlySet<number>, now: number): number {
+  let n = 0;
+  for (const [id, at] of left) if (!connected.has(id) && now - at >= REJOIN_GRACE_MS) n++;
+  return n;
+}

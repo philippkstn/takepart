@@ -1,4 +1,6 @@
 import {
+  isPostType,
+  isResponseType,
   activeAnnouncement,
   activeCallback,
   boardRights,
@@ -277,7 +279,12 @@ export function participantView(snap: Snapshot, participantId: number): Particip
   };
 }
 
-export function displayView(snap: Snapshot, participants: number): DisplayView {
+/** Folien, auf denen Teilnehmende mitmachen – nur dort lohnt der Beitritts-Hinweis */
+function invitesParticipation(slide: Slide | null): boolean {
+  return !!slide && (isResponseType(slide.type) || isPostType(slide.type));
+}
+
+export function displayView(snap: Snapshot, participants: number, rejoin = false): DisplayView {
   const { state } = snap.run;
   const slide = snap.current;
   const quiz = quizView(snap);
@@ -327,6 +334,8 @@ export function displayView(snap: Snapshot, participants: number): DisplayView {
     picked: displayPicked(snap),
     turns: displayTurns(snap),
     callback: activeCallback(state.callback, snap.now),
+    // Nicht doppelt zum großen Beitritt, nicht über Pause oder Schwarzbild
+    rejoin: rejoin && invitesParticipation(slide) && !state.showJoin && !state.pause && !state.blank,
   };
 }
 

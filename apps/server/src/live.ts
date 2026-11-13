@@ -1,6 +1,9 @@
 import {
   collectInk,
+  countLost,
   displayMessage,
+  REJOIN_GRACE_MS,
+  rejoinWanted,
   emptyPendingInk,
   inkEvent,
   takeInk,
@@ -63,6 +66,13 @@ interface Room {
   running: boolean;
   again: boolean;
   quizTimer: NodeJS.Timeout | null;
+  /**
+   * Teilnehmende ohne offene Verbindung → Zeitpunkt der Trennung (nur im Speicher,
+   * wie die Verbindungen selbst). Daraus entsteht der Beitritts-Hinweis auf dem Beamer.
+   */
+  left: Map<number, number>;
+  /** Weckt nach Ablauf der Schonfrist, damit der Hinweis ohne weitere Änderung erscheint */
+  rejoinTimer: NodeJS.Timeout | null;
   /**
    * Striche der aktuellen Folie. Bewusst nur im Speicher (die einzige Ausnahme von
    * „Live-Zustand liegt in der Datenbank“): flüchtig, gehen bei Folienwechsel und
@@ -144,6 +154,8 @@ export class LiveHub {
         running: false,
         again: false,
         quizTimer: null,
+        left: new Map(),
+        rejoinTimer: null,
         ink: emptyInk(null),
       };
       this.rooms.set(runId, room);
@@ -161,12 +173,15 @@ export class LiveHub {
       if (own >= MAX_CONNECTIONS_PER_PARTICIPANT) return false;
     }
     room.clients.add(client);
+    if (client.role === 'participant') room.left.delete(client.participantId);
     client.ws.on('pong', () => (client.alive = true));
     client.ws.on('close', () => {
       room.clients.delete(client);
+      if (client.role === 'participant') this.markLeft(runId, room, client.participantId);
       if (room.clients.size === 0 && !room.timer) {
         if (room.quizTimer) clearTimeout(room.quizTimer);
         if (room.ink.flushTimer) clearTimeout(room.ink.flushTimer);
+        if (room.rejoinTimer) clearTimeout(room.rejoinTimer);
         this.rooms.delete(runId);
       } else {
         this.notify(runId); // Teilnehmerzahl aktualisieren
@@ -178,6 +193,17 @@ export class LiveHub {
     }
     this.notify(runId, true);
     return true;
+  }
+
+  /** Letzte Verbindung einer Person zu: Zeitpunkt merken und nach der Schonfrist neu senden */
+  private markLeft(runId: number, room: Room, participantId: number) {
+    for (const c of room.clients) if (c.role === 'participant' && c.participantId === participantId) return;
+    room.left.set(participantId, Date.now());
+    if (room.rejoinTimer) clearTimeout(room.rejoinTimer);
+    room.rejoinTimer = setTimeout(() => {
+      room.rejoinTimer = null;
+      this.notify(runId, true);
+    }, REJOIN_GRACE_MS + 500);
   }
 
   private strokes(room: Room): InkStroke[] {
@@ -352,6 +378,8 @@ export class LiveHub {
       for (const c of room.clients) if (c.role === 'participant') participantIds.add(c.participantId);
       // Probelauf: simulierte Testteilnehmende zählen mit (sie haben keine Verbindung)
       const participants = participantIds.size + snap.run.fakeParticipants;
+      const lost = countLost(room.left, participantIds, Date.now());
+      const rejoin = rejoinWanted(lost, participantIds.size + room.left.size);
       const displays = { connected: 0, hidden: 0 };
       for (const c of room.clients) {
         if (c.role !== 'display' || c.ws.readyState !== c.ws.OPEN) continue;
@@ -367,7 +395,7 @@ export class LiveHub {
         if (c.role === 'participant') {
           msg = JSON.stringify({ type: 'view', view: participantView(snap, c.participantId) } satisfies ServerMessage);
         } else if (c.role === 'display') {
-          msg = display ??= JSON.stringify({ type: 'view', view: displayView(snap, participants) } satisfies ServerMessage);
+          msg = display ??= JSON.stringify({ type: 'view', view: displayView(snap, participants, rejoin) } satisfies ServerMessage);
         } else {
           msg = host ??= JSON.stringify({
             type: 'view',

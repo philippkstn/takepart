@@ -112,13 +112,14 @@ const MIN_CLOUD_SCALE = 0.2;
 const CLOUD_SETTLE_MS = 650;
 
 /**
- * Wortwolke passt immer: Eine direkt enthaltene `.wordcloud` wird über
+ * Wortwolke passt immer: Eine direkt enthaltene `.wordcloud` (bzw. `selector`,
+ * z. B. die Wolke im Satz-Spiel) wird über
  * `--cloud-scale` (stage.css) so weit verkleinert, dass nichts scrollt – per
  * Intervallschachtelung zwischen `MIN_CLOUD_SCALE` und 1, gerechnet immer vom
  * vollen Maßstab, damit sie auch wieder wächst, wenn Wörter wegfallen oder die
  * Fläche größer wird. Die Wortgrößen sind em-relativ, der Maßstab wirkt sofort.
  */
-function useCloudFit(ref: RefObject<HTMLElement | null>) {
+export function useCloudFit(ref: RefObject<HTMLElement | null>, selector = ':scope > .wordcloud') {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -127,7 +128,7 @@ function useCloudFit(ref: RefObject<HTMLElement | null>) {
     const fits = () => el.scrollHeight - el.clientHeight <= 1 && el.scrollWidth - el.clientWidth <= 1;
     const fit = () => {
       el.style.removeProperty('--cloud-scale');
-      if (!el.querySelector(':scope > .wordcloud') || fits()) return;
+      if (!el.querySelector(selector) || fits()) return;
       let lo = MIN_CLOUD_SCALE;
       let hi = 1;
       for (let i = 0; i < 8; i++) {
@@ -146,7 +147,56 @@ function useCloudFit(ref: RefObject<HTMLElement | null>) {
     };
     const resize = new ResizeObserver(schedule);
     resize.observe(el);
-    // Nur Kinder/Text – die Animation der Schriftgröße (style-Attribut) löst nichts aus
+    // Kinder, Text und `title` (trägt die Häufigkeit – ändert sich, wenn nur Zahlen wachsen);
+    // die Animation der Schriftgröße (style-Attribut) löst nichts aus
+    const mutation = new MutationObserver(schedule);
+    mutation.observe(el, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title'] });
+    void document.fonts?.ready.then(schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, [ref, selector]);
+}
+
+/** Spaltenbreite in CSS-Pixeln, aus der sich die Spaltenzahl im dichten Modus ergibt */
+const DENSE_COLUMN_PX = 440;
+/** Spaltenzahl, für die die normale Kartengröße gedacht ist – mehr Spalten verkleinern im selben Verhältnis */
+const DENSE_BASE_COLUMNS = 3;
+
+/**
+ * Dichter Modus für Karten, Beiträge, Gruppen und Felder: Passt der Inhalt nicht
+ * auf die Bühne, setzt `ScrollingResults` `data-dense` und `--stage-cols` (2–5
+ * Spalten nach der echten Breite in CSS-Pixeln – großer Beamer, mehr Spalten).
+ * `--cols-scale` verkleinert die Schrift im selben Verhältnis, damit die Karten in
+ * Pixeln etwa gleich groß bleiben. Passt es dann immer noch nicht, scrollt der
+ * Bereich (useAutoScroll). Gerechnet wird immer vom normalen Zustand aus.
+ */
+function useDenseGrid(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    let timer = 0;
+    const fit = () => {
+      const cols = Math.min(5, Math.max(2, Math.round(el.clientWidth / DENSE_COLUMN_PX)));
+      el.style.setProperty('--stage-cols', String(cols));
+      el.style.setProperty('--cols-scale', String(Math.min(1, DENSE_BASE_COLUMNS / cols)));
+      delete el.dataset.dense;
+      if (el.scrollHeight - el.clientHeight > 4) el.dataset.dense = '';
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      frame = requestAnimationFrame(fit);
+      // Neue Beiträge blenden animiert ein – danach am Endstand messen
+      timer = window.setTimeout(fit, CLOUD_SETTLE_MS);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(el);
     const mutation = new MutationObserver(schedule);
     mutation.observe(el, { childList: true, subtree: true, characterData: true });
     void document.fonts?.ready.then(schedule);
@@ -162,12 +212,14 @@ function useCloudFit(ref: RefObject<HTMLElement | null>) {
 
 /**
  * Ergebnisbereich der Bühne: setzt bei Überlänge Balken nebeneinander,
- * verkleinert Wortwolken bis sie passen und scrollt sonst automatisch.
+ * verkleinert Wortwolken bis sie passen, verdichtet Karten auf 2–5 Spalten und
+ * scrollt erst dann automatisch. Nichts auf der Bühne wird abgeschnitten.
  */
 export function ScrollingResults({ className = 'stage-results', children }: { className?: string; children: ReactNode }) {
   const ref = useAutoScroll<HTMLDivElement>();
   useBarColumns(ref);
   useCloudFit(ref);
+  useDenseGrid(ref);
   return (
     <div ref={ref} className={className}>
       {children}

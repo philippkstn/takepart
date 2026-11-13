@@ -61,7 +61,7 @@ export function Stage({
   return (
     <MotionConfig reducedMotion="user">
       <div className="stage" style={brandStyle(view.run.brand)}>
-        <div className="stage-inner">
+        <div className={`stage-inner ${!image && view.rejoin && view.run.code && !view.showJoin ? 'has-rejoin' : ''}`}>
           {image ? (
             <ImageStage key="image" slide={image} step={view.buildStep} animate={visible} />
           ) : (
@@ -142,6 +142,24 @@ export function Stage({
             {view.showJoin && view.run.code && (
               <motion.div className="join-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                 <JoinPanel code={view.run.code} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+          {/* Einige haben die Verbindung verloren: Beitritt dezent unten rechts */}
+          <AnimatePresence>
+            {view.rejoin && view.run.code && !view.showJoin && (
+              <motion.div
+                className="rejoin-corner"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.4, ease: EASE }}
+              >
+                <QrCode text={joinUrl(view.run.code)} className="rejoin-qr" />
+                <span className="rejoin-text">
+                  <span className="rejoin-host">{joinHost()}</span>
+                  <span className="rejoin-code tabular">{formatCode(view.run.code)}</span>
+                </span>
               </motion.div>
             )}
           </AnimatePresence>
@@ -447,7 +465,10 @@ function SlideStage({
               <MessageCircleQuestion /> <span>Noch keine Fragen – stellt sie gern über euer Handy</span>
             </div>
           ) : (
-            <PostGrid posts={view.posts.filter((p) => p.status !== 'answered').slice(0, 8)} layout="list" showVotes />
+            // Alle offenen Fragen (nach Stimmen); zu viele scrollen langsam durch
+            <ScrollingResults key={slide.id} className="stage-scroll">
+              <PostGrid posts={view.posts.filter((p) => p.status !== 'answered').slice(0, MAX_STAGE_POSTS)} layout="list" showVotes />
+            </ScrollingResults>
           )}
         </>
       );
@@ -609,28 +630,30 @@ function LeaderboardStage({ view }: { view: DisplayView }) {
           <Trophy /> <span>Noch keine Punkte</span>
         </div>
       ) : (
-        <ol className="leaderboard">
-          {board.map((e) => (
-            // Überholt jemand, gleitet die Zeile an ihren neuen Platz
-            <motion.li
-              key={e.participantId}
-              layout="position"
-              // Einblenden über motion statt CSS-Animation: deren `transform` bliebe sonst
-              // stehen und überdeckte das Gleiten beim Überholen
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.32, ease: EASE, layout: { duration: 0.5, ease: EASE } }}
-              className={e.rank === 1 ? 'is-first' : ''}
-            >
-              <span className="lb-rank tabular">{e.rank}</span>
-              <span className="lb-name">{e.name}</span>
-              <span className="lb-bar">
-                <span style={{ width: `${(e.points / max) * 100}%` }} />
-              </span>
-              <AnimatedNumber className="lb-points tabular" value={e.points} />
-            </motion.li>
-          ))}
-        </ol>
+        <ScrollingResults key="leaderboard" className="stage-scroll">
+          <ol className="leaderboard">
+            {board.map((e) => (
+              // Überholt jemand, gleitet die Zeile an ihren neuen Platz
+              <motion.li
+                key={e.participantId}
+                layout="position"
+                // Einblenden über motion statt CSS-Animation: deren `transform` bliebe sonst
+                // stehen und überdeckte das Gleiten beim Überholen
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.32, ease: EASE, layout: { duration: 0.5, ease: EASE } }}
+                className={e.rank === 1 ? 'is-first' : ''}
+              >
+                <span className="lb-rank tabular">{e.rank}</span>
+                <span className="lb-name">{e.name}</span>
+                <span className="lb-bar">
+                  <span style={{ width: `${(e.points / max) * 100}%` }} />
+                </span>
+                <AnimatedNumber className="lb-points tabular" value={e.points} />
+              </motion.li>
+            ))}
+          </ol>
+        </ScrollingResults>
       )}
     </>
   );

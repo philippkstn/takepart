@@ -661,6 +661,8 @@ export interface DisplayView {
   callback?: Callback | null;
   /** Reihum: wer dran ist (und auf Wunsch die ganze Reihenfolge) */
   turns?: TurnsDisplayView | null;
+  /** Einige haben die Verbindung verloren: Beitritt dezent in der Ecke zeigen (nur Mitmach-Folien) */
+  rejoin?: boolean;
 }
 
 export interface HostSlideSummary {

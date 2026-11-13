@@ -135,6 +135,9 @@ function ScaleColumn({ n, top, label }: { n: number; top: number; label: number 
   );
 }
 
+/** Bis zu so vielen gleich häufigen Wörtern zeigt die Wolke sie in voller Größe */
+const TIED_LARGE_MAX = 12;
+
 export function WordCloud({ words, limit = 60, highlight = false }: { words: WordCount[]; limit?: number; highlight?: boolean }) {
   if (words.length === 0) return null;
   const shown = words.slice(0, limit);
@@ -149,7 +152,8 @@ export function WordCloud({ words, limit = 60, highlight = false }: { words: Wor
     <div className="wordcloud">
       <AnimatePresence initial={false}>
         {arranged.map((w) => {
-          const t = max === min ? 1 : (w.count - min) / (max - min);
+          // Alle gleich oft genannt: wenige groß, viele mittel – sonst passt die Wolke selbst verkleinert nicht
+          const t = max === min ? (shown.length <= TIED_LARGE_MAX ? 1 : 0.3) : (w.count - min) / (max - min);
           return <CloudWord key={w.key} word={w.word} count={w.count} t={t} top={highlight && w.rank < leaders} />;
         })}
       </AnimatePresence>

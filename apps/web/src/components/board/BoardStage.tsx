@@ -75,10 +75,24 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
         <Count ctx={ctx} />
       </div>
       <div className="board-body">
-        <Body ctx={ctx} />
+        {/* Auf dem Beamer wachsen Felder, Gruppen und Tabelle mit ihrem Inhalt und scrollen
+            bei Überlänge – nie abschneiden. Im Steuerpult (Drag & Drop) bleibt das Layout fest. */}
+        {!onBoard && growsOnStage(config) ? (
+          <ScrollingResults key={slide.id} className="stage-scroll board-scroll">
+            <Body ctx={ctx} />
+          </ScrollingResults>
+        ) : (
+          <Body ctx={ctx} />
+        )}
       </div>
     </>
   );
+}
+
+/** Ansichten ohne eigenen Scrollbereich, die auf der Bühne mit dem Inhalt wachsen */
+function growsOnStage(config: Config): boolean {
+  if (config.mode === 'cluster') return config.layout !== 'mindmap';
+  return config.mode === 'place' || config.mode === 'table';
 }
 
 interface Ctx {
@@ -319,17 +333,19 @@ function Collect({ ctx }: { ctx: Ctx }) {
   // Gruppenweise gesammelt: Spalten je Arbeitsgruppe
   if (breakout)
     return (
-      <BreakoutWall
-        breakout={breakout}
-        posts={posts}
-        renderCards={(list) => (
-          <FitList>
-            {list.map((p) => (
-              <Card key={p.id} post={p} ctx={ctx} />
-            ))}
-          </FitList>
-        )}
-      />
+      <ScrollingResults key={view.slide?.id} className="stage-scroll board-scroll">
+        <BreakoutWall
+          breakout={breakout}
+          posts={posts}
+          renderCards={(list) => (
+            <FitList>
+              {list.map((p) => (
+                <Card key={p.id} post={p} ctx={ctx} />
+              ))}
+            </FitList>
+          )}
+        />
+      </ScrollingResults>
     );
   if (posts.length === 0) return <Waiting>Noch keine Karten</Waiting>;
   // Passt die Wand trotz Verdichtung nicht auf die Bühne, scrollt sie langsam durch
