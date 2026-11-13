@@ -741,15 +741,22 @@
   flex: 0 0 auto;
   align-content: start;
 }
+/* Kommentare gut lesbar: volle Schriftgröße, Tinte, Karten so hoch wie ihr Text */
 .feedback-comments {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
-  gap: 0.6em;
-  font-size: 0.85em;
+  grid-template-columns: repeat(auto-fill, minmax(17em, 1fr));
+  align-items: start;
+  gap: 0.7em;
+  font-size: 1em;
 }
 .feedback-comments li {
+  padding: 0.7em 0.95em;
   background: var(--surface);
+  color: var(--ink);
+  font-weight: 550;
+  line-height: 1.35;
   overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 /* Feedback auf der Bühne: Durchschnitt links, Verteilung rechts, Kommentare darunter */
