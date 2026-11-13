@@ -237,8 +237,9 @@
   hyphens: auto;
 }
 
+/* --cloud-scale setzt ScrollingResults (useCloudFit), damit die Wolke nie scrollt */
 .stage-results .wordcloud {
-  font-size: 1.1em;
+  font-size: calc(1.1em * var(--cloud-scale, 1));
 }
 
 .stage-waiting {
@@ -698,6 +699,57 @@
   font-weight: 700;
   text-align: right;
   min-width: 4em;
+}
+
+/* Feedback geteilt: Sterne oben fest, alle Kommentare darunter */
+.feedback-split {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+}
+/* Kompakt, damit unten genug Platz für Kommentare bleibt */
+.feedback-split-top {
+  flex: 0 0 auto;
+  overflow: visible;
+  font-size: 0.8em;
+}
+.feedback-split-top .bars {
+  gap: 0.4em;
+}
+.feedback-split-top .bar-fill {
+  height: 0.9em;
+}
+.feedback-split-comments {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  padding-top: 0.8em;
+  border-top: 1px solid var(--border);
+}
+.feedback-split-label {
+  margin: 0;
+  flex: 0 0 auto;
+  font-size: 0.8em;
+  font-weight: 650;
+  color: var(--ink-2);
+}
+.stage-scroll > .feedback-comments {
+  flex: 0 0 auto;
+  align-content: start;
+}
+.feedback-comments {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+  gap: 0.6em;
+  font-size: 0.85em;
+}
+.feedback-comments li {
+  background: var(--surface);
+  overflow-wrap: break-word;
 }
 
 /* Feedback auf der Bühne: Durchschnitt links, Verteilung rechts, Kommentare darunter */

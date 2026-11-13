@@ -177,7 +177,7 @@ function CloudWord({ word, count, t, top }: { word: string; count: number; t: nu
   );
 }
 
-function FeedbackResults({ results }: { results: Extract<SlideResults, { type: 'feedback' }> }) {
+export function FeedbackResults({ results }: { results: Extract<SlideResults, { type: 'feedback' }> }) {
   const max = Math.max(1, ...results.distribution);
   return (
     <div className="feedback-results">

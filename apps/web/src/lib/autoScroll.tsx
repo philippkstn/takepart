@@ -106,10 +106,68 @@ function useBarColumns(ref: RefObject<HTMLElement | null>) {
   }, [ref]);
 }
 
-/** Ergebnisbereich der Bühne, der bei Überlänge Balken nebeneinander setzt und sonst automatisch scrollt */
+/** Kleinster Maßstab der Wortwolke – darunter wäre sie auf dem Beamer nicht mehr lesbar */
+const MIN_CLOUD_SCALE = 0.2;
+/** Wörter wachsen animiert (CloudWord, 500 ms) – danach noch einmal am Endstand messen */
+const CLOUD_SETTLE_MS = 650;
+
+/**
+ * Wortwolke passt immer: Eine direkt enthaltene `.wordcloud` wird über
+ * `--cloud-scale` (stage.css) so weit verkleinert, dass nichts scrollt – per
+ * Intervallschachtelung zwischen `MIN_CLOUD_SCALE` und 1, gerechnet immer vom
+ * vollen Maßstab, damit sie auch wieder wächst, wenn Wörter wegfallen oder die
+ * Fläche größer wird. Die Wortgrößen sind em-relativ, der Maßstab wirkt sofort.
+ */
+function useCloudFit(ref: RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    let timer = 0;
+    const fits = () => el.scrollHeight - el.clientHeight <= 1 && el.scrollWidth - el.clientWidth <= 1;
+    const fit = () => {
+      el.style.removeProperty('--cloud-scale');
+      if (!el.querySelector(':scope > .wordcloud') || fits()) return;
+      let lo = MIN_CLOUD_SCALE;
+      let hi = 1;
+      for (let i = 0; i < 8; i++) {
+        const mid = (lo + hi) / 2;
+        el.style.setProperty('--cloud-scale', String(mid));
+        if (fits()) lo = mid;
+        else hi = mid;
+      }
+      el.style.setProperty('--cloud-scale', String(lo));
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      frame = requestAnimationFrame(fit);
+      timer = window.setTimeout(fit, CLOUD_SETTLE_MS);
+    };
+    const resize = new ResizeObserver(schedule);
+    resize.observe(el);
+    // Nur Kinder/Text – die Animation der Schriftgröße (style-Attribut) löst nichts aus
+    const mutation = new MutationObserver(schedule);
+    mutation.observe(el, { childList: true, subtree: true, characterData: true });
+    void document.fonts?.ready.then(schedule);
+    schedule();
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      resize.disconnect();
+      mutation.disconnect();
+    };
+  }, [ref]);
+}
+
+/**
+ * Ergebnisbereich der Bühne: setzt bei Überlänge Balken nebeneinander,
+ * verkleinert Wortwolken bis sie passen und scrollt sonst automatisch.
+ */
 export function ScrollingResults({ className = 'stage-results', children }: { className?: string; children: ReactNode }) {
   const ref = useAutoScroll<HTMLDivElement>();
   useBarColumns(ref);
+  useCloudFit(ref);
   return (
     <div ref={ref} className={className}>
       {children}

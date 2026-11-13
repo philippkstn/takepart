@@ -22,7 +22,7 @@ import { CountdownBadge } from './Countdown.tsx';
 import { PauseScreen } from './PauseScreen.tsx';
 import { PickOverlay } from './PickOverlay.tsx';
 import { TurnsBadge, TurnsOverlay } from './TurnsOverlay.tsx';
-import { SlideResultsView } from './Results.tsx';
+import { FeedbackResults, SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
 import './stage.css';
@@ -394,6 +394,41 @@ function SlideStage({
           {slide.config.showJoin && view.run.code && <JoinPanel code={view.run.code} />}
         </div>
       );
+
+    case 'feedback': {
+      // Geteilt: Sterne und Verteilung fest oben, Kommentare darunter (scrollen bei Überlänge)
+      const results = view.results?.type === 'feedback' ? view.results : null;
+      const comments = results ? [...results.comments].reverse().slice(0, MAX_STAGE_POSTS) : [];
+      return (
+        <>
+          <div className="row-between stage-head-row">
+            <Headline kicker={label} text={slide.config.question} task={slideTask(slide)} />
+            <AnswerCount answers={view.answers} />
+          </div>
+          {!results ? (
+            <HiddenResults answers={view.answers} />
+          ) : (
+            <div className="feedback-split">
+              <div className="stage-results feedback-split-top">
+                <FeedbackResults results={results} />
+              </div>
+              {comments.length > 0 && (
+                <section className="feedback-split-comments">
+                  {slide.config.commentLabel && <h2 className="feedback-split-label">{slide.config.commentLabel}</h2>}
+                  <ScrollingResults key={slide.id} className="stage-scroll">
+                    <ul className="comment-list feedback-comments">
+                      {comments.map((c, i) => (
+                        <li key={comments.length - i}>{c}</li>
+                      ))}
+                    </ul>
+                  </ScrollingResults>
+                </section>
+              )}
+            </div>
+          )}
+        </>
+      );
+    }
 
     case 'sentence':
       return <SentenceStage slideId={slide.id} sentence={view.sentence!} answers={view.answers} />;
