@@ -16,6 +16,9 @@ import {
   type BrandView,
   type Slide,
   type SlideType,
+  ROLE_LABELS,
+  roleAtLeast,
+  type PresentationRole,
 } from '@slides/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -28,7 +31,9 @@ import {
   ChevronRight,
   Copy,
   FileUp,
+  History,
   Layers,
+  Link2,
   Palette,
   Play,
   Plus,
@@ -37,10 +42,11 @@ import {
   Sparkles,
   Timer,
   Trash2,
+  Users,
   X,
 } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { InsertPicker, SaveBlockDialog } from '../../components/admin/BlockPicker.tsx';
 import { RehearsalList } from '../../components/admin/RehearsalList.tsx';
 import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
@@ -54,6 +60,12 @@ import { formatCode, FullScreenSpinner, useToast } from '../../components/ui.tsx
 import { api, errorMessage } from '../../lib/api.ts';
 import { needsRefit, refitBuilds } from '../../lib/refitBuilds.ts';
 import { RehearsalButton, useStartRun } from './PresentationsPage.tsx';
+import { ShareDialog } from '../../components/admin/ShareDialog.tsx';
+import { VersionsDialog } from '../../components/admin/VersionsDialog.tsx';
+import { GoogleSourceDialog, SyncProgressBar, syncSummary, useGoogleSync, type SourceInfo } from '../../components/admin/GoogleSource.tsx';
+import { useEditSession } from '../../lib/editSession.ts';
+import { onParkedConflict, useSyncedField } from '../../lib/syncedField.ts';
+import { ApiError } from '../../lib/api.ts';
 
 interface Presentation {
   id: number;
@@ -69,6 +81,15 @@ interface Presentation {
   schedule?: Record<string, SlideSchedule>;
   liveRun: { id: number; code: string } | null;
   rehearsalRun: { id: number; code: string } | null;
+  /** Änderungszähler je Folien-ID */
+  revs: Record<string, number>;
+  /** Eigene Rolle (geteilte Präsentationen) */
+  role: PresentationRole;
+  /** Eigentümer, wenn die Präsentation mit mir geteilt ist */
+  ownerName: string | null;
+  /** Google-Kennung und Prüfsumme je Bildfolie */
+  sources: Record<string, { key: string | null; hash: string | null }>;
+  source: SourceInfo | null;
 }
 
 interface RunItem {
@@ -86,7 +107,23 @@ export default function EditorPage() {
   const toast = useToast();
   const key = ['presentation', id];
   const pres = useQuery({ queryKey: key, queryFn: () => api<Presentation>(`/api/presentations/${id}`) });
-  const runs = useQuery({ queryKey: ['runs', id], queryFn: () => api<RunItem[]>(`/api/presentations/${id}/runs`) });
+  const role = pres.data?.role ?? 'view';
+  const canEdit = roleAtLeast(role, 'edit');
+  const canHost = roleAtLeast(role, 'host');
+  const isOwner = role === 'owner';
+  const runs = useQuery({
+    queryKey: ['runs', id],
+    queryFn: () => api<RunItem[]>(`/api/presentations/${id}/runs`),
+    enabled: canHost,
+  });
+  const navigate = useNavigate();
+  const session = useEditSession(id, () => {
+    toast('Du hast keinen Zugriff mehr auf diese Präsentation', 'error');
+    navigate('/admin');
+  });
+  const [sharing, setSharing] = useState(false);
+  const [showVersions, setShowVersions] = useState(false);
+  const [showGoogle, setShowGoogle] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -104,6 +141,32 @@ export default function EditorPage() {
   const plannedOf = (slideId: number) => slidePlannedMinutes(pres.data?.schedule?.[slideId]);
   const plannedSum = plannedTotal(slides.map((s) => plannedOf(s.id)));
   const selected = slides.find((s) => s.id === selectedId) ?? slides[0] ?? null;
+  const { focus } = session;
+  useEffect(() => focus(selected?.id ?? null), [focus, selected?.id]);
+  /** Wer außer mir auf welcher Folie ist */
+  const othersOn = (slideId: number) => session.editors.filter((e) => e.slideId === slideId).map((e) => e.name);
+
+  // Konflikt beim Verlassen einer Folie: Bescheid geben, beim Öffnen der Folie wählen
+  useEffect(
+    () =>
+      onParkedConflict((k) => {
+        const slideId = Number(k.split(':')[1]);
+        const n = (queryClient.getQueryData<Presentation>(['presentation', id])?.slides.findIndex((s) => s.id === slideId) ?? -1) + 1;
+        toast(`Folie ${n || ''} wurde zugleich von jemand anderem geändert – öffne sie, um zu entscheiden`, 'error');
+      }),
+    [id, queryClient, toast],
+  );
+
+  const googleSync = useGoogleSync(id, pres.data, (result) => toast(syncSummary(result)));
+  const live = !!pres.data?.liveRun;
+  // Automatischer Abgleich beim Öffnen: verknüpft, neue Fassung, Bearbeitungsrecht, keine Durchführung
+  const autoSynced = useRef(false);
+  useEffect(() => {
+    const src = pres.data?.source;
+    if (autoSynced.current || !src || !canEdit || live) return;
+    autoSynced.current = true;
+    if (src.autoSync && src.changed && !src.error) void googleSync.run(false);
+  }, [pres.data?.source, canEdit, live, googleSync]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
   const onError = (err: unknown) => toast(errorMessage(err), 'error');
@@ -180,9 +243,18 @@ export default function EditorPage() {
       queryClient.setQueryData<Presentation>(key, (p) => p && { ...p, slides: ids.map((sid) => p.slides.find((s) => s.id === sid)!) });
     },
     onSettled: refresh,
-    onError,
+    onError: (err) => {
+      // Inzwischen hat jemand Folien hinzugefügt oder gelöscht – neu geladen, bitte noch einmal
+      if (err instanceof ApiError && err.status === 409)
+        toast('Die Folienliste hat sich gerade geändert – bitte noch einmal verschieben', 'error');
+      else onError(err);
+    },
   });
-  const brands = useQuery({ queryKey: ['brands'], queryFn: () => api<(BrandView & { id: number })[]>('/api/brands') });
+  const brands = useQuery({
+    queryKey: ['brands'],
+    queryFn: () => api<(BrandView & { id: number })[]>('/api/brands'),
+    enabled: isOwner,
+  });
   const updateSettings = useMutation({
     mutationFn: (body: { shareSlides?: boolean; targetMinutes?: number | null }) =>
       api(`/api/presentations/${id}`, { method: 'PATCH', body }),
@@ -218,16 +290,28 @@ export default function EditorPage() {
           <ArrowLeft />
         </Link>
         <input
+          // Neuer Titel von jemand anderem: Feld neu aufbauen
+          key={pres.data.title}
           className="title-input"
           defaultValue={pres.data.title}
           maxLength={200}
           aria-label="Titel"
+          readOnly={!canEdit}
           onBlur={(e) => {
             const t = e.target.value.trim();
             if (t && t !== pres.data!.title) rename.mutate(t);
           }}
         />
-        {pres.data.liveRun ? (
+        <EditorsBar editors={session.editors.map((e) => e.name)} />
+        {isOwner && (
+          <button className="btn" onClick={() => setSharing(true)}>
+            <Users /> Teilen
+          </button>
+        )}
+        <button className="btn" onClick={() => setShowVersions(true)}>
+          <History /> Versionen
+        </button>
+        {!canHost ? null : pres.data.liveRun ? (
           <Link className="btn btn-primary" to={`/admin/live/${pres.data.liveRun.id}`}>
             <span className="dot dot-live" style={{ background: '#fff' }} /> Live · {formatCode(pres.data.liveRun.code)}
           </Link>
@@ -236,14 +320,42 @@ export default function EditorPage() {
             <Play /> Live starten
           </button>
         )}
-        <RehearsalButton
-          presentationId={id}
-          running={pres.data.rehearsalRun}
-          disabled={slides.length === 0 || start.isPending}
-          onStart={start.mutate}
-          label
-        />
+        {canHost && (
+          <RehearsalButton
+            presentationId={id}
+            running={pres.data.rehearsalRun}
+            disabled={slides.length === 0 || start.isPending}
+            onStart={start.mutate}
+            label
+          />
+        )}
       </div>
+      {pres.data.ownerName && (
+        <p className="small muted shared-note">
+          Geteilt von <strong>{pres.data.ownerName}</strong> · deine Rolle: {ROLE_LABELS[role]}
+        </p>
+      )}
+      {googleSync.progress && (
+        <div className="card card-pad google-banner">
+          <SyncProgressBar progress={googleSync.progress} />
+        </div>
+      )}
+      {!googleSync.progress && pres.data.source?.changed && pres.data.source.syncedHash && canEdit && (
+        <div className="card card-pad google-banner row-between">
+          <span className="small">Bei Google Slides gibt es eine neue Fassung dieser Präsentation.</span>
+          <button className="btn btn-small btn-primary" onClick={() => void googleSync.run()} disabled={live}>
+            <RefreshCw /> {live ? 'Nach der Durchführung abgleichen' : 'Jetzt abgleichen'}
+          </button>
+        </div>
+      )}
+      {googleSync.error && !showGoogle && (
+        <div className="error-box google-banner">
+          Abgleich mit Google Slides: {googleSync.error}{' '}
+          <button className="btn btn-small btn-ghost" onClick={googleSync.clearError}>
+            Schließen
+          </button>
+        </div>
+      )}
 
       <div className="editor-settings">
         <label className="brand-select">
@@ -252,19 +364,24 @@ export default function EditorPage() {
           <select
             className="select"
             value={pres.data.brandId ?? ''}
+            disabled={!isOwner}
+            title={isOwner ? undefined : 'Das Branding wählt der Eigentümer der Präsentation'}
             onChange={(e) => setBrand.mutate(e.target.value ? Number(e.target.value) : null)}
           >
             <option value="">Ohne Branding</option>
-            {brands.data?.map((b) => (
-              <option key={b.id} value={b.id}>
-                {b.name}
-              </option>
-            ))}
+            {isOwner
+              ? brands.data?.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))
+              : pres.data.brand && <option value={pres.data.brandId ?? ''}>{pres.data.brand.name}</option>}
           </select>
         </label>
         <label className="switch small">
           <input
             type="checkbox"
+            disabled={!canEdit}
             checked={pres.data.shareSlides}
             onChange={(e) => updateSettings.mutate({ shareSlides: e.target.checked })}
           />
@@ -274,11 +391,13 @@ export default function EditorPage() {
           <Timer size={16} aria-hidden />
           Dauer
           <input
+            key={pres.data.targetMinutes ?? ''}
             className="input minutes-input"
             type="number"
             min={1}
             max={600}
             placeholder="–"
+            readOnly={!canEdit}
             defaultValue={pres.data.targetMinutes ?? ''}
             onBlur={(e) => {
               const v = e.target.value ? Number(e.target.value) : null;
@@ -303,6 +422,7 @@ export default function EditorPage() {
                 key={s.id}
                 className={s.id === selected?.id ? 'is-selected' : ''}
                 onContextMenu={(e) => {
+                  if (!canEdit) return;
                   e.preventDefault();
                   setSelectedId(s.id);
                   setMenu({ slideId: s.id, x: e.clientX, y: e.clientY });
@@ -324,8 +444,17 @@ export default function EditorPage() {
                     </span>
                     <span className="slide-item-title">{slideHeadline(s) || <em className="faint">ohne Titel</em>}</span>
                   </span>
+                  {othersOn(s.id).length > 0 && (
+                    <span className="slide-presence" title={`Gerade hier: ${othersOn(s.id).join(', ')}`}>
+                      {othersOn(s.id).map((n) => (
+                        <span key={n} className="editor-chip is-small" aria-hidden>
+                          {initials(n)}
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </button>
-                {s.id === selected?.id && (
+                {s.id === selected?.id && canEdit && (
                   <div className="slide-actions">
                     <button className="icon-btn" aria-label="Nach oben" onClick={() => move(s.id, -1)} disabled={i === 0}>
                       <ArrowUp />
@@ -362,40 +491,49 @@ export default function EditorPage() {
               </li>
             ))}
           </ol>
-          <div className="slide-list-actions">
-            <button className="btn btn-block" onClick={() => setAdding((a) => !a)}>
-              <Plus /> Folie hinzufügen
-            </button>
-            <button
-              className="btn btn-block"
-              onClick={() => {
-                setInsertAfter(selected?.id ?? null);
-                setImporting(true);
-              }}
-            >
-              <FileUp /> PDF importieren
-            </button>
-            {slides.some((s) => s.type === 'image') && (
+          {canEdit && (
+            <div className="slide-list-actions">
+              <button className="btn btn-block" onClick={() => setAdding((a) => !a)}>
+                <Plus /> Folie hinzufügen
+              </button>
               <button
                 className="btn btn-block"
-                onClick={() => setReplacing(true)}
-                title="Dieselbe Präsentation erneut als PDF hochladen – schärfere Bilder und kopierbarer Text, Ergebnisse bleiben"
+                onClick={() => {
+                  setInsertAfter(selected?.id ?? null);
+                  setImporting(true);
+                }}
               >
-                <RefreshCw /> Folienbilder aktualisieren
+                <FileUp /> PDF importieren
               </button>
-            )}
-            {slides.some(needsRefit) && (
+              {slides.some((s) => s.type === 'image') && (
+                <button
+                  className="btn btn-block"
+                  onClick={() => setReplacing(true)}
+                  title="Dieselbe Präsentation erneut als PDF hochladen – schärfere Bilder und kopierbarer Text, Ergebnisse bleiben"
+                >
+                  <RefreshCw /> Folienbilder aktualisieren
+                </button>
+              )}
               <button
                 className="btn btn-block"
-                onClick={() => refit.mutate()}
-                disabled={refit.isPending}
-                title="Abdeckungen älterer Importe an die Folienbilder anpassen, damit vor dem Aufdecken nichts durchscheint"
+                onClick={() => setShowGoogle(true)}
+                title="Folien aus Google Slides übernehmen und aktuell halten"
               >
-                <Layers /> {refit.isPending ? 'Bessere nach …' : 'Animationen nachbessern'}
+                <Link2 /> {pres.data.source ? 'Google Slides …' : 'Mit Google Slides verknüpfen'}
               </button>
-            )}
-          </div>
-          {adding && (
+              {slides.some(needsRefit) && (
+                <button
+                  className="btn btn-block"
+                  onClick={() => refit.mutate()}
+                  disabled={refit.isPending}
+                  title="Abdeckungen älterer Importe an die Folienbilder anpassen, damit vor dem Aufdecken nichts durchscheint"
+                >
+                  <Layers /> {refit.isPending ? 'Bessere nach …' : 'Animationen nachbessern'}
+                </button>
+              )}
+            </div>
+          )}
+          {adding && canEdit && (
             <InsertPicker
               slides={slides}
               disabled={addSlide.isPending || addBatch.isPending}
@@ -412,11 +550,19 @@ export default function EditorPage() {
         </aside>
 
         {selected ? (
-          <SlideEditor key={selected.id} slide={selected} presentation={pres.data} index={slides.indexOf(selected)} />
+          <SlideEditor
+            key={selected.id}
+            slide={selected}
+            presentation={pres.data}
+            index={slides.indexOf(selected)}
+            readOnly={!canEdit}
+            lastEditor={session.lastEditor[selected.id] ?? null}
+            others={othersOn(selected.id)}
+          />
         ) : (
           <div className="empty stack" style={{ gridColumn: 'span 2', justifyItems: 'center' }}>
             <p>Noch keine Folien. Füge links die erste hinzu – oder lade den Demo-Foliensatz mit allen Funktionen.</p>
-            <button className="btn btn-primary" onClick={() => loadDemo.mutate()} disabled={loadDemo.isPending}>
+            <button className="btn btn-primary" onClick={() => loadDemo.mutate()} disabled={!canEdit || loadDemo.isPending}>
               <Sparkles /> Demo-Folien laden
             </button>
           </div>
@@ -535,6 +681,29 @@ export default function EditorPage() {
           onClose={() => setSavingBlock(null)}
         />
       )}
+      {sharing && <ShareDialog presentationId={id} onClose={() => setSharing(false)} />}
+      {showVersions && (
+        <VersionsDialog
+          presentationId={id}
+          canEdit={canEdit}
+          live={!!pres.data.liveRun || !!pres.data.rehearsalRun}
+          onClose={() => setShowVersions(false)}
+          onRestored={async () => {
+            setShowVersions(false);
+            toast('Version wiederhergestellt');
+            await refresh();
+          }}
+        />
+      )}
+      {showGoogle && (
+        <GoogleSourceDialog
+          presentationId={id}
+          source={pres.data.source}
+          sync={googleSync}
+          live={live}
+          onClose={() => setShowGoogle(false)}
+        />
+      )}
       {replacing && (
         <ReplaceImagesDialog
           presentationId={id}
@@ -561,6 +730,30 @@ export default function EditorPage() {
         />
       )}
     </main>
+  );
+}
+
+const initials = (name: string) =>
+  name
+    .split(/[\s._-]+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join('') || '?';
+
+/** Wer außer mir gerade in diesem Editor ist */
+function EditorsBar({ editors }: { editors: string[] }) {
+  const unique = [...new Set(editors)];
+  if (unique.length === 0) return null;
+  return (
+    <span className="editors-bar" title={`Gerade im Editor: ${unique.join(', ')}`} aria-label={`Gerade im Editor: ${unique.join(', ')}`}>
+      {unique.slice(0, 5).map((n) => (
+        <span key={n} className="editor-chip">
+          {initials(n)}
+        </span>
+      ))}
+      {unique.length > 5 && <span className="small muted">+{unique.length - 5}</span>}
+    </span>
   );
 }
 
@@ -668,51 +861,80 @@ function lastBoard(slides: Slide[], selected: Slide | null): string {
   return found?.type === 'board' ? found.config.board : 'Karten';
 }
 
-/** Formular + Vorschau einer Folie. Änderungen werden nach kurzer Pause gespeichert. */
-function SlideEditor({ slide, presentation, index }: { slide: Slide; presentation: Presentation; index: number }) {
+/** Antwort des Servers auf das Speichern einer Folie (auch der aktuelle Stand bei einem Konflikt) */
+interface SlideState {
+  config: Slide['config'];
+  notes: string;
+  schedule: SlideSchedule;
+  rev: number;
+}
+
+const conflictState = (data: unknown) => (data as { current?: SlideState } | null)?.current;
+
+/** Speichert ein Feld der Folie auf Basis des zuletzt bekannten Stands und trägt das Ergebnis in den Cache ein */
+function useSlideSaver(presentationId: number, slideId: number) {
   const queryClient = useQueryClient();
-  const [draft, setDraft] = useState(slide.config);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState<'idle' | 'pending' | 'saved'>('idle');
-  const timer = useRef<number | undefined>(undefined);
-  const latest = useRef(draft);
-
-  const save = async (config: Slide['config']) => {
-    try {
-      const res = await api<{ config: Slide['config'] }>(`/api/slides/${slide.id}`, { method: 'PATCH', body: { config } });
-      setError(null);
-      setSaving('saved');
-      queryClient.setQueryData<Presentation>(
-        ['presentation', presentation.id],
-        (p) => p && { ...p, slides: p.slides.map((s) => (s.id === slide.id ? ({ ...s, config: res.config } as Slide) : s)) },
-      );
-    } catch (err) {
-      setError(errorMessage(err));
-      setSaving('idle');
-    }
+  return async (body: Record<string, unknown>) => {
+    const state = await api<SlideState>(`/api/slides/${slideId}`, { method: 'PATCH', body });
+    queryClient.setQueryData<Presentation>(
+      ['presentation', presentationId],
+      (p) =>
+        p && {
+          ...p,
+          slides: p.slides.map((s) => (s.id === slideId ? ({ ...s, config: state.config } as Slide) : s)),
+          notes: { ...p.notes, [slideId]: state.notes },
+          schedule: { ...p.schedule, [slideId]: state.schedule },
+          revs: { ...p.revs, [slideId]: state.rev },
+        },
+    );
+    return state;
   };
+}
 
-  const onChange = (config: Slide['config']) => {
-    setDraft(config);
-    latest.current = config;
-    setSaving('pending');
-    window.clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => {
-      timer.current = undefined;
-      void save(config);
-    }, 600);
-  };
-
-  // Beim Verlassen ausstehende Änderungen sofort speichern.
-  useEffect(
-    () => () => {
-      if (timer.current !== undefined) {
-        window.clearTimeout(timer.current);
-        void api(`/api/slides/${slide.id}`, { method: 'PATCH', body: { config: latest.current } }).catch(() => {});
-      }
-    },
-    [slide.id],
+/** Hinweis, wenn eigene und fremde Änderungen an derselben Stelle kollidieren */
+function ConflictBar({ who, what, onResolve }: { who: string | null; what: string; onResolve: (c: 'mine' | 'theirs') => void }) {
+  return (
+    <div className="conflict-bar" role="alert">
+      <span className="grow small">
+        {who ? <strong>{who}</strong> : 'Jemand anderes'} hat {what} gerade auch geändert. Welche Fassung soll gelten?
+      </span>
+      <button type="button" className="btn btn-small" onClick={() => onResolve('theirs')}>
+        Andere übernehmen
+      </button>
+      <button type="button" className="btn btn-small btn-primary" onClick={() => onResolve('mine')}>
+        Meine behalten
+      </button>
+    </div>
   );
+}
+
+/** Formular + Vorschau einer Folie. Änderungen werden nach kurzer Pause gespeichert. */
+function SlideEditor({
+  slide,
+  presentation,
+  index,
+  readOnly,
+  lastEditor,
+  others,
+}: {
+  slide: Slide;
+  presentation: Presentation;
+  index: number;
+  readOnly: boolean;
+  /** Wer diese Folie zuletzt geändert hat (von anderen) */
+  lastEditor: string | null;
+  /** Wer außer mir gerade auf dieser Folie ist */
+  others: string[];
+}) {
+  const queryClient = useQueryClient();
+  const saveSlide = useSlideSaver(presentation.id, slide.id);
+  const field = useSyncedField<Slide['config']>({
+    key: `config:${slide.id}`,
+    server: slide.config,
+    send: async (config, baseConfig) => (await saveSlide({ config, baseConfig })).config,
+    fromConflict: (data) => conflictState(data)?.config,
+  });
+  const draft = field.value;
 
   const previewSlide = { ...slide, config: draft } as Slide;
   const steps = buildSteps(previewSlide);
@@ -735,23 +957,42 @@ function SlideEditor({ slide, presentation, index }: { slide: Slide; presentatio
             <SlideIcon type={slide.type} size={20} /> {SLIDE_TYPE_LABELS[slide.type]}
           </h2>
           <span className="small faint" aria-live="polite">
-            {saving === 'pending' ? 'Speichert …' : saving === 'saved' ? 'Gespeichert' : ''}
+            {readOnly
+              ? 'Nur ansehen'
+              : field.status === 'pending'
+                ? 'Speichert …'
+                : field.status === 'saved'
+                  ? 'Gespeichert'
+                  : others.length > 0
+                    ? `Auch hier: ${others.join(', ')}`
+                    : ''}
           </span>
         </div>
+        {field.status === 'conflict' && <ConflictBar who={lastEditor} what="diese Folie" onResolve={field.resolve} />}
         <form className="stack" onSubmit={(e) => e.preventDefault()}>
-          <SlideForm
-            slide={slide}
-            value={draft}
-            onChange={onChange}
-            boards={[...new Set(presentation.slides.flatMap((s) => (s.type === 'board' ? [s.config.board] : [])))]}
-          />
+          <fieldset className="plain-fieldset stack" disabled={readOnly}>
+            <SlideForm
+              slide={slide}
+              value={draft}
+              onChange={field.set}
+              boards={[...new Set(presentation.slides.flatMap((s) => (s.type === 'board' ? [s.config.board] : [])))]}
+            />
+          </fieldset>
         </form>
-        {error && <div className="error-box">{error}</div>}
-        <NotesField key={slide.id} slideId={slide.id} presentationId={presentation.id} initial={presentation.notes[slide.id] ?? ''} />
+        {field.error && <div className="error-box">{field.error}</div>}
+        <NotesField
+          key={slide.id}
+          slideId={slide.id}
+          presentationId={presentation.id}
+          server={presentation.notes[slide.id] ?? ''}
+          readOnly={readOnly}
+          lastEditor={lastEditor}
+        />
         <ScheduleFields
           key={`schedule-${slide.id}`}
           slideId={slide.id}
           initial={presentation.schedule?.[slide.id] ?? EMPTY_SCHEDULE}
+          readOnly={readOnly}
           onSaved={(schedule) =>
             queryClient.setQueryData<Presentation>(
               ['presentation', presentation.id],
@@ -795,68 +1036,52 @@ function SlideEditor({ slide, presentation, index }: { slide: Slide; presentatio
   );
 }
 
-/** Sprechernotizen einer Folie – erscheinen nur in deiner Referentenansicht. */
-function NotesField({ slideId, presentationId, initial }: { slideId: number; presentationId: number; initial: string }) {
-  const queryClient = useQueryClient();
-  const [value, setValue] = useState(initial);
-  const [state, setState] = useState<'idle' | 'pending' | 'saved' | 'error'>('idle');
-  const timer = useRef<number | undefined>(undefined);
-  const latest = useRef(initial);
-
-  const save = async (notes: string) => {
-    try {
-      await api(`/api/slides/${slideId}`, { method: 'PATCH', body: { notes } });
-      setState('saved');
-      queryClient.setQueryData<Presentation>(
-        ['presentation', presentationId],
-        (p) => p && { ...p, notes: { ...p.notes, [slideId]: notes } },
-      );
-    } catch {
-      setState('error');
-    }
-  };
-
-  useEffect(
-    () => () => {
-      if (timer.current !== undefined) {
-        window.clearTimeout(timer.current);
-        void api(`/api/slides/${slideId}`, { method: 'PATCH', body: { notes: latest.current } }).catch(() => {});
-      }
-    },
-    [slideId],
-  );
+/** Sprechernotizen einer Folie – erscheinen nur in der Referentenansicht. */
+function NotesField({
+  slideId,
+  presentationId,
+  server,
+  readOnly,
+  lastEditor,
+}: {
+  slideId: number;
+  presentationId: number;
+  server: string;
+  readOnly: boolean;
+  lastEditor: string | null;
+}) {
+  const saveSlide = useSlideSaver(presentationId, slideId);
+  const field = useSyncedField<string>({
+    key: `notes:${slideId}`,
+    server,
+    delay: 700,
+    send: async (notes, baseNotes) => (await saveSlide({ notes, baseNotes })).notes,
+    fromConflict: (data) => conflictState(data)?.notes,
+  });
 
   return (
     <label className="field">
       <span className="row-between">
         Sprechernotizen
         <span className="faint" style={{ fontWeight: 500 }}>
-          {state === 'pending'
+          {field.status === 'pending'
             ? 'Speichert …'
-            : state === 'saved'
+            : field.status === 'saved'
               ? 'Gespeichert'
-              : state === 'error'
+              : field.status === 'error'
                 ? 'Nicht gespeichert'
-                : 'nur für dich sichtbar'}
+                : 'nur in der Referentenansicht'}
         </span>
       </span>
+      {field.status === 'conflict' && <ConflictBar who={lastEditor} what="die Notizen" onResolve={field.resolve} />}
       <textarea
         className="textarea"
         rows={4}
         maxLength={20000}
-        value={value}
+        value={field.value}
+        readOnly={readOnly}
         placeholder="Was du zu dieser Folie sagen möchtest …"
-        onChange={(e) => {
-          const notes = e.target.value;
-          setValue(notes);
-          latest.current = notes;
-          setState('pending');
-          window.clearTimeout(timer.current);
-          timer.current = window.setTimeout(() => {
-            timer.current = undefined;
-            void save(notes);
-          }, 700);
-        }}
+        onChange={(e) => field.set(e.target.value)}
       />
     </label>
   );

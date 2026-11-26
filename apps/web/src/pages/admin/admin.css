@@ -610,6 +610,130 @@
   box-shadow: var(--shadow-2);
   animation: pop 200ms var(--ease);
 }
+.dialog-wide {
+  width: min(760px, 100%);
+}
+
+/* Gemeinsames Bearbeiten: wer ist da, Konflikte, Teilen, Versionen, Google Slides */
+.editors-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.editor-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+.editor-chip.is-small {
+  width: 20px;
+  height: 20px;
+  font-size: 0.6rem;
+}
+.slide-presence {
+  display: inline-flex;
+  gap: 2px;
+  margin-left: auto;
+  align-self: center;
+}
+.shared-note {
+  margin: -4px 0 8px;
+}
+.plain-fieldset,
+fieldset.schedule-fields {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.conflict-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--warn);
+  border-radius: var(--radius-s);
+  background: var(--warn-soft);
+}
+.share-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.share-form .input {
+  flex: 1 1 220px;
+}
+.share-list,
+.version-list,
+.version-slides {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.share-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.version-list > li {
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+.version-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.version-detail {
+  padding: 0 14px 12px;
+}
+.version-slides {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  max-height: 260px;
+  overflow: auto;
+}
+.version-slides li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.version-slide-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.google-banner {
+  margin-bottom: 12px;
+}
+.source-status {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
 .file-drop {
   display: flex;
   align-items: center;

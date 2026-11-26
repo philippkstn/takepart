@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { BoardSummary, SlideConfigs, SlideResults } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
 import { exec, one, type Db } from './db.ts';
 import { protocolShareState, runResults } from './runs.ts';
 import { remapBoardKey } from './transfer.ts';
@@ -146,7 +146,7 @@ export function protocolRoutes(app: FastifyInstance, db: Db) {
    * Fotoprotokoll teilen (eigener, zufälliger Link) oder zurückziehen.
    * `expiresAt`: Ablaufzeitpunkt (ISO), `null` = läuft nie ab, weggelassen = unverändert.
    */
-  app.post('/api/runs/:id/protocol-share', requireOwner(db, 'run'), async (request, reply) => {
+  app.post('/api/runs/:id/protocol-share', requireAccess(db, 'run', 'host'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     const body = z
       .object({
@@ -166,13 +166,7 @@ export function protocolRoutes(app: FastifyInstance, db: Db) {
           `UPDATE runs SET protocol_token = COALESCE(protocol_token, ?), protocol_names = ?, protocol_slides = ?${
             expires === undefined ? '' : ', protocol_expires = ?'
           } WHERE id = ?`,
-          [
-            randomBytes(24).toString('base64url'),
-            body.names ? 1 : 0,
-            body.slides ? 1 : 0,
-            ...(expires === undefined ? [] : [expires]),
-            id,
-          ],
+          [randomBytes(24).toString('base64url'), body.names ? 1 : 0, body.slides ? 1 : 0, ...(expires === undefined ? [] : [expires]), id],
         )
       : await exec(
           db,
@@ -180,11 +174,12 @@ export function protocolRoutes(app: FastifyInstance, db: Db) {
           [id],
         );
     if (result.affectedRows === 0) return reply.code(404).send({ error: 'Durchführung nicht gefunden' });
-    const run = await one<{ protocol_token: string | null; protocol_names: number; protocol_slides: number; protocol_expires: Date | null }>(
-      db,
-      'SELECT protocol_token, protocol_names, protocol_slides, protocol_expires FROM runs WHERE id = ?',
-      [id],
-    );
+    const run = await one<{
+      protocol_token: string | null;
+      protocol_names: number;
+      protocol_slides: number;
+      protocol_expires: Date | null;
+    }>(db, 'SELECT protocol_token, protocol_names, protocol_slides, protocol_expires FROM runs WHERE id = ?', [id]);
     return { protocol: run ? protocolShareState(run) : null };
   });
 

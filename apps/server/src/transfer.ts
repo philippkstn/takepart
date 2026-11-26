@@ -14,7 +14,7 @@ import {
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
 import { newPublicId } from './assets.ts';
 import { accountOf, requireHost } from './auth.ts';
 import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts';
@@ -253,7 +253,13 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
     text_layer: string | null;
   }>(
     db,
-    'SELECT public_id, mime, width, height, data, thumb, thumb_mime, hires, hires_mime, text_layer FROM assets WHERE presentation_id = ? ORDER BY id',
+    // Nur Bilder, die eine Folie verwendet – ältere Stände für Versionen bleiben draußen
+    `SELECT a.public_id, a.mime, a.width, a.height, a.data, a.thumb, a.thumb_mime, a.hires, a.hires_mime, a.text_layer
+       FROM assets a
+      WHERE a.presentation_id = ?
+        AND EXISTS (SELECT 1 FROM slides s WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
+                     AND JSON_VALUE(s.config, '$.asset') = a.public_id)
+      ORDER BY a.id`,
     [presentationId],
   );
   const slides = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null }>(
@@ -609,7 +615,7 @@ export function transferRoutes(app: FastifyInstance, db: Db) {
   // Ohne eigenes Limit am Parser: das große Limit gilt nur für die Import-Route.
   app.addContentTypeParser(['application/gzip', 'application/octet-stream'], { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
 
-  app.get('/api/presentations/:id/export', requireOwner(db, 'presentation'), async (request, reply) => {
+  app.get('/api/presentations/:id/export', requireAccess(db, 'presentation', 'host'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     const data = await exportPresentation(db, id);
     const body = await gzip(JSON.stringify(data));

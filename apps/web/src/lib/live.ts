@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
  * geht der WebSocket direkt an die API (:3000) – der Vite-Proxy verliert beim
  * gleichzeitigen Aufbau mit Vites eigenem HMR-Socket gelegentlich Verbindungen.
  */
-function wsBase(): string {
+export function wsBase(): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
   return import.meta.env.DEV ? `${proto}//${location.hostname}:3000` : `${proto}//${location.host}`;
 }

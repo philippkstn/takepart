@@ -16,7 +16,7 @@ import {
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
 import { loadBoard, targetsOf } from './board.ts';
 import { exec, json, one, query, type Db } from './db.ts';
 import { CommandError } from './errors.ts';
@@ -148,7 +148,7 @@ export async function fakeAnswers(
 }
 
 export function rehearsalRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
-  const ownRun = requireOwner(db, 'run');
+  const ownRun = requireAccess(db, 'run', 'host');
   const idParam = z.object({ id: z.coerce.number().int() });
 
   async function rehearsalRun(id: number) {

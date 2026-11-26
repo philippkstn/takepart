@@ -34,7 +34,9 @@ import {
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
+import { touchOf } from './editing.ts';
+import { snapshotVersion } from './versions.ts';
 import { applyTeamsCommand, isTeamsCommand, teamName } from './teams.ts';
 import { applyPauseCommand, endPause, startSlidePause } from './pause.ts';
 import { applyModerationCommand, isModerationCommand } from './moderation.ts';
@@ -291,8 +293,8 @@ function newCode(): string {
 }
 
 export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
-  const ownPresentation = requireOwner(db, 'presentation');
-  const ownRun = requireOwner(db, 'run');
+  const ownPresentation = requireAccess(db, 'presentation', 'host');
+  const ownRun = requireAccess(db, 'run', 'host');
   const idParam = z.object({ id: z.coerce.number().int() });
 
   app.post('/api/presentations/:id/runs', ownPresentation, async (request, reply) => {
@@ -306,6 +308,8 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
       rehearsal ? 1 : 0,
     ]);
     if (live_) return { id: live_.id };
+    // Stand bei Beginn einer echten Durchführung als Version festhalten
+    if (!rehearsal) await snapshotVersion(db, id, 'run', touchOf(request));
     const slides = await loadSlides(db, id);
     const state = initialRunState(slides[0]?.id ?? null);
     applyStartHidden(state, slides, null);
@@ -530,7 +534,8 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
     return { ok: true };
   });
 
-  app.delete('/api/runs/:id', ownRun, async (request) => {
+  // Archivdaten löschen darf nur der Eigentümer
+  app.delete('/api/runs/:id', requireAccess(db, 'run', 'owner'), async (request) => {
     const { id } = idParam.parse(request.params);
     live.end(id);
     await exec(db, 'DELETE FROM runs WHERE id = ?', [id]);

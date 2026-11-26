@@ -6,15 +6,18 @@ import fastifyStatic from '@fastify/static';
 import websocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { ZodError, z } from 'zod';
+import { EDIT_CLIENT_PATTERN } from '@slides/shared';
 import { assetRoutes, deleteAllOrphanAssets } from './assets.ts';
-import { owns } from './access.ts';
+import { accessTo, hasAccess } from './access.ts';
 import { authRoutes, currentAccount } from './auth.ts';
 import { blockRoutes } from './blocks.ts';
 import { brandRoutes } from './brands.ts';
 import { compareRoutes } from './compare.ts';
 import type { Config } from './config.ts';
 import { one, type Db } from './db.ts';
+import { EditHub } from './editing.ts';
 import { followupRoutes } from './followup.ts';
+import { checkSources, googleRoutes } from './google.ts';
 import { LiveHub } from './live.ts';
 import { noteRoutes } from './notes.ts';
 import { participantByToken, participantRoutes } from './participants.ts';
@@ -22,11 +25,13 @@ import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
 import { rehearsalRoutes } from './rehearsal.ts';
+import { shareRoutes } from './shares.ts';
 import { isIndexable, linkPreview, renderIndex, seoRoutes, sharedLink } from './seo.ts';
 import { protocolRoutes } from './protocol.ts';
 import { handoutData, runRoutes } from './runs.ts';
 import { transferRoutes } from './transfer.ts';
 import { userRoutes } from './users.ts';
+import { autoVersions, versionRoutes } from './versions.ts';
 
 function contentSecurityPolicy(origin: string): string {
   // Ältere Safari-Versionen zählen wss: nicht zu 'self' – deshalb explizit.
@@ -72,6 +77,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
     bodyLimit: 64 * 1024,
   });
   const live = new LiveHub(db, app.log);
+  const edits = new EditHub();
   const cleanup = async () => {
     try {
       const removed = await deleteAllOrphanAssets(db);
@@ -84,6 +90,26 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   cleanupTimer.unref();
   app.addHook('onReady', async () => void cleanup());
   app.addHook('onClose', async () => clearInterval(cleanupTimer));
+  // Automatische Versionen (nach einer Bearbeitungspause) und Google-Abgleich prüfen – Zustand liegt in der DB
+  let busy = false;
+  const background = async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      await autoVersions(db);
+      await checkSources(db, edits, app.log);
+    } catch (err) {
+      app.log.warn({ err }, 'Hintergrundaufgabe fehlgeschlagen');
+    } finally {
+      busy = false;
+    }
+  };
+  const backgroundTimer = config.NODE_ENV === 'test' ? null : setInterval(() => void background(), 60 * 1000);
+  backgroundTimer?.unref();
+  app.addHook('onClose', async () => {
+    if (backgroundTimer) clearInterval(backgroundTimer);
+    edits.close();
+  });
   const csp = contentSecurityPolicy(config.APP_ORIGIN);
   app.addHook('onClose', async () => live.close());
 
@@ -138,7 +164,10 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   });
 
   authRoutes(app, db, config);
-  presentationRoutes(app, db, live);
+  presentationRoutes(app, db, live, edits);
+  shareRoutes(app, db, edits);
+  versionRoutes(app, db, live, edits);
+  googleRoutes(app, db, live, edits);
   assetRoutes(app, db);
   brandRoutes(app, db, live);
   runRoutes(app, db, live);
@@ -161,10 +190,17 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
    *   participant  ?token=<Teilnehmer-Token>
    *   display      ?display=<Anzeige-Token>  (Beamer, nur lesen)
    *   host         ?run=<id>                 (Cookie-Anmeldung)
+   *   editor       ?editor=<Präsentation>&client=<Tab>  (Cookie-Anmeldung; Anwesenheit, Änderungshinweise)
    */
   app.get('/ws', { websocket: true }, async (socket, request) => {
     const q = z
-      .object({ token: z.string().optional(), display: z.string().optional(), run: z.coerce.number().int().optional() })
+      .object({
+        token: z.string().optional(),
+        display: z.string().optional(),
+        run: z.coerce.number().int().optional(),
+        editor: z.coerce.number().int().optional(),
+        client: z.string().regex(EDIT_CLIENT_PATTERN).optional(),
+      })
       .safeParse(request.query);
     const reject = (code: number, reason: string) => socket.close(code, reason);
     if (!q.success) return reject(4000, 'Ungültige Anfrage');
@@ -205,11 +241,22 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
       const account = await currentAccount(db, request);
       if (!account) return reject(4001, 'Nicht angemeldet');
       const run = { id: q.data.run };
-      if (!(await owns(db, 'run', run.id, account.id))) return reject(4004, 'Nicht gefunden');
+      if (!(await hasAccess(db, 'run', run.id, account.id, 'host'))) return reject(4004, 'Nicht gefunden');
       const client = { ws: socket, role: 'host' as const, alive: true };
       if (!live.attach(run.id, client)) return reject(1013, 'Zu viele Verbindungen');
       // Nur Hosts senden: Laserpointer und Zeichnen
       listen((raw) => live.ink(run.id, client, raw));
+      return;
+    }
+    if (q.data.editor && q.data.client) {
+      if (request.headers.origin !== config.APP_ORIGIN) return reject(4003, 'Herkunft nicht erlaubt');
+      const account = await currentAccount(db, request);
+      if (!account) return reject(4001, 'Nicht angemeldet');
+      const access = await accessTo(db, 'presentation', q.data.editor, account.id);
+      if (!access) return reject(4004, 'Nicht gefunden');
+      socket.off('message', buffer);
+      const client = { ws: socket, id: q.data.client, userId: account.id, name: account.username, slideId: null };
+      if (!edits.attach(access.presentationId, client)) return reject(1013, 'Zu viele Verbindungen');
       return;
     }
     reject(4000, 'Ungültige Anfrage');

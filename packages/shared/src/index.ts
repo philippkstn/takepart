@@ -21,3 +21,5 @@ export * from './about.ts';
 export * from './buildFit.ts';
 export * from './textLayer.ts';
 export * from './ink.ts';
+export * from './editing.ts';
+export * from './sync.ts';

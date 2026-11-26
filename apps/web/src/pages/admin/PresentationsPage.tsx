@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Download, FlaskConical, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload } from 'lucide-react';
+import { ROLE_LABELS, roleAtLeast, type PresentationRole } from '@slides/shared';
+import { Copy, Download, Eye, FlaskConical, LogOut, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload, Users } from 'lucide-react';
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
@@ -13,6 +14,10 @@ interface PresentationItem {
   runs: number;
   liveRun: { id: number; code: string } | null;
   rehearsalRun: { id: number } | null;
+  /** Eigene Rolle – `owner` bei eigenen Präsentationen */
+  role: PresentationRole;
+  /** Eigentümer bei geteilten Präsentationen */
+  ownerName: string | null;
 }
 
 export function useStartRun() {
@@ -56,6 +61,12 @@ export default function PresentationsPage() {
   const remove = useMutation({
     mutationFn: (id: number) => api(`/api/presentations/${id}`, { method: 'DELETE' }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['presentations'] }),
+  });
+  /** Geteilte Präsentation abgeben */
+  const leave = useMutation({
+    mutationFn: (id: number) => api(`/api/presentations/${id}/shares/me`, { method: 'DELETE' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['presentations'] }),
+    onError: (err) => toast(errorMessage(err), 'error'),
   });
 
   const importFile = useMutation({
@@ -141,10 +152,18 @@ export default function PresentationsPage() {
                   <span>{p.runs} Durchführungen</span>
                   <span>·</span>
                   <span>geändert {new Date(p.updatedAt).toLocaleDateString('de-DE')}</span>
+                  {p.ownerName && (
+                    <>
+                      <span>·</span>
+                      <span className="row" style={{ gap: 4 }}>
+                        <Users size={14} aria-hidden /> von {p.ownerName} · {ROLE_LABELS[p.role]}
+                      </span>
+                    </>
+                  )}
                 </span>
               </Link>
               <div className="row">
-                {p.liveRun ? (
+                {!roleAtLeast(p.role, 'host') ? null : p.liveRun ? (
                   <Link className="btn btn-primary" to={`/admin/live/${p.liveRun.id}`}>
                     <span className="dot dot-live" style={{ background: '#fff' }} />
                     Live · {formatCode(p.liveRun.code)}
@@ -154,37 +173,59 @@ export default function PresentationsPage() {
                     <Play /> Live starten
                   </button>
                 )}
-                <RehearsalButton
-                  presentationId={p.id}
-                  running={p.rehearsalRun}
-                  disabled={start.isPending || p.slides === 0}
-                  onStart={start.mutate}
-                />
-                <Link className="icon-btn" to={`/admin/p/${p.id}`} aria-label="Bearbeiten" title="Bearbeiten">
-                  <Pencil />
+                {roleAtLeast(p.role, 'host') && (
+                  <RehearsalButton
+                    presentationId={p.id}
+                    running={p.rehearsalRun}
+                    disabled={start.isPending || p.slides === 0}
+                    onStart={start.mutate}
+                  />
+                )}
+                <Link
+                  className="icon-btn"
+                  to={`/admin/p/${p.id}`}
+                  aria-label={roleAtLeast(p.role, 'edit') ? 'Bearbeiten' : 'Ansehen'}
+                  title={roleAtLeast(p.role, 'edit') ? 'Bearbeiten' : 'Ansehen'}
+                >
+                  {roleAtLeast(p.role, 'edit') ? <Pencil /> : <Eye />}
                 </Link>
                 <button className="icon-btn" onClick={() => duplicate.mutate(p.id)} aria-label="Duplizieren" title="Duplizieren">
                   <Copy />
                 </button>
-                <a
-                  className="icon-btn"
-                  href={`/api/presentations/${p.id}/export`}
-                  download
-                  aria-label="Exportieren"
-                  title="Exportieren – mit allen Durchführungen, Namen und Antworten"
-                >
-                  <Download />
-                </a>
-                <button
-                  className="icon-btn"
-                  onClick={() => {
-                    if (confirmDelete(p.title)) remove.mutate(p.id);
-                  }}
-                  aria-label="Löschen"
-                  title="Löschen"
-                >
-                  <Trash2 />
-                </button>
+                {roleAtLeast(p.role, 'host') && (
+                  <a
+                    className="icon-btn"
+                    href={`/api/presentations/${p.id}/export`}
+                    download
+                    aria-label="Exportieren"
+                    title="Exportieren – mit allen Durchführungen, Namen und Antworten"
+                  >
+                    <Download />
+                  </a>
+                )}
+                {p.role === 'owner' ? (
+                  <button
+                    className="icon-btn"
+                    onClick={() => {
+                      if (confirmDelete(p.title)) remove.mutate(p.id);
+                    }}
+                    aria-label="Löschen"
+                    title="Löschen"
+                  >
+                    <Trash2 />
+                  </button>
+                ) : (
+                  <button
+                    className="icon-btn"
+                    onClick={() => {
+                      if (window.confirm(`„${p.title}“ nicht mehr mit dir teilen?`)) leave.mutate(p.id);
+                    }}
+                    aria-label="Nicht mehr mit mir teilen"
+                    title="Nicht mehr mit mir teilen"
+                  >
+                    <LogOut />
+                  </button>
+                )}
               </div>
             </li>
           ))}

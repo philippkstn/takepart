@@ -273,6 +273,11 @@ export async function extractPptxNotes(file: File): Promise<PptxSlideInfo[]> {
     const slide = await xml(slidePath);
     const hidden = slide?.documentElement.getAttribute('show') === '0';
     const builds = { ...(slide ? parseBuilds(slide.documentElement, slideW, slideH) : { regions: [], steps: 0 }), aspect: slideW / slideH };
+    // Google-Slides-Exporte benennen jede Form „Google Shape;<n>;<Kennung der Folie>“ – stabil über Exporte hinweg
+    const sourceKey = Array.from(slide?.getElementsByTagNameNS('*', 'cNvPr') ?? [])
+      .map((el) => /^Google Shape;\d+;([A-Za-z0-9_]{1,100})$/.exec(el.getAttribute('name') ?? '')?.[1])
+      .find(Boolean);
+    if (sourceKey) Object.assign(builds, { sourceKey });
 
     const slideRels = await rels(slidePath.replace(/([^/]+)$/, '_rels/$1.rels'));
     const notesRel = [...slideRels.values()].find((r) => r.type.endsWith('/notesSlide'));

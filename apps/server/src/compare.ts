@@ -1,7 +1,7 @@
 import type { SlideConfigs } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
 import { one, query, type Db } from './db.ts';
 import { tableTopics } from './followup.ts';
 import { runResults } from './runs.ts';
@@ -85,7 +85,7 @@ export async function compareData(db: Db, presentationId: number) {
 }
 
 export function compareRoutes(app: FastifyInstance, db: Db) {
-  app.get('/api/presentations/:id/compare', requireOwner(db, 'presentation'), async (request, reply) => {
+  app.get('/api/presentations/:id/compare', requireAccess(db, 'presentation', 'host'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     const data = await compareData(db, id);
     if (!data) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });

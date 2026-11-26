@@ -1,7 +1,7 @@
 import { parseBoardKey, parseConfig, type BoardSummary, type SlideConfigs, type SlideType } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { accessOf, requireAccess } from './access.ts';
 import { accountOf } from './auth.ts';
 import { exec, one, transaction, type Db } from './db.ts';
 import { runResults } from './runs.ts';
@@ -111,7 +111,7 @@ function formatDate(date: Date, timeZone: string): string {
 }
 
 export function followupRoutes(app: FastifyInstance, db: Db) {
-  app.post('/api/runs/:id/followup', requireOwner(db, 'run'), async (request, reply) => {
+  app.post('/api/runs/:id/followup', requireAccess(db, 'run', 'host'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     // Zeitzone des Browsers, damit das Datum stimmt (der Server läuft oft in UTC)
     const body = z.object({ timeZone: z.string().max(60).default('Europe/Berlin') }).parse(request.body ?? {});
@@ -136,7 +136,8 @@ export function followupRoutes(app: FastifyInstance, db: Db) {
       const result = await exec(conn, 'INSERT INTO presentations (user_id, title, brand_id, target_minutes) VALUES (?, ?, ?, ?)', [
         accountOf(request).id,
         cut(`Follow-up: ${data.title}`, 200),
-        pres?.brand_id ?? null,
+        // Brandings gehören einem Konto – nur der Eigentümer nimmt seins mit
+        accessOf(request).role === 'owner' ? (pres?.brand_id ?? null) : null,
         pres?.target_minutes ?? null,
       ]);
       for (const [position, s] of slides.entries()) {

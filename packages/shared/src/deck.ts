@@ -19,6 +19,8 @@ export interface PptxSlideInfo {
   steps?: number;
   /** Seitenverhältnis der Folie (Breite / Höhe) */
   aspect?: number;
+  /** Kennung der Folie bei Google Slides (aus den Formnamen „Google Shape;n;<Kennung>“), sonst fehlt sie */
+  sourceKey?: string;
 }
 
 export type NotesMode = 'all-slides' | 'visible-slides' | 'mismatch' | 'none';
@@ -86,7 +88,7 @@ export function alignPages(slideTitles: string[], pageTitles: string[]): number[
     for (let j = m - 1; j >= 0; j--) dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!);
   if (dp[0]![0] !== n) return null;
   const out: number[] = [];
-  for (let i = 0, j = 0; i < n && j < m; ) {
+  for (let i = 0, j = 0; i < n && j < m;) {
     if (a[i] === b[j] && dp[i]![j] === dp[i + 1]![j + 1]! + 1) {
       out.push(j);
       i++;

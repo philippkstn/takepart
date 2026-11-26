@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
 import { exec, one, query, type Conn, type Db } from './db.ts';
 
 /**
@@ -34,7 +34,7 @@ export async function saveRunNote(db: Conn, runId: number, slideId: number, text
 }
 
 export function noteRoutes(app: FastifyInstance, db: Db) {
-  const ownRun = requireOwner(db, 'run');
+  const ownRun = requireAccess(db, 'run', 'host');
 
   app.get('/api/runs/:id/notes', ownRun, async (request) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);

@@ -1,7 +1,7 @@
 import { brandInput, LOGO_MAX_BYTES, LOGO_TYPES, type BrandView } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireBrandOwner } from './access.ts';
 import { accountOf, requireHost } from './auth.ts';
 import { exec, one, query, type Db } from './db.ts';
 import type { LiveHub } from './live.ts';
@@ -41,7 +41,7 @@ const idParam = z.object({ id: z.coerce.number().int() });
 
 export function brandRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
   const host = { preHandler: requireHost(db) };
-  const ownBrand = requireOwner(db, 'brand');
+  const ownBrand = requireBrandOwner(db);
 
   /** Laufende Durchführungen mit diesem Branding neu zeichnen. */
   async function touch(brandId: number) {

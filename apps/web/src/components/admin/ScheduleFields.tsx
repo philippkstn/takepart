@@ -1,7 +1,7 @@
-import { MAX_PHASES, scheduleInput, type SlideSchedule } from '@slides/shared';
+import { MAX_PHASES, sameValue, scheduleInput, type SlideSchedule } from '@slides/shared';
 import { Plus, X } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { api } from '../../lib/api.ts';
+import { api, ApiError } from '../../lib/api.ts';
 
 /** Phase im Formular: Minuten als Text, damit das Feld leer sein darf */
 interface PhaseDraft {
@@ -26,10 +26,13 @@ export function ScheduleFields({
   slideId,
   initial,
   onSaved,
+  readOnly = false,
 }: {
   slideId: number;
+  /** Aktueller Stand laut Server – Änderungen anderer werden übernommen, solange hier nichts aussteht */
   initial: SlideSchedule;
   onSaved: (schedule: SlideSchedule) => void;
+  readOnly?: boolean;
 }) {
   const [planned, setPlanned] = useState(initial.plannedMinutes?.toString() ?? '');
   const [phases, setPhases] = useState<PhaseDraft[]>(initial.phases.map((p) => ({ label: p.label, minutes: String(p.minutes) })));
@@ -40,14 +43,44 @@ export function ScheduleFields({
   const pending = useRef<SlideSchedule | null>(null);
   const savedRef = useRef(onSaved);
   savedRef.current = onSaved;
+  /** Stand, auf dem die eigenen Änderungen beruhen (für paralleles Bearbeiten) */
+  const base = useRef(initial);
+  const saving = useRef(false);
+
+  const adopt = (s: SlideSchedule) => {
+    base.current = s;
+    setPlanned(s.plannedMinutes?.toString() ?? '');
+    setPhases(s.phases.map((p) => ({ label: p.label, minutes: String(p.minutes) })));
+    setAuto(s.autoCountdown);
+  };
+
+  // Änderungen anderer übernehmen, solange hier nichts aussteht
+  useEffect(() => {
+    if (timer.current !== undefined || saving.current || sameValue(initial, base.current)) return;
+    adopt(initial);
+    // adopt ist stabil genug: setzt nur State und Ref
+  }, [initial]);
+
+  const send = (body: SlideSchedule) => api(`/api/slides/${slideId}`, { method: 'PATCH', body: { ...body, baseSchedule: base.current } });
 
   const save = async (body: SlideSchedule) => {
+    saving.current = true;
     try {
-      await api(`/api/slides/${slideId}`, { method: 'PATCH', body });
+      await send(body);
+      base.current = body;
       setState('saved');
       savedRef.current(body);
-    } catch {
-      setState('error');
+    } catch (err) {
+      const current =
+        err instanceof ApiError && err.status === 409 ? (err.data as { current?: { schedule?: SlideSchedule } }).current : null;
+      if (current?.schedule) {
+        adopt(current.schedule);
+        savedRef.current(current.schedule);
+        setState('invalid');
+        setMessage('Gerade von jemand anderem geändert – dessen Stand steht jetzt hier');
+      } else setState('error');
+    } finally {
+      saving.current = false;
     }
   };
 
@@ -88,7 +121,7 @@ export function ScheduleFields({
       if (timer.current !== undefined && pending.current) {
         window.clearTimeout(timer.current);
         const body = pending.current;
-        void api(`/api/slides/${slideId}`, { method: 'PATCH', body })
+        void send(body)
           .then(() => savedRef.current(body))
           .catch(() => {});
       }
@@ -109,7 +142,7 @@ export function ScheduleFields({
             : 'nur für dich sichtbar';
 
   return (
-    <div className="field schedule-fields">
+    <fieldset className="field schedule-fields" disabled={readOnly}>
       <span className="row-between">
         Ablaufplan
         <span className="faint" style={{ fontWeight: 500 }} role={state === 'invalid' ? 'alert' : undefined}>
@@ -187,6 +220,6 @@ export function ScheduleFields({
             : 'Phasen: z. B. 15 Min. Gespräch, 15 Min. Rollenwechsel, 10 Min. Karten schreiben.'}
         </span>
       </div>
-    </div>
+    </fieldset>
   );
 }

@@ -371,4 +371,83 @@ export const migrations: Migration[] = [
          ADD COLUMN text_layer MEDIUMTEXT NULL AFTER hires_mime`,
     ],
   },
+  {
+    // Präsentationen mit anderen Konten teilen: ansehen, bearbeiten oder moderieren (siehe access.ts)
+    name: '015_shares',
+    statements: [
+      `CREATE TABLE presentation_shares (
+        presentation_id INT UNSIGNED NOT NULL,
+        user_id INT UNSIGNED NOT NULL,
+        role ENUM('view', 'edit', 'host') NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        PRIMARY KEY (presentation_id, user_id),
+        INDEX idx_presentation_shares_user (user_id),
+        CONSTRAINT fk_presentation_shares_presentation FOREIGN KEY (presentation_id) REFERENCES presentations (id) ON DELETE CASCADE,
+        CONSTRAINT fk_presentation_shares_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
+  {
+    // Versionen und gemeinsames Bearbeiten:
+    //   slides.rev                  – zählt jede Änderung einer Folie (Konflikte beim parallelen Bearbeiten)
+    //   presentations.edited_at     – letzte inhaltliche Änderung (updated_at ändert sich auch bei Verwaltungsdaten)
+    //   presentation_edits          – wer seit wann bearbeitet (für „bearbeitet von“ an der nächsten Version)
+    //   presentation_versions       – Schnappschuss (JSON) aller Folien samt Notizen und Ablaufplan
+    //   version_assets              – Folienbilder, die eine Version braucht (bleiben beim Aufräumen erhalten)
+    name: '016_versions',
+    statements: [
+      'ALTER TABLE slides ADD COLUMN rev INT UNSIGNED NOT NULL DEFAULT 0',
+      'ALTER TABLE presentations ADD COLUMN edited_at DATETIME(3) NULL',
+      `CREATE TABLE presentation_edits (
+        presentation_id INT UNSIGNED NOT NULL,
+        user_id INT UNSIGNED NOT NULL,
+        edited_at DATETIME(3) NOT NULL,
+        PRIMARY KEY (presentation_id, user_id),
+        CONSTRAINT fk_presentation_edits_presentation FOREIGN KEY (presentation_id) REFERENCES presentations (id) ON DELETE CASCADE,
+        CONSTRAINT fk_presentation_edits_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `CREATE TABLE presentation_versions (
+        id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        presentation_id INT UNSIGNED NOT NULL,
+        created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+        created_by INT UNSIGNED NULL,
+        reason VARCHAR(20) NOT NULL,
+        label VARCHAR(120) NULL,
+        editors TEXT NULL,
+        hash CHAR(64) NOT NULL,
+        slide_count INT UNSIGNED NOT NULL,
+        data MEDIUMTEXT NOT NULL,
+        INDEX idx_presentation_versions (presentation_id, created_at),
+        CONSTRAINT fk_presentation_versions_presentation FOREIGN KEY (presentation_id) REFERENCES presentations (id) ON DELETE CASCADE,
+        CONSTRAINT fk_presentation_versions_user FOREIGN KEY (created_by) REFERENCES users (id) ON DELETE SET NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      `CREATE TABLE version_assets (
+        version_id INT UNSIGNED NOT NULL,
+        public_id CHAR(32) NOT NULL,
+        PRIMARY KEY (version_id, public_id),
+        INDEX idx_version_assets_public (public_id),
+        CONSTRAINT fk_version_assets_version FOREIGN KEY (version_id) REFERENCES presentation_versions (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ],
+  },
+  {
+    // Verknüpfung mit Google Slides (Freigabelink): Quelle je Präsentation, Kennung der Google-Folie je Bildfolie
+    name: '017_google_source',
+    statements: [
+      `CREATE TABLE presentation_sources (
+        presentation_id INT UNSIGNED NOT NULL PRIMARY KEY,
+        kind VARCHAR(20) NOT NULL,
+        file_id VARCHAR(100) NOT NULL,
+        auto_sync TINYINT(1) NOT NULL DEFAULT 1,
+        synced_hash CHAR(64) NULL,
+        synced_at DATETIME(3) NULL,
+        remote_hash CHAR(64) NULL,
+        checked_at DATETIME(3) NULL,
+        error VARCHAR(300) NULL,
+        CONSTRAINT fk_presentation_sources_presentation FOREIGN KEY (presentation_id) REFERENCES presentations (id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+      // source_hash: Prüfsumme des zuletzt übernommenen Seitenbilds samt Notizen – unveränderte Seiten werden nicht neu hochgeladen
+      'ALTER TABLE slides ADD COLUMN source_key VARCHAR(100) NULL, ADD COLUMN source_hash CHAR(64) NULL',
+    ],
+  },
 ];

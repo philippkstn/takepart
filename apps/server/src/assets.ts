@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { assetId, cleanTextRuns } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireOwner } from './access.ts';
+import { requireAccess } from './access.ts';
 import { exec, one, type Conn, type Db } from './db.ts';
 
 /**
@@ -40,7 +40,9 @@ export async function deleteOrphanAssets(conn: Conn, presentationId: number) {
         AND NOT EXISTS (
           SELECT 1 FROM slides s
            WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
-             AND JSON_VALUE(s.config, '$.asset') = a.public_id)`,
+             AND JSON_VALUE(s.config, '$.asset') = a.public_id)
+        -- Bilder, die eine gespeicherte Version braucht, bleiben für die Wiederherstellung
+        AND NOT EXISTS (SELECT 1 FROM version_assets va WHERE va.public_id = a.public_id)`,
     [presentationId],
   );
 }
@@ -57,16 +59,23 @@ export async function deleteAllOrphanAssets(conn: Conn): Promise<number> {
         AND NOT EXISTS (
           SELECT 1 FROM slides s
            WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
-             AND JSON_VALUE(s.config, '$.asset') = a.public_id)`,
+             AND JSON_VALUE(s.config, '$.asset') = a.public_id)
+        -- Bilder, die eine gespeicherte Version braucht, bleiben für die Wiederherstellung
+        AND NOT EXISTS (SELECT 1 FROM version_assets va WHERE va.public_id = a.public_id)`,
   );
   return result.affectedRows;
 }
 
-/** Alle Bilder einer Präsentation in eine andere kopieren; liefert alte → neue Kennung. */
-export async function copyAssets(conn: Conn, fromId: number, toId: number): Promise<Map<string, string>> {
+/**
+ * Bilder einer Präsentation in eine andere kopieren – nur die genannten (die von
+ * Folien verwendeten, nicht die, die nur noch Versionen brauchen); liefert alte → neue Kennung.
+ */
+export async function copyAssets(conn: Conn, fromId: number, toId: number, used: string[]): Promise<Map<string, string>> {
+  const wanted = new Set(used);
   const rows = await conn.query<import('mysql2').RowDataPacket[]>('SELECT public_id FROM assets WHERE presentation_id = ?', [fromId]);
   const map = new Map<string, string>();
   for (const r of rows[0] as { public_id: string }[]) {
+    if (!wanted.has(r.public_id)) continue;
     const fresh = newPublicId();
     await exec(
       conn,
@@ -85,56 +94,75 @@ export function assetRoutes(app: FastifyInstance, db: Db) {
 
   const uploadQuery = z.object({ width: z.coerce.number().int().min(1).max(10000), height: z.coerce.number().int().min(1).max(10000) });
 
-  app.post('/api/presentations/:id/assets', { ...requireOwner(db, 'presentation'), bodyLimit: MAX_IMAGE_BYTES }, async (request, reply) => {
-    const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
-    const { width, height } = uploadQuery.parse(request.query);
-    const data = request.body;
-    if (!Buffer.isBuffer(data)) return reply.code(415).send({ error: 'Bitte ein Bild (WebP, JPEG, PNG) senden' });
-    const mime = sniffImage(data);
-    if (!mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
-    const pres = await one<{ id: number }>(db, 'SELECT id FROM presentations WHERE id = ?', [id]);
-    if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
-    const publicId = newPublicId();
-    await exec(db, 'INSERT INTO assets (presentation_id, public_id, mime, width, height, data) VALUES (?, ?, ?, ?, ?, ?)', [
-      id,
-      publicId,
-      mime,
-      width,
-      height,
-      data,
-    ]);
-    return { asset: publicId };
-  });
+  app.post(
+    '/api/presentations/:id/assets',
+    { ...requireAccess(db, 'presentation', 'edit'), bodyLimit: MAX_IMAGE_BYTES },
+    async (request, reply) => {
+      const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
+      const { width, height } = uploadQuery.parse(request.query);
+      const data = request.body;
+      if (!Buffer.isBuffer(data)) return reply.code(415).send({ error: 'Bitte ein Bild (WebP, JPEG, PNG) senden' });
+      const mime = sniffImage(data);
+      if (!mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
+      const pres = await one<{ id: number }>(db, 'SELECT id FROM presentations WHERE id = ?', [id]);
+      if (!pres) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
+      const publicId = newPublicId();
+      await exec(db, 'INSERT INTO assets (presentation_id, public_id, mime, width, height, data) VALUES (?, ?, ?, ?, ?, ?)', [
+        id,
+        publicId,
+        mime,
+        width,
+        height,
+        data,
+      ]);
+      return { asset: publicId };
+    },
+  );
 
-  app.put('/api/assets/:asset/thumb', { ...requireOwner(db, 'asset', 'asset'), bodyLimit: MAX_IMAGE_BYTES }, async (request, reply) => {
-    const { asset } = z.object({ asset: assetId }).parse(request.params);
-    const data = request.body;
-    const mime = Buffer.isBuffer(data) ? sniffImage(data) : null;
-    if (!Buffer.isBuffer(data) || !mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
-    const result = await exec(db, 'UPDATE assets SET thumb = ?, thumb_mime = ? WHERE public_id = ?', [data, mime, asset]);
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
-    return { ok: true };
-  });
+  app.put(
+    '/api/assets/:asset/thumb',
+    { ...requireAccess(db, 'asset', 'edit', 'asset'), bodyLimit: MAX_IMAGE_BYTES },
+    async (request, reply) => {
+      const { asset } = z.object({ asset: assetId }).parse(request.params);
+      const data = request.body;
+      const mime = Buffer.isBuffer(data) ? sniffImage(data) : null;
+      if (!Buffer.isBuffer(data) || !mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
+      const result = await exec(db, 'UPDATE assets SET thumb = ?, thumb_mime = ? WHERE public_id = ?', [data, mime, asset]);
+      if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
+      return { ok: true };
+    },
+  );
 
   /** Druckbild in doppelter Auflösung – für Fotoprotokoll und große Beamer */
-  app.put('/api/assets/:asset/hires', { ...requireOwner(db, 'asset', 'asset'), bodyLimit: MAX_HIRES_BYTES }, async (request, reply) => {
-    const { asset } = z.object({ asset: assetId }).parse(request.params);
-    const data = request.body;
-    const mime = Buffer.isBuffer(data) ? sniffImage(data) : null;
-    if (!Buffer.isBuffer(data) || !mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
-    const result = await exec(db, 'UPDATE assets SET hires = ?, hires_mime = ? WHERE public_id = ?', [data, mime, asset]);
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
-    return { ok: true };
-  });
+  app.put(
+    '/api/assets/:asset/hires',
+    { ...requireAccess(db, 'asset', 'edit', 'asset'), bodyLimit: MAX_HIRES_BYTES },
+    async (request, reply) => {
+      const { asset } = z.object({ asset: assetId }).parse(request.params);
+      const data = request.body;
+      const mime = Buffer.isBuffer(data) ? sniffImage(data) : null;
+      if (!Buffer.isBuffer(data) || !mime) return reply.code(415).send({ error: 'Unbekanntes Bildformat' });
+      const result = await exec(db, 'UPDATE assets SET hires = ?, hires_mime = ? WHERE public_id = ?', [data, mime, asset]);
+      if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
+      return { ok: true };
+    },
+  );
 
   /** Textebene der PDF-Seite (`TextRun[]`), unsichtbar über dem Bild im Fotoprotokoll */
-  app.put('/api/assets/:asset/text', { ...requireOwner(db, 'asset', 'asset'), bodyLimit: 2 * 1024 * 1024 }, async (request, reply) => {
-    const { asset } = z.object({ asset: assetId }).parse(request.params);
-    const runs = cleanTextRuns((request.body as { runs?: unknown } | null)?.runs);
-    const result = await exec(db, 'UPDATE assets SET text_layer = ? WHERE public_id = ?', [runs.length ? JSON.stringify(runs) : null, asset]);
-    if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
-    return { ok: true };
-  });
+  app.put(
+    '/api/assets/:asset/text',
+    { ...requireAccess(db, 'asset', 'edit', 'asset'), bodyLimit: 2 * 1024 * 1024 },
+    async (request, reply) => {
+      const { asset } = z.object({ asset: assetId }).parse(request.params);
+      const runs = cleanTextRuns((request.body as { runs?: unknown } | null)?.runs);
+      const result = await exec(db, 'UPDATE assets SET text_layer = ? WHERE public_id = ?', [
+        runs.length ? JSON.stringify(runs) : null,
+        asset,
+      ]);
+      if (result.affectedRows === 0) return reply.code(404).send({ error: 'Bild nicht gefunden' });
+      return { ok: true };
+    },
+  );
 
   app.get('/api/assets/:asset/text', async (request, reply) => {
     const parsed = z.object({ asset: assetId }).safeParse(request.params);
