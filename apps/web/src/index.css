@@ -274,6 +274,13 @@ select {
   background: var(--accent-soft);
   color: var(--accent);
 }
+.icon-btn-danger,
+.icon-btn-danger:hover {
+  color: var(--danger);
+}
+.icon-btn-danger:hover {
+  background: var(--danger-soft);
+}
 
 /* ───────────── Formulare ───────────── */
 

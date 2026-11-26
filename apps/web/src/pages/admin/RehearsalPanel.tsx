@@ -1,7 +1,7 @@
 import type { HostView } from '@slides/shared';
 import { FlaskConical, MessageSquareShare, Monitor, MonitorOff, Shuffle, Trash2, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
-import { formatCode, joinUrl, useToast } from '../../components/ui.tsx';
+import { formatCode, joinHost, joinUrl, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 
 /**
@@ -19,28 +19,74 @@ export function RehearsalBadge() {
   );
 }
 
-/** Text für den Chat einer Online-Sitzung: Link und Code */
-export function invitationText(code: string | null): string {
-  return `Macht mit: ${joinUrl(code)} – Code ${formatCode(code)}`;
+const INVITE_INTRO = 'einfach mit dem Handy oder im Browser, ohne Anmeldung und ohne App';
+
+/**
+ * Einladung für den Chat einer Online-Sitzung (Teams, Zoom …): Titel, der Link
+ * allein in einer Zeile (Teams zeigt dazu die Vorschau „Mach mit – Code …“) und
+ * der Code für alle, die lieber tippen.
+ */
+export function invitationText(code: string | null, title?: string): string {
+  const what = title ? `bei „${title}“` : '';
+  return [
+    `Macht mit ${what}`.trim() + ` – ${INVITE_INTRO}:`,
+    '',
+    joinUrl(code),
+    '',
+    `Oder auf ${joinHost()} den Code ${formatCode(code)} eingeben.`,
+  ].join('\n');
 }
 
-export function InviteButton({ code }: { code: string | null }) {
+const escapeHtml = (text: string) => text.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+
+/** Dieselbe Einladung formatiert – Teams und Outlook übernehmen Fettdruck und Link beim Einfügen */
+export function invitationHtml(code: string | null, title?: string): string {
+  const url = escapeHtml(joinUrl(code));
+  const what = title ? ` bei <b>„${escapeHtml(title)}“</b>` : '';
+  return [
+    `<p>Macht mit${what} – ${INVITE_INTRO}:</p>`,
+    `<p><a href="${url}">${url}</a></p>`,
+    `<p>Oder auf ${escapeHtml(joinHost())} den Code <b>${escapeHtml(formatCode(code))}</b> eingeben.</p>`,
+  ].join('');
+}
+
+/** In die Zwischenablage – formatiert, wo der Browser es kann, sonst als Text */
+export async function copyInvitation(code: string | null, title?: string): Promise<void> {
+  const text = invitationText(code, title);
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard.write) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/plain': new Blob([text], { type: 'text/plain' }),
+          'text/html': new Blob([invitationHtml(code, title)], { type: 'text/html' }),
+        }),
+      ]);
+      return;
+    } catch {
+      // z. B. Firefox ohne text/html – dann reiner Text
+    }
+  }
+  await navigator.clipboard.writeText(text);
+}
+
+export function InviteButton({ code, title }: { code: string | null; title?: string }) {
   const toast = useToast();
   return (
     <button
-      className="btn btn-small"
+      className="icon-btn"
       disabled={!code}
       title="Einladung für den Chat (Teams, Zoom …) kopieren"
+      aria-label="Einladung kopieren"
       onClick={async () => {
         try {
-          await navigator.clipboard.writeText(invitationText(code));
-          toast('Einladung kopiert – im Chat einfügen');
+          await copyInvitation(code, title);
+          toast('Einladung kopiert – im Chat (Teams, Zoom …) einfügen');
         } catch {
           toast('Kopieren nicht möglich', 'error');
         }
       }}
     >
-      <MessageSquareShare /> <span>Einladung</span>
+      <MessageSquareShare />
     </button>
   );
 }

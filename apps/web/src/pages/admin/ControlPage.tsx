@@ -196,15 +196,20 @@ export default function ControlPage() {
         <PresenceButton view={view} />
         <DisplayStatus displays={view.displays} />
         <div className="row control-head-actions">
-          {!ended && <InviteButton code={view.run.code} />}
-          <a className="btn btn-small" href={displayUrl} target="slides-display" rel="noopener">
-            <Maximize2 /> <span>Beamer öffnen</span>
+          {!ended && <InviteButton code={view.run.code} title={view.run.title} />}
+          <a className="icon-btn" href={displayUrl} target="slides-display" rel="noopener" title="Beamer öffnen" aria-label="Beamer öffnen">
+            <Maximize2 />
           </a>
-          <button className="btn btn-small" onClick={() => copy(displayUrl, 'Anzeige-Link')} title="Anzeige-Link kopieren">
-            <Copy /> <span>Link</span>
-          </button>
           <button
             className="icon-btn"
+            onClick={() => copy(displayUrl, 'Anzeige-Link')}
+            title="Anzeige-Link kopieren"
+            aria-label="Anzeige-Link kopieren"
+          >
+            <Copy />
+          </button>
+          <button
+            className="icon-btn control-renew-link"
             title="Anzeige-Link erneuern (alter Link funktioniert dann nicht mehr)"
             aria-label="Anzeige-Link erneuern"
             onClick={async () => {
@@ -216,8 +221,8 @@ export default function ControlPage() {
             <RefreshCw />
           </button>
           {!ended && (
-            <button className="btn btn-small btn-danger" onClick={end}>
-              <Square /> <span>Beenden</span>
+            <button className="icon-btn icon-btn-danger" onClick={end} title="Beenden" aria-label="Beenden">
+              <Square />
             </button>
           )}
         </div>

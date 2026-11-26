@@ -1430,12 +1430,9 @@ fieldset.schedule-fields {
     padding: 8px 10px;
     gap: 8px;
   }
-  .control-head-actions .btn span {
-    display: none;
-  }
   /* Selten am Handy gebraucht: Plan-Abgleich und Anzeige-Link erneuern */
   .control-head .plan-status,
-  .control-head-actions .icon-btn {
+  .control-head-actions .control-renew-link {
     display: none;
   }
   .control-title strong {
