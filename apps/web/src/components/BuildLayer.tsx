@@ -98,7 +98,9 @@ export function BuildLayer({
         return (
           <div
             key={`${slideId}-${step}-${i}`}
-            className={`build-mask ${r.effect === 'appear' ? 'build-cut' : 'build-fade'}`}
+            className={`build-mask ${
+              r.effect === 'appear' ? 'build-cut' : r.effect.startsWith('wipe') ? `build-wipe build-${r.effect}` : 'build-fade'
+            }`}
             style={{ ...box, ...timing, background: r.fill }}
           />
         );

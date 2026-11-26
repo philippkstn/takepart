@@ -14,7 +14,7 @@ import {
   fitBuildBox,
   rotatedBounds,
   textRuns,
-  type BuildEffect,
+  buildEffectOf,
   type BuildsConfig,
   type PptxSlideInfo,
   type RawBuildRegion,
@@ -377,16 +377,6 @@ function tableSize(frame: Element): [number, number] | null {
   return w > 0 && h > 0 ? [w, h] : null;
 }
 
-function effectOf(presetId: string | null, subtype: string | null): BuildEffect {
-  if (presetId === '1') return 'appear';
-  if (presetId === '2') {
-    // „Hineinfliegen“: Untertyp ist die Richtung, aus der das Element kommt
-    return subtype === '1' ? 'fly-top' : subtype === '2' ? 'fly-right' : subtype === '8' ? 'fly-left' : 'fly-bottom';
-  }
-  if (presetId === '53' || presetId === '23') return 'zoom';
-  return 'fade';
-}
-
 const delayOf = (cTn: Element | null) => {
   const d = kid(kid(cTn, 'stCondLst'), 'cond')?.getAttribute('delay');
   const n = Number(d);
@@ -457,7 +447,11 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
         step,
         at,
         dur: Math.round(dur),
-        effect: effectOf(e.cTn.getAttribute('presetID'), e.cTn.getAttribute('presetSubtype')),
+        effect: buildEffectOf(
+          e.cTn.getAttribute('presetID'),
+          e.cTn.getAttribute('presetSubtype'),
+          e.cTn.getElementsByTagNameNS('*', 'animEffect')[0]?.getAttribute('filter') ?? null,
+        ),
       });
       stepEnd = Math.max(stepEnd, at + dur);
     }

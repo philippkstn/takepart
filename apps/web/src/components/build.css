@@ -63,3 +63,31 @@
     opacity: 1;
   }
 }
+/* Wischen: Die Abdeckung gibt das Element von einer Seite her frei (clip-path wächst von dort) */
+.build-wipe {
+  animation: build-wipe var(--dur) linear var(--at) both;
+}
+.build-wipe-left {
+  --wipe-from: inset(0 0 0 0);
+  --wipe-to: inset(0 0 0 100%);
+}
+.build-wipe-right {
+  --wipe-from: inset(0 0 0 0);
+  --wipe-to: inset(0 100% 0 0);
+}
+.build-wipe-top {
+  --wipe-from: inset(0 0 0 0);
+  --wipe-to: inset(100% 0 0 0);
+}
+.build-wipe-bottom {
+  --wipe-from: inset(0 0 0 0);
+  --wipe-to: inset(0 0 100% 0);
+}
+@keyframes build-wipe {
+  from {
+    clip-path: var(--wipe-from);
+  }
+  to {
+    clip-path: var(--wipe-to);
+  }
+}

@@ -602,6 +602,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
               width: z.number().int().min(1).max(10000),
               height: z.number().int().min(1).max(10000),
               title: z.string().max(200).optional(),
+              /** Mit PowerPoint neu eingelesene Animationen; `null` entfernt sie, ohne Angabe bleiben die alten */
+              builds: buildsConfig.nullable().optional(),
             }),
           )
           .min(1)
@@ -632,6 +634,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
           width: it.width,
           height: it.height,
           title: it.title?.trim() ? it.title.trim().slice(0, 200) : current.title,
+          builds: it.builds === undefined ? current.builds : (it.builds ?? undefined),
         });
         await exec(conn, 'UPDATE slides SET config = ?, source_hash = NULL, rev = rev + 1 WHERE id = ?', [
           JSON.stringify(config),

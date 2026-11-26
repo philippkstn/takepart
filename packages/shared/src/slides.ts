@@ -299,7 +299,39 @@ export const teamsConfig = z.object({
  * gemessenen Umgebungsfarbe abgedeckt. Nur Eingangseffekte lassen sich so
  * nachbauen – Ausgang, Betonung und Pfade nicht.
  */
-export const BUILD_EFFECTS = ['appear', 'fade', 'fly-left', 'fly-right', 'fly-top', 'fly-bottom', 'zoom'] as const;
+export const BUILD_EFFECTS = [
+  'appear',
+  'fade',
+  'fly-left',
+  'fly-right',
+  'fly-top',
+  'fly-bottom',
+  'zoom',
+  // Wischen: von dieser Seite aus aufgedeckt
+  'wipe-left',
+  'wipe-right',
+  'wipe-top',
+  'wipe-bottom',
+] as const;
+
+/**
+ * Aufbau-Effekt aus einer PowerPoint-Animation (`presetID`, `presetSubtype`,
+ * `filter` des `p:animEffect`). Unbekanntes wird zu Verblassen.
+ */
+export function buildEffectOf(presetId: string | null, subtype: string | null, filter: string | null): BuildEffect {
+  if (presetId === '1') return 'appear';
+  if (presetId === '2') {
+    // „Hineinfliegen“: Untertyp ist die Richtung, aus der das Element kommt
+    return subtype === '1' ? 'fly-top' : subtype === '2' ? 'fly-right' : subtype === '8' ? 'fly-left' : 'fly-bottom';
+  }
+  if (presetId === '53' || presetId === '23') return 'zoom';
+  // „Wischen“: Der Filter nennt die Bewegungsrichtung – wipe(down) beginnt oben
+  const wipe = /^wipe\((up|down|left|right)\)/.exec(filter ?? '')?.[1];
+  if (wipe) return wipe === 'down' ? 'wipe-top' : wipe === 'up' ? 'wipe-bottom' : wipe === 'right' ? 'wipe-left' : 'wipe-right';
+  if (presetId === '22')
+    return subtype === '1' ? 'wipe-top' : subtype === '2' ? 'wipe-right' : subtype === '8' ? 'wipe-left' : 'wipe-bottom';
+  return 'fade';
+}
 export type BuildEffect = (typeof BUILD_EFFECTS)[number];
 const unit = z.number().min(0).max(1);
 export const buildRegion = z.object({

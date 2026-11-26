@@ -1,8 +1,8 @@
-import { alignPages, planNotes, type PptxSlideInfo } from '@slides/shared';
+import { alignPages, planNotes, type BuildsConfig, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
 import { FileText, Presentation as PptIcon, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
-import { extractPptxNotes, pdfPageTitles, renderPdfPages } from '../../lib/importDeck.ts';
+import { extractPptxNotes, pageBuilds, pdfPageTitles, renderPdfPages } from '../../lib/importDeck.ts';
 import { uploadPage } from '../../lib/uploadPage.ts';
 
 interface Props {
@@ -50,10 +50,13 @@ export function ReplaceImagesDialog({ presentationId, imageSlides, onClose, onDo
       }
       // PDF-Seite → Bildfolie
       const slideOf = new Map(match.map((p, k) => [pages[p]!, imageSlides[k]!.id]));
-      const items: { slideId: number; asset: string; width: number; height: number; title: string }[] = [];
-      for await (const page of renderPdfPages(pdf, () => (i) => slideOf.has(i))) {
+      // Mit PowerPoint: Animationen neu einlesen (z. B. nach einer Verbesserung des Imports)
+      const regions = (i: number): RawBuildRegion[] => (info ? (plan.pages[i]?.slide?.regions ?? []) : []);
+      const items: { slideId: number; asset: string; width: number; height: number; title: string; builds?: BuildsConfig | null }[] = [];
+      for await (const page of renderPdfPages(pdf, () => (i) => slideOf.has(i), regions)) {
         const asset = await uploadPage(presentationId, page);
-        items.push({ slideId: slideOf.get(page.index)!, asset, width: page.width, height: page.height, title: page.title });
+        const builds = info ? (pageBuilds(page, regions(page.index), plan.pages[page.index]?.slide).builds ?? null) : undefined;
+        items.push({ slideId: slideOf.get(page.index)!, asset, width: page.width, height: page.height, title: page.title, builds });
         setPhase({ step: 'pages', done: items.length, total: imageSlides.length });
       }
       setPhase({ step: 'saving' });
@@ -78,9 +81,10 @@ export function ReplaceImagesDialog({ presentationId, imageSlides, onClose, onDo
           </button>
         </div>
         <p className="muted small">
-          Lade dieselbe Präsentation erneut als PDF hoch. Die {imageSlides.length} importierten Folien bekommen der Reihe nach das neue
-          Bild – in hoher Auflösung und mit kopierbarem Text fürs Fotoprotokoll. Folien, Animationen, Notizen und alle Ergebnisse bleiben
-          erhalten. Enthält das PDF zusätzliche Seiten, wird über die Überschriften zugeordnet.
+          Lade dieselbe Präsentation erneut als PDF hoch. Die {imageSlides.length} importierten Folien bekommen der Reihe nach das neue Bild
+          – in hoher Auflösung und mit kopierbarem Text fürs Fotoprotokoll. Folien, Notizen und alle Ergebnisse bleiben erhalten; mit der
+          PowerPoint-Datei werden auch die Animationen neu eingelesen. Enthält das PDF zusätzliche Seiten, wird über die Überschriften
+          zugeordnet.
         </p>
 
         <label className={`file-drop ${pdf ? 'has-file' : ''}`}>
@@ -104,7 +108,7 @@ export function ReplaceImagesDialog({ presentationId, imageSlides, onClose, onDo
           <span className="grow">
             <strong>{pptx ? pptx.name : 'PowerPoint (optional)'}</strong>
             <span className="small faint" style={{ display: 'block' }}>
-              Nur nötig, wenn das PDF ausgeblendete Folien enthält (z. B. Export aus Google Slides)
+              Liest die Animationen neu ein – und nötig, wenn das PDF ausgeblendete Folien enthält (z. B. Export aus Google Slides)
             </span>
           </span>
           <input
