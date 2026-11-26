@@ -1,4 +1,4 @@
-import type { BuildRegion, BuildsConfig } from '@slides/shared';
+import { assetUrl, type BuildRegion, type BuildsConfig } from '@slides/shared';
 import { useRef, type CSSProperties } from 'react';
 import './build.css';
 
@@ -42,6 +42,7 @@ export function BuildLayer({
   const play = animate && seen.current.forward;
 
   if (!builds?.enabled || builds.regions.length === 0) return null;
+  const startImage = builds.startImage ? assetUrl(builds.startImage) : null;
   const ordered = builds.regions.map((r, i) => ({ r, i })).sort((a, b) => a.r.step - b.r.step || a.r.at - b.r.at || a.i - b.i);
   const total = ordered.length;
 
@@ -52,9 +53,33 @@ export function BuildLayer({
         if (r.step === step && !play) return null;
         const z = total - order; // früher aufgedeckt → weiter oben
         const box: CSSProperties = { left: pct(r.x), top: pct(r.y), width: pct(r.w), height: pct(r.h), zIndex: z };
+        const timing = { '--at': `${r.at}ms`, '--dur': `${Math.max(r.dur, 1)}ms` } as CSSProperties;
+        if (r.exit) {
+          // Ausgang: Das Element fehlt im Folienbild – bis zu seinem Schritt zeigt ein Ausschnitt
+          // aus dem Startbild es, dann verschwindet der Ausschnitt mit dem Effekt
+          if (!startImage) return null;
+          const shot = { ...box, ...cropStyle(r, startImage) };
+          if (r.step > step) return <div key={`${slideId}-${i}-shown`} className="build-shot" style={shot} />;
+          return (
+            <div
+              key={`${slideId}-${step}-${i}`}
+              className={`build-shot ${leaveClass(r)}`}
+              style={{ ...shot, ...timing, '--out': outOf(r) } as CSSProperties}
+            />
+          );
+        }
+        if (r.effect === 'spin') {
+          // Hervorhebung „Drehen“: vorher und nachher wie im Bild, im Schritt dreht sich ein Ausschnitt über einer Abdeckung
+          if (r.step !== step) return null;
+          return (
+            <div key={`${slideId}-${step}-${i}`} style={{ display: 'contents' }}>
+              <div className="build-mask build-during" style={{ ...box, ...timing, background: r.fill }} />
+              <div className="build-shot build-spin" style={{ ...box, ...timing, ...cropStyle(r, image) }} />
+            </div>
+          );
+        }
         if (r.step > step) return <div key={`${slideId}-${i}-hidden`} className="build-mask" style={{ ...box, background: r.fill }} />;
         // aktueller Schritt: Aufdecken animieren (Schlüssel enthält den Schritt → läuft genau einmal)
-        const timing = { '--at': `${r.at}ms`, '--dur': `${Math.max(r.dur, 1)}ms` } as CSSProperties;
         if (r.effect.startsWith('fly') || r.effect === 'zoom') {
           return (
             <div key={`${slideId}-${step}-${i}`} style={{ display: 'contents' }}>
@@ -97,19 +122,11 @@ export function BuildLayer({
         }
         if (r.effect.startsWith('out-')) {
           // Ausgang einer deckenden Form: Die Abdeckung fliegt um eine Folienbreite/-höhe hinaus
-          const out =
-            r.effect === 'out-right'
-              ? `translateX(${100 / r.w}%)`
-              : r.effect === 'out-left'
-                ? `translateX(-${100 / r.w}%)`
-                : r.effect === 'out-top'
-                  ? `translateY(-${100 / r.h}%)`
-                  : `translateY(${100 / r.h}%)`;
           return (
             <div
               key={`${slideId}-${step}-${i}`}
               className="build-mask build-out"
-              style={{ ...box, ...timing, '--out': out, background: r.fill } as CSSProperties}
+              style={{ ...box, ...timing, '--out': outOf(r), background: r.fill } as CSSProperties}
             />
           );
         }
@@ -128,6 +145,23 @@ export function BuildLayer({
 }
 
 const pct = (v: number) => `${(v * 100).toFixed(3)}%`;
+
+/** Hinausfliegen: um eine Folienbreite/-höhe in die Richtung des Effekts */
+function outOf(r: BuildRegion): string {
+  if (r.effect === 'out-right') return `translateX(${100 / r.w}%)`;
+  if (r.effect === 'out-left') return `translateX(-${100 / r.w}%)`;
+  if (r.effect === 'out-top') return `translateY(-${100 / r.h}%)`;
+  return `translateY(${100 / r.h}%)`;
+}
+
+/** Wie ein Ausschnitt beim Ausgang verschwindet */
+function leaveClass(r: BuildRegion): string {
+  if (r.effect === 'appear') return 'build-cut';
+  if (r.effect.startsWith('wipe')) return `build-wipe build-${r.effect}`;
+  if (r.effect.startsWith('out-')) return 'build-out';
+  if (r.effect === 'zoom-out') return 'build-zoom-out';
+  return 'build-fade';
+}
 
 /** Erscheint `o` erst nach dem Start von `r`? */
 const revealedAfter = (o: BuildRegion, r: BuildRegion) => o.step > r.step || (o.step === r.step && o.at > r.at);

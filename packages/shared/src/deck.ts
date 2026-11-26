@@ -14,6 +14,16 @@ export type RawBuildRegion = Omit<import('./slides.ts').BuildRegion, 'fill'> & {
    * bekommt ihre gezeichnete Farbe (siehe `buildCover.ts`)
    */
   cover?: boolean;
+  /**
+   * Ausgang eines anderen Elements (Text, Bild …): beim Rendern weglassen und als
+   * Ausschnitt aus dem Startbild zeigen. `shapeText` (alle Zeichen des Elements) und
+   * `picture` helfen, genau seine Zeichnungen zu erkennen.
+   */
+  shapeText?: string;
+  picture?: boolean;
+  /** „Absatzweise“: Absätze `[von, bis]` und die Texte aller Absätze des Felds (Lage aus der PDF-Textebene) */
+  paragraph?: [number, number];
+  paragraphTexts?: string[];
 };
 
 export interface PptxSlideInfo {

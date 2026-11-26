@@ -14,7 +14,9 @@ export function buildExitEffectOf(presetId: string | null, subtype: string | nul
     // „Hinausfliegen“: Untertyp ist die Richtung, in die die Form verschwindet
     return subtype === '1' ? 'out-top' : subtype === '2' ? 'out-right' : subtype === '8' ? 'out-left' : 'out-bottom';
   }
-  // Wischen, Verblassen, Verschwinden wirken auf die Abdeckung wie beim Eingang
+  // „Verkleinern“
+  if (presetId === '53' || presetId === '23') return 'zoom-out';
+  // Wischen, Verblassen, Verschwinden wirken wie beim Eingang
   const effect = buildEffectOf(presetId, subtype, filter);
   return effect.startsWith('fly') || effect === 'zoom' ? 'fade' : effect;
 }

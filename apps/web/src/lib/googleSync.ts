@@ -1,7 +1,7 @@
 import { planNotes, planSync, type BuildsConfig, type NotesPlan, type RawBuildRegion, type Slide } from '@slides/shared';
 import { api, ApiError } from './api.ts';
 import { extractPptxNotes, pageBuilds, pdfPageTitles, renderPdfPages } from './importDeck.ts';
-import { uploadPage } from './uploadPage.ts';
+import { uploadPage, uploadStartImage } from './uploadPage.ts';
 
 /**
  * Abgleich mit der verknüpften Google-Slides-Präsentation – im Browser, weil
@@ -149,7 +149,8 @@ export async function syncFromGoogle(
       if ((sources[slideId]?.key ?? null) !== sourceKey) keys.push({ slideId, sourceKey });
     } else {
       const asset = await uploadPage(presentationId, page);
-      const { builds } = pageBuilds(page, regions(page.index), plan.pages[page.index]?.slide);
+      const start = await uploadStartImage(presentationId, page);
+      const { builds } = pageBuilds(page, regions(page.index), plan.pages[page.index]?.slide, start);
       const item: Item = { asset, width: page.width, height: page.height, title: page.title, notes, builds, sourceKey, pageHash };
       if (slideId !== undefined) replace.push({ ...item, slideId });
       else {

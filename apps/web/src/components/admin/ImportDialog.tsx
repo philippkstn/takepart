@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { planNotes, type BuildsConfig, type NotesPlan, type PptxSlideInfo, type RawBuildRegion } from '@slides/shared';
 import { extractPptxNotes, pageBuilds, renderPdfPages } from '../../lib/importDeck.ts';
-import { uploadPage } from '../../lib/uploadPage.ts';
+import { uploadPage, uploadStartImage } from '../../lib/uploadPage.ts';
 
 interface Props {
   presentationId: number;
@@ -59,7 +59,8 @@ export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props
         const wanted = plan!.pages.filter((p) => p.include).length;
         setPhase({ step: 'pages', done: items.length, total: wanted });
         const asset = await uploadPage(presentationId, page);
-        const { builds, skipped } = pageBuilds(page, raw(page.index), plan!.pages[page.index]?.slide);
+        const start = await uploadStartImage(presentationId, page);
+        const { builds, skipped } = pageBuilds(page, raw(page.index), plan!.pages[page.index]?.slide, start);
         skippedRegions += skipped;
         if (builds) animated++;
         items.push({

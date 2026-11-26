@@ -317,6 +317,10 @@ export const BUILD_EFFECTS = [
   'out-right',
   'out-top',
   'out-bottom',
+  // Ausgang „Verkleinern“ (Element schrumpft und verschwindet)
+  'zoom-out',
+  // Hervorhebung „Drehen“: Element dreht sich einmal um sich selbst
+  'spin',
 ] as const;
 
 /**
@@ -353,6 +357,11 @@ export const buildRegion = z.object({
   effect: z.enum(BUILD_EFFECTS),
   /** Abdeckfarbe (beim Import am Rand des Elements gemessen) */
   fill: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+  /**
+   * Ausgang: Das Element fehlt im Folienbild (Endzustand) und ist bis zu seinem
+   * Schritt als Ausschnitt aus dem Startbild (`startImage`) zu sehen
+   */
+  exit: z.boolean().optional(),
 });
 export type BuildRegion = z.infer<typeof buildRegion>;
 export const buildsConfig = z.object({
@@ -362,6 +371,11 @@ export const buildsConfig = z.object({
   regions: z.array(buildRegion).max(300),
   /** Abdeckungen schon am gerenderten Folienbild angepasst (`fitBuildBox`) – beim Import oder per „Animationen nachbessern“ */
   fitted: z.boolean().optional(),
+  /** Folie mit allen Elementen (vor allen Ausgängen) – nur bei Ausgängen von Text, Bildern & Co. */
+  startImage: z
+    .string()
+    .regex(/^[A-Za-z0-9_-]{16,64}$/)
+    .optional(),
 });
 export type BuildsConfig = z.infer<typeof buildsConfig>;
 

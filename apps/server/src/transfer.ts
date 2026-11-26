@@ -15,7 +15,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAccess } from './access.ts';
-import { newPublicId } from './assets.ts';
+import { newPublicId, withAssetIds } from './assets.ts';
 import { accountOf, requireHost } from './auth.ts';
 import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts';
 import { SCHEDULE_COLUMNS, scheduleFromRow, scheduleValues, type ScheduleRow } from './schedule.ts';
@@ -258,7 +258,7 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
        FROM assets a
       WHERE a.presentation_id = ?
         AND EXISTS (SELECT 1 FROM slides s WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
-                     AND JSON_VALUE(s.config, '$.asset') = a.public_id)
+                     AND (JSON_VALUE(s.config, '$.asset') = a.public_id OR JSON_VALUE(s.config, '$.builds.startImage') = a.public_id))
       ORDER BY a.id`,
     [presentationId],
   );
@@ -479,7 +479,7 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
       let config: Record<string, unknown>;
       try {
         const raw = s.config as Record<string, unknown>;
-        config = parseConfig(s.type, s.type === 'image' ? { ...raw, asset: assets.get(String(raw?.asset)) } : raw);
+        config = parseConfig(s.type, s.type === 'image' ? withAssetIds(raw, (id) => assets.get(id)) : raw);
       } catch {
         throw new ImportError(`Folie ${position + 1} ist ungültig`);
       }

@@ -103,3 +103,49 @@
     transform: var(--out);
   }
 }
+/* Ausschnitt aus Start- bzw. Folienbild (Ausgänge, Drehen) – ohne eigene Bewegung */
+.build-shot {
+  position: absolute;
+  background-repeat: no-repeat;
+}
+/* Ausgang „Verkleinern“: Ausschnitt schrumpft und verblasst */
+.build-zoom-out {
+  animation: build-zoom-out var(--dur) ease-in var(--at) both;
+}
+@keyframes build-zoom-out {
+  from {
+    transform: none;
+    opacity: 1;
+  }
+  to {
+    transform: scale(0.3);
+    opacity: 0;
+  }
+}
+/* Drehen: Abdeckung und drehender Ausschnitt nur während der Animation sichtbar (vorher/nachher zeigt das Bild das Element) */
+.build-during,
+.build-spin {
+  opacity: 0;
+}
+.build-during {
+  animation: build-during var(--dur) linear var(--at);
+}
+@keyframes build-during {
+  from,
+  to {
+    opacity: 1;
+  }
+}
+.build-spin {
+  animation: build-spin var(--dur) ease-in-out var(--at);
+}
+@keyframes build-spin {
+  from {
+    opacity: 1;
+    transform: rotate(0deg);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-360deg);
+  }
+}

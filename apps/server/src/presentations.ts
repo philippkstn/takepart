@@ -11,7 +11,7 @@ import {
 } from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z, ZodError } from 'zod';
-import { copyAssets, deleteOrphanAssets } from './assets.ts';
+import { copyAssets, deleteOrphanAssets, imageAssetIds, withAssetIds } from './assets.ts';
 import { accessOf, ownsBrand, requireAccess, type Role } from './access.ts';
 import { accountOf, requireHost } from './auth.ts';
 import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
@@ -295,10 +295,10 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
         conn,
         id,
         result.insertId,
-        slides.flatMap((s) => (s.type === 'image' ? [s.config.asset] : [])),
+        slides.flatMap((s) => (s.type === 'image' ? imageAssetIds(s.config) : [])),
       );
       for (const [i, s] of slides.entries()) {
-        const config = s.type === 'image' ? { ...s.config, asset: assetMap.get(s.config.asset) ?? s.config.asset } : s.config;
+        const config = s.type === 'image' ? withAssetIds(s.config, (id) => assetMap.get(id) ?? id) : s.config;
         await insertSlide(conn, result.insertId, i, s.type, config, notes.get(s.id) ?? null, schedule.get(s.id));
       }
       return result.insertId;
@@ -555,7 +555,9 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
     const assets = new Set(
       (await query<{ public_id: string }>(db, 'SELECT public_id FROM assets WHERE presentation_id = ?', [id])).map((r) => r.public_id),
     );
-    if (body.items.some((it) => !assets.has(it.asset))) return reply.code(400).send({ error: 'Unbekanntes Folienbild' });
+    if (body.items.some((it) => !assets.has(it.asset) || (it.builds?.startImage && !assets.has(it.builds.startImage)))) {
+      return reply.code(400).send({ error: 'Unbekanntes Folienbild' });
+    }
     // Vorher eine Version, damit sich ein Import zurücknehmen lässt
     await snapshotVersion(db, id, 'import', touchOf(request));
 
@@ -613,7 +615,9 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
     const assets = new Set(
       (await query<{ public_id: string }>(db, 'SELECT public_id FROM assets WHERE presentation_id = ?', [id])).map((r) => r.public_id),
     );
-    if (body.items.some((it) => !assets.has(it.asset))) return reply.code(400).send({ error: 'Unbekanntes Folienbild' });
+    if (body.items.some((it) => !assets.has(it.asset) || (it.builds?.startImage && !assets.has(it.builds.startImage)))) {
+      return reply.code(400).send({ error: 'Unbekanntes Folienbild' });
+    }
     await snapshotVersion(db, id, 'images', touchOf(request));
     const result = await transaction(db, async (conn) => {
       const slides = new Map(

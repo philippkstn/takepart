@@ -16,6 +16,8 @@ import {
   textRuns,
   buildEffectOf,
   buildExitEffectOf,
+  paragraphBoxes,
+  pathInsideBox,
   pathMatchesBox,
   type BuildsConfig,
   type PptxSlideInfo,
@@ -38,6 +40,8 @@ export interface RenderedPage {
   thumb: Blob;
   /** Doppelte Auflösung – Druck und große Beamer */
   hires: Blob;
+  /** Startbild mit allen Elementen (vor den Ausgängen) – nur bei Ausgängen von Text, Bildern & Co. */
+  start: Blob | null;
   /** Text der Seite mit Position (unsichtbar über dem Bild im Fotoprotokoll) */
   text: TextRun[];
   /** Größter Text der Seite – meist die Überschrift, für Folienlisten */
@@ -109,77 +113,110 @@ export async function pdfPageTitles(file: File): Promise<string[]> {
   }
 }
 
+/** Bereich, den der Import auf einer Seite braucht (Rohform aus der PPTX, siehe `RawBuildRegion`) */
+type PageRegion = Box & {
+  cover?: boolean;
+  exit?: boolean;
+  shapeText?: string;
+  picture?: boolean;
+  paragraph?: [number, number];
+  paragraphTexts?: string[];
+};
+
 /**
  * Rendert die Seiten eines PDFs. `select` bekommt die Seitenzahl und entscheidet
  * je Seite, ob sie gebraucht wird – übersprungene Seiten werden nicht gerendert.
+ * `regionsFor` liefert die Aufbau-Bereiche einer Seite: Elemente mit Ausgang
+ * werden im Folienbild weggelassen (Endzustand); gibt es solche (außer einfarbigen
+ * Abdeckern), entsteht zusätzlich ein Startbild mit allen Elementen.
  */
 export async function* renderPdfPages(
   file: File,
   select: (total: number) => (index: number) => boolean = () => () => true,
-  regionsFor: (index: number) => (Box & { cover?: boolean })[] = () => [],
+  regionsFor: (index: number) => PageRegion[] = () => [],
 ): AsyncGenerator<RenderedPage> {
   const task = await openPdf(file);
   const doc = await task.promise;
   const wanted = select(doc.numPages);
+
+  const render = async (page: Awaited<ReturnType<typeof doc.getPage>>, size: number, prepare?: (ctx: CanvasRenderingContext2D) => void) => {
+    const base = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: size / Math.max(base.width, base.height) });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext('2d')!;
+    // Weißer Grund: transparente PDF-Seiten sähen sonst auf dunklem Beamer schwarz aus.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    prepare?.(ctx);
+    // intent 'print': zeichnet ohne requestAnimationFrame – der Import läuft so auch
+    // weiter, wenn der Tab im Hintergrund liegt. Für statische Folienbilder ohnehin passend.
+    await page.render({ canvas, canvasContext: ctx, viewport, intent: 'print' }).promise;
+    return canvas;
+  };
+  const scaled = (source: HTMLCanvasElement, width: number, height: number) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d')!;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, width, height);
+    return canvas;
+  };
 
   try {
     for (let i = 1; i <= doc.numPages; i++) {
       if (!wanted(i - 1)) continue;
       const page = await doc.getPage(i);
       const base = page.getViewport({ scale: 1 });
-      // Einmal in doppelter Auflösung rendern, das Beamer-Bild daraus verkleinern
-      const hiresViewport = page.getViewport({ scale: HIRES_SIZE / Math.max(base.width, base.height) });
-      const hiresCanvas = document.createElement('canvas');
-      hiresCanvas.width = Math.round(hiresViewport.width);
-      hiresCanvas.height = Math.round(hiresViewport.height);
-      const hctx = hiresCanvas.getContext('2d')!;
-      // Weißer Grund: transparente PDF-Seiten sähen sonst auf dunklem Beamer schwarz aus.
-      hctx.fillStyle = '#ffffff';
-      hctx.fillRect(0, 0, hiresCanvas.width, hiresCanvas.height);
-      const boxes = regionsFor(i - 1);
-      // Einfarbige Formen mit Ausgangs-Animation weglassen – das Bild zeigt den Endzustand
-      const coverFills = omitCovers(hctx, boxes);
-      // intent 'print': zeichnet ohne requestAnimationFrame – der Import läuft so auch
-      // weiter, wenn der Tab im Hintergrund liegt. Für statische Folienbilder ohnehin passend.
-      await page.render({ canvas: hiresCanvas, canvasContext: hctx, viewport: hiresViewport, intent: 'print' }).promise;
-
       const viewport = page.getViewport({ scale: FULL_SIZE / Math.max(base.width, base.height) });
-      const canvas = document.createElement('canvas');
-      canvas.width = Math.round(viewport.width);
-      canvas.height = Math.round(viewport.height);
-      const ctx = canvas.getContext('2d')!;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(hiresCanvas, 0, 0, canvas.width, canvas.height);
+      const text = await pageText(page, viewport);
+      // „Absatzweise“: Lage der Absätze aus der Textebene
+      const regions = paragraphRegions(regionsFor(i - 1), text);
+      const exits = regions.some((r) => r.exit);
 
-      const thumbCanvas = document.createElement('canvas');
-      thumbCanvas.width = THUMB_WIDTH;
-      thumbCanvas.height = Math.round((canvas.height / canvas.width) * THUMB_WIDTH);
-      const tctx = thumbCanvas.getContext('2d')!;
-      tctx.imageSmoothingQuality = 'high';
-      tctx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+      // Startbild (alle Elemente sichtbar) – nur, wenn Elemente per Ausgang verschwinden
+      const startCanvas = exits ? await render(page, FULL_SIZE) : null;
+      // Einmal in doppelter Auflösung rendern, das Beamer-Bild daraus verkleinern.
+      // Elemente mit Ausgang fehlen darin (Endzustand); einfarbige Abdecker liefern dabei ihre Farbe.
+      let coverFills: (string | null)[] = regions.map(() => null);
+      const hiresCanvas = await render(page, HIRES_SIZE, (ctx) => {
+        coverFills = omitShapes(ctx, regions, text);
+      });
+      const canvas = scaled(hiresCanvas, Math.round(viewport.width), Math.round(viewport.height));
+      const ctx = canvas.getContext('2d')!;
+      const thumbCanvas = scaled(canvas, THUMB_WIDTH, Math.round((canvas.height / canvas.width) * THUMB_WIDTH));
 
       let fills: (string | null)[] = [];
       let spreads: number[] = [];
       let fitted: Box[] = [];
-      if (boxes.length > 0) {
+      if (regions.length > 0) {
         // Auf dem unkomprimierten Bild messen – nach WebP/JPEG lägen Artefakte um jede Kante
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        // Weggelassene Formen: ihre gezeichnete Farbe (nicht weggelassen → keine Abdeckung). Die Box wächst wie
-        // bei allen Abdeckungen über Text, der knapp unter der Form hervorragt – sonst blitzte er vorher schon durch.
-        const samples = boxes.map((box, k) =>
-          box.cover ? { fill: coverFills[k] ?? null, spread: 0, box: fitBuildBox(data, box).box } : fitBuildBox(data, box),
-        );
+        const startData = startCanvas?.getContext('2d')!.getImageData(0, 0, startCanvas.width, startCanvas.height);
+        const samples = regions.map((box, k) => {
+          if (box.w <= 0 || box.h <= 0) return { fill: null, spread: 0, box };
+          // Weggelassene Abdecker: ihre gezeichnete Farbe; die Box wächst über Text, der knapp darunter hervorragt
+          if (box.cover) return { fill: coverFills[k] ?? null, spread: 0, box: fitBuildBox(data, box).box };
+          // Ausgang: Ausschnitt aus dem Startbild – Box dort anpassen, die Farbe wird nicht gebraucht
+          if (box.exit && startData) {
+            const fit = fitBuildBox(startData, box);
+            return { fill: fit.fill, spread: 0, box: fit.box };
+          }
+          return fitBuildBox(data, box);
+        });
         fills = samples.map((x) => (x.fill && x.spread <= MAX_FILL_SPREAD ? x.fill : null));
         spreads = samples.map((x) => x.spread);
         fitted = samples.map((x) => x.box);
       }
 
-      const [full, hires, thumb, title, text] = await Promise.all([
+      const [full, hires, thumb, start, title] = await Promise.all([
         canvasToBlob(canvas, 0.9),
         canvasToBlob(hiresCanvas, 0.9),
         canvasToBlob(thumbCanvas, 0.8),
+        startCanvas ? canvasToBlob(startCanvas, 0.9) : Promise.resolve(null),
         pageTitle(page),
-        pageText(page, viewport),
       ]);
       page.cleanup();
       yield {
@@ -190,6 +227,7 @@ export async function* renderPdfPages(
         full,
         thumb,
         hires,
+        start,
         text,
         title,
         fills,
@@ -202,6 +240,32 @@ export async function* renderPdfPages(
   }
 }
 
+/**
+ * „Absatzweise“ animierte Bereiche auf ihre Absätze zuschneiden (Lage aus der
+ * Textebene). Lässt sich der Text nicht zuordnen, deckt der erste Absatzschritt
+ * das ganze Feld auf, die übrigen entfallen (Breite 0).
+ */
+function paragraphRegions(regions: PageRegion[], text: TextRun[]): PageRegion[] {
+  const cache = new Map<string, (Box | null)[]>();
+  const firstOfShape = new Set<string>();
+  return regions.map((r) => {
+    if (!r.paragraph || !r.paragraphTexts) return r;
+    const key = `${r.x},${r.y},${r.w},${r.h}`;
+    if (!cache.has(key)) cache.set(key, paragraphBoxes(text, r, r.paragraphTexts));
+    const boxes = cache.get(key)!;
+    const [from, to] = r.paragraph;
+    const parts = boxes.slice(from, to + 1).filter((b): b is Box => !!b);
+    if (parts.length === 0) {
+      if (boxes.some(Boolean) || firstOfShape.has(key)) return { ...r, w: 0, h: 0 };
+      firstOfShape.add(key);
+      return r;
+    }
+    const top = Math.min(...parts.map((b) => b.y));
+    const bottom = Math.max(...parts.map((b) => b.y + b.h));
+    return { ...r, y: top, h: bottom - top };
+  });
+}
+
 /** Farbe einer Füllung als #rrggbb – nur deckende Volltonfarben */
 function solidHex(style: unknown): string | null {
   if (typeof style !== 'string') return null;
@@ -212,44 +276,140 @@ function solidHex(style: unknown): string | null {
 }
 
 /**
- * Zeichnungen einfarbiger Formen mit Ausgangs-Animation auslassen („Abdecker“):
- * Füllung und Kontur eines Pfads, der genau die Box der Form ist, werden nicht
- * gezeichnet. Liefert je Box die gezeichnete Füllfarbe (für die Abdeckung), sonst `null`.
+ * Textzeilen (Grundlinie, Anfang, Ende, Größe – Anteile der Seite) der Elemente mit
+ * Ausgang: Textstücke in ihrer Box, deren Buchstaben im Text des Elements vorkommen;
+ * Aufzählungszeichen (ohne Buchstaben) nur auf solchen Zeilen.
  */
-function omitCovers(ctx: CanvasRenderingContext2D, boxes: (Box & { cover?: boolean })[]): (string | null)[] {
-  const fills: (string | null)[] = boxes.map(() => null);
-  const covers = boxes.map((b, k) => ({ b, k })).filter(({ b }) => b.cover);
-  if (covers.length === 0) return fills;
+function exitTextSpans(text: TextRun[], boxes: PageRegion[]): { y: number; x0: number; x1: number; size: number }[] {
+  const letters = (t: string) => [...t.toLowerCase()].filter((c) => /[\p{L}\p{N}]/u.test(c));
+  const spans: { y: number; x0: number; x1: number; size: number }[] = [];
+  for (const b of boxes) {
+    const own = new Set(letters(b.shapeText ?? ''));
+    if (own.size === 0) continue;
+    const inside = text.filter(([, x, y, , size]) => x >= b.x - 0.01 && x <= b.x + b.w && y >= b.y && y <= b.y + b.h + size);
+    const lines = inside.filter(([t]) => {
+      const l = letters(t);
+      return l.length > 0 && l.every((c) => own.has(c));
+    });
+    for (const [t, x, y, w, size] of inside) {
+      const isLine = lines.some((r) => r[0] === t && r[1] === x && r[2] === y);
+      const bullet = letters(t).length === 0 && lines.some((r) => Math.abs(r[2] - y) < size * 0.5);
+      if (isLine || bullet) spans.push({ y, x0: x, x1: x + w, size });
+    }
+  }
+  return spans;
+}
+
+/**
+ * Zeichnungen von Elementen mit Ausgangs-Animation auslassen – das Folienbild
+ * zeigt den Endzustand:
+ *  - einfarbige Abdecker (`cover`): Füllung und Kontur des Pfads, der genau ihre Box ist;
+ *    liefert je Box die gezeichnete Füllfarbe (für die Abdeckung)
+ *  - andere Elemente (`exit`): ihr Hintergrund (Pfad = Box), Text in der Box, dessen
+ *    Zeichen zum Element gehören, kleine Pfade ganz in der Box (Aufzählungszeichen)
+ *    und bei Bildern das Bild selbst
+ */
+function omitShapes(ctx: CanvasRenderingContext2D, regions: PageRegion[], text: TextRun[]): (string | null)[] {
+  const fills: (string | null)[] = regions.map(() => null);
+  const covers = regions.map((b, k) => ({ b, k })).filter(({ b }) => b.cover && b.w > 0);
+  const exits = regions.map((b, k) => ({ b, k })).filter(({ b }) => b.exit && b.w > 0);
+  if (covers.length === 0 && exits.length === 0) return fills;
   const { width, height } = ctx.canvas;
-  const hit = (inside: (x: number, y: number) => boolean) => covers.find(({ b }) => pathMatchesBox(inside, b, width, height));
+  const W = width;
+  const H = height;
+  // Textzeilen der Elemente aus der Textebene: pdf.js zeichnet eingebettete Schriften mit
+  // Ersatzzeichen, die Buchstaben selbst taugen also nicht zum Vergleich – die Lage schon.
+  const lineSpans = exitTextSpans(
+    text,
+    exits.map(({ b }) => b),
+  );
+
   const insideOf = (args: unknown[]) => {
     const path = args[0] instanceof Path2D ? args[0] : null;
     const rule = (path ? args[1] : args[0]) === 'evenodd' ? 'evenodd' : 'nonzero';
     return (x: number, y: number) => (path ? ctx.isPointInPath(path, x, y, rule) : ctx.isPointInPath(x, y, rule));
   };
+  const coverHit = (inside: (x: number, y: number) => boolean) => covers.find(({ b }) => pathMatchesBox(inside, b, W, H));
+  const exitPath = (inside: (x: number, y: number) => boolean) =>
+    exits.some(({ b }) => pathMatchesBox(inside, b, W, H) || (!b.picture && b.shapeText && pathInsideBox(inside, b, W, H)));
+  const point = (x: number, y: number) => {
+    const m = ctx.getTransform();
+    return [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f] as const;
+  };
+
   const fill = ctx.fill.bind(ctx) as (...a: unknown[]) => void;
   const stroke = ctx.stroke.bind(ctx) as (...a: unknown[]) => void;
   const fillRect = ctx.fillRect.bind(ctx);
+  const fillText = ctx.fillText.bind(ctx);
+  const strokeText = ctx.strokeText.bind(ctx);
+  const drawImage = ctx.drawImage.bind(ctx) as (...a: unknown[]) => void;
+
   ctx.fill = ((...args: unknown[]) => {
-    const found = hit(insideOf(args));
-    if (!found) return fill(...args);
-    fills[found.k] ??= solidHex(ctx.fillStyle);
+    const inside = insideOf(args);
+    const found = coverHit(inside);
+    if (found) {
+      fills[found.k] ??= solidHex(ctx.fillStyle);
+      return;
+    }
+    if (exits.length > 0 && exitPath(inside)) return;
+    fill(...args);
   }) as CanvasRenderingContext2D['fill'];
   ctx.stroke = ((...args: unknown[]) => {
     const path = args[0] instanceof Path2D ? args[0] : null;
     // Kontur: Punkte auf der Kante liegen im Pfad (Füllregel) – dieselbe Prüfung wie bei der Füllung
     const inside = (x: number, y: number) => (path ? ctx.isPointInPath(path, x, y) : ctx.isPointInPath(x, y));
-    if (!hit(inside)) stroke(...args);
+    if (coverHit(inside) || (exits.length > 0 && exitPath(inside))) return;
+    stroke(...args);
   }) as CanvasRenderingContext2D['stroke'];
   ctx.fillRect = (x: number, y: number, w: number, h: number) => {
-    const m = ctx.getTransform();
-    const [ax, ay] = [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
-    const [bx, by] = [m.a * (x + w) + m.c * (y + h) + m.e, m.b * (x + w) + m.d * (y + h) + m.f];
+    const [ax, ay] = point(x, y);
+    const [bx, by] = point(x + w, y + h);
     const [l, r, t, btm] = [Math.min(ax, bx), Math.max(ax, bx), Math.min(ay, by), Math.max(ay, by)];
-    const found = hit((px, py) => px >= l && px <= r && py >= t && py <= btm);
-    if (!found) return fillRect(x, y, w, h);
-    fills[found.k] ??= solidHex(ctx.fillStyle);
+    const inside = (px: number, py: number) => px >= l && px <= r && py >= t && py <= btm;
+    const found = coverHit(inside);
+    if (found) {
+      fills[found.k] ??= solidHex(ctx.fillStyle);
+      return;
+    }
+    if (exits.length > 0 && exitPath(inside)) return;
+    fillRect(x, y, w, h);
   };
+  // Text: Ursprung des Glyphs liegt auf einer Textzeile eines Elements mit Ausgang
+  const textOfExit = (_text: string, x: number, y: number) => {
+    const [px, py] = point(x, y);
+    return lineSpans.some(
+      (l) => Math.abs(py - l.y * H) <= l.size * H * 0.35 && px >= l.x0 * W - l.size * H && px <= l.x1 * W + l.size * H * 0.5,
+    );
+  };
+  ctx.fillText = (text: string, x: number, y: number, maxWidth?: number) => {
+    if (exits.length > 0 && textOfExit(text, x, y)) return;
+    if (maxWidth === undefined) fillText(text, x, y);
+    else fillText(text, x, y, maxWidth);
+  };
+  ctx.strokeText = (text: string, x: number, y: number, maxWidth?: number) => {
+    if (exits.length > 0 && textOfExit(text, x, y)) return;
+    if (maxWidth === undefined) strokeText(text, x, y);
+    else strokeText(text, x, y, maxWidth);
+  };
+  // Bilder: Bild-Elemente mit Ausgang (gezeichnete Fläche ≈ ihre Box)
+  ctx.drawImage = ((...args: unknown[]) => {
+    const pics = exits.filter(({ b }) => b.picture);
+    if (pics.length > 0) {
+      const n = args.length;
+      const [dx, dy, dw, dh] =
+        n >= 9
+          ? (args.slice(5, 9) as number[])
+          : n >= 5
+            ? (args.slice(1, 5) as number[])
+            : [args[1] as number, args[2] as number, (args[0] as { width: number }).width, (args[0] as { height: number }).height];
+      const [ax, ay] = point(dx, dy);
+      const [bx, by] = point(dx + dw, dy + dh);
+      const [l, r, t, btm] = [Math.min(ax, bx), Math.max(ax, bx), Math.min(ay, by), Math.max(ay, by)];
+      const inside = (px: number, py: number) => px >= l && px <= r && py >= t && py <= btm;
+      if (pics.some(({ b }) => pathMatchesBox(inside, b, W, H))) return;
+    }
+    drawImage(...args);
+  }) as CanvasRenderingContext2D['drawImage'];
   return fills;
 }
 
@@ -391,8 +551,29 @@ function isCoverShape(el: Element): boolean {
   return Array.from(el.getElementsByTagNameNS('*', 't')).every((t) => !t.textContent?.trim());
 }
 
-function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string, Box & { line: number; cover: boolean }> {
-  const boxes = new Map<string, Box & { line: number; cover: boolean }>();
+interface ShapeBox extends Box {
+  line: number;
+  /** Einfarbiges Rechteck ohne Text (siehe `isCoverShape`) */
+  cover: boolean;
+  /** Bild (`p:pic`) */
+  picture: boolean;
+  /** Text je Absatz (`a:p`), leer bei Formen ohne Text */
+  paragraphs: string[];
+}
+
+/** Text je Absatz eines Elements */
+function paragraphTexts(el: Element): string[] {
+  const body = kid(el, 'txBody');
+  if (!body) return [];
+  return kids(body, 'p').map((p) =>
+    Array.from(p.getElementsByTagNameNS('*', 't'))
+      .map((t) => t.textContent ?? '')
+      .join(''),
+  );
+}
+
+function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string, ShapeBox> {
+  const boxes = new Map<string, ShapeBox>();
   type Transform = (x: number, y: number) => [number, number];
   const walk = (container: Element | null, tf: Transform, sx: number, sy: number) => {
     for (const el of kids(container)) {
@@ -418,7 +599,18 @@ function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string,
       // Gedrehte Elemente (rot in 1/60000 Grad): umschließendes Rechteck abdecken
       const rot = Number(xfrm?.getAttribute('rot') ?? 0) / 60000;
       const b = rotatedBounds(ax, ay, cx * sx, cy * sy, Number.isFinite(rot) ? rot : 0);
-      if (id) boxes.set(id, { x: b.x / slideW, y: b.y / slideH, w: b.w / slideW, h: b.h / slideH, line, cover: isCoverShape(el) });
+      if (id) {
+        boxes.set(id, {
+          x: b.x / slideW,
+          y: b.y / slideH,
+          w: b.w / slideW,
+          h: b.h / slideH,
+          line,
+          cover: isCoverShape(el),
+          picture: el.localName === 'pic',
+          paragraphs: el.localName === 'sp' ? paragraphTexts(el) : [],
+        });
+      }
       if (el.localName === 'grpSp') {
         // Kinder einer Gruppe liegen in eigenen Koordinaten (chOff/chExt)
         const chOff = kid(xfrm, 'chOff');
@@ -487,14 +679,15 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
     if (effects.length === 0) continue;
 
     const spidOf = (cTn: Element) => cTn.getElementsByTagNameNS('*', 'spTgt')[0]?.getAttribute('spid') ?? '';
-    // Eingänge – und Ausgänge einfarbiger Rechtecke (die beim Rendern weggelassen werden)
+    const classOf = (cTn: Element) => cTn.getAttribute('presetClass');
+    // Eingänge, Ausgänge (Element wird beim Rendern weggelassen) und die Hervorhebung „Drehen“
     const entrances = effects.filter(
       (e) =>
-        e.cTn.getAttribute('presetClass') === 'entr' || (e.cTn.getAttribute('presetClass') === 'exit' && boxes.get(spidOf(e.cTn))?.cover),
+        classOf(e.cTn) === 'entr' || classOf(e.cTn) === 'exit' || (classOf(e.cTn) === 'emph' && e.cTn.getAttribute('presetID') === '8'),
     );
     const onClick = effects[0]!.cTn.getAttribute('nodeType') === 'clickEffect';
     if (onClick) {
-      if (entrances.length === 0) continue; // nur Betonung oder Ausgang anderer Elemente – lässt sich aus dem PDF nicht nachbauen
+      if (entrances.length === 0) continue; // nur andere Hervorhebungen – lassen sich aus dem PDF nicht nachbauen
       step++;
       stepEnd = 0;
     }
@@ -504,8 +697,13 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
     for (const e of entrances) {
       const spid = spidOf(e.cTn);
       const box = spid ? boxes.get(spid) : undefined;
-      const exit = e.cTn.getAttribute('presetClass') === 'exit';
+      const exit = classOf(e.cTn) === 'exit';
+      const spin = classOf(e.cTn) === 'emph';
       if (!box || box.w <= 0 || box.h <= 0 || step > 50) continue;
+      // „Absatzweise“: Ziel ist ein Absatzbereich des Textfelds
+      const range = e.cTn.getElementsByTagNameNS('*', 'pRg')[0];
+      const paragraph: [number, number] | null =
+        range && box.paragraphs.length > 0 ? [Number(range.getAttribute('st') ?? 0), Number(range.getAttribute('end') ?? 0)] : null;
       const durs = Array.from(e.cTn.getElementsByTagNameNS('*', 'cTn'))
         .map((c) => Number(c.getAttribute('dur')))
         .filter((d) => Number.isFinite(d));
@@ -524,12 +722,17 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
         step,
         at,
         dur: Math.round(dur),
-        effect: (exit ? buildExitEffectOf : buildEffectOf)(
-          e.cTn.getAttribute('presetID'),
-          e.cTn.getAttribute('presetSubtype'),
-          e.cTn.getElementsByTagNameNS('*', 'animEffect')[0]?.getAttribute('filter') ?? null,
-        ),
-        ...(exit ? { cover: true } : {}),
+        effect: spin
+          ? 'spin'
+          : (exit ? buildExitEffectOf : buildEffectOf)(
+              e.cTn.getAttribute('presetID'),
+              e.cTn.getAttribute('presetSubtype'),
+              e.cTn.getElementsByTagNameNS('*', 'animEffect')[0]?.getAttribute('filter') ?? null,
+            ),
+        // Einfarbige Rechtecke: Abdeckung in ihrer Farbe; andere Elemente: Ausschnitt aus dem Startbild
+        ...(exit && box.cover ? { cover: true } : {}),
+        ...(exit && !box.cover ? { exit: true, shapeText: box.paragraphs.join(''), picture: box.picture } : {}),
+        ...(paragraph ? { paragraph, paragraphTexts: box.paragraphs } : {}),
       });
       stepEnd = Math.max(stepEnd, at + dur);
     }
@@ -547,16 +750,36 @@ export function pageBuilds(
   page: Pick<RenderedPage, 'width' | 'height' | 'fills' | 'boxes'>,
   regions: RawBuildRegion[],
   slideInfo: PptxSlideInfo | null | undefined,
+  /** Hochgeladenes Startbild (für Ausgänge von Text, Bildern & Co.); ohne entfallen diese */
+  startImage: string | null = null,
 ): { builds: BuildsConfig | undefined; skipped: number } {
   const fits = slideInfo?.aspect ? Math.abs(page.width / page.height - slideInfo.aspect) < 0.01 : false;
   const covered = regions.flatMap((r, k) => {
     const fill = page.fills[k];
     const box = page.boxes[k];
-    return fill ? [{ ...r, ...box, fill }] : [];
+    if (!fill || !box || box.w <= 0 || box.h <= 0 || (r.exit && !startImage)) return [];
+    // Nur die gespeicherten Felder – Hilfsangaben aus der PPTX (Text, Absätze …) bleiben hier
+    return [
+      {
+        x: box.x,
+        y: box.y,
+        w: box.w,
+        h: box.h,
+        step: r.step,
+        at: r.at,
+        dur: r.dur,
+        effect: r.effect,
+        fill,
+        ...(r.exit ? { exit: true } : {}),
+      },
+    ];
   });
   const clicks = [...new Set(covered.map((r) => r.step).filter((x) => x > 0))].sort((a, b) => a - b);
   const renumbered = covered.map((r) => ({ ...r, step: r.step === 0 ? 0 : clicks.indexOf(r.step) + 1 }));
+  const withStart = startImage && renumbered.some((r) => r.exit);
   const builds: BuildsConfig | undefined =
-    renumbered.length > 0 && fits ? { enabled: true, steps: clicks.length, regions: renumbered, fitted: true } : undefined;
+    renumbered.length > 0 && fits
+      ? { enabled: true, steps: clicks.length, regions: renumbered, fitted: true, ...(withStart ? { startImage } : {}) }
+      : undefined;
   return { builds, skipped: regions.length - covered.length };
 }

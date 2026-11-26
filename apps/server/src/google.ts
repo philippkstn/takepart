@@ -335,8 +335,11 @@ export function googleRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits:
     const assets = new Set(
       (await query<{ public_id: string }>(db, 'SELECT public_id FROM assets WHERE presentation_id = ?', [id])).map((r) => r.public_id),
     );
-    if ([...body.replace, ...body.insert].some((it) => !assets.has(it.asset)))
+    if (
+      [...body.replace, ...body.insert].some((it) => !assets.has(it.asset) || (it.builds?.startImage && !assets.has(it.builds.startImage)))
+    ) {
       return reply.code(400).send({ error: 'Unbekanntes Folienbild' });
+    }
 
     const current = await one<{ synced_hash: string | null }>(
       db,

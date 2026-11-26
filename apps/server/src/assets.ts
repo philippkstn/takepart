@@ -30,6 +30,24 @@ export function sniffImage(data: Buffer): (typeof IMAGE_TYPES)[number] | null {
 
 export const newPublicId = () => randomBytes(24).toString('base64url');
 
+/** Bildkennungen einer Bildfolie: Folienbild und ggf. Startbild der Animationen */
+export function imageAssetIds(config: Record<string, unknown>): string[] {
+  const builds = config.builds as { startImage?: unknown } | undefined;
+  return [config.asset, builds?.startImage].filter((v): v is string => typeof v === 'string');
+}
+
+/** Bildkennungen einer Bildfolie umschreiben (Duplizieren, Import); unbekannte bleiben bzw. entfallen beim Startbild */
+export function withAssetIds(config: unknown, map: (id: string) => string | undefined): Record<string, unknown> {
+  const c = (config ?? {}) as Record<string, unknown>;
+  const builds = c.builds as Record<string, unknown> | undefined;
+  const start = typeof builds?.startImage === 'string' ? map(builds.startImage) : undefined;
+  return {
+    ...c,
+    asset: typeof c.asset === 'string' ? map(c.asset) : c.asset,
+    ...(builds ? { builds: { ...builds, startImage: start } } : {}),
+  };
+}
+
 /** Bilder einer Präsentation entfernen, auf die keine Folie mehr verweist. */
 export async function deleteOrphanAssets(conn: Conn, presentationId: number) {
   await exec(
@@ -40,7 +58,7 @@ export async function deleteOrphanAssets(conn: Conn, presentationId: number) {
         AND NOT EXISTS (
           SELECT 1 FROM slides s
            WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
-             AND JSON_VALUE(s.config, '$.asset') = a.public_id)
+             AND (JSON_VALUE(s.config, '$.asset') = a.public_id OR JSON_VALUE(s.config, '$.builds.startImage') = a.public_id))
         -- Bilder, die eine gespeicherte Version braucht, bleiben für die Wiederherstellung
         AND NOT EXISTS (SELECT 1 FROM version_assets va WHERE va.public_id = a.public_id)`,
     [presentationId],
@@ -59,7 +77,7 @@ export async function deleteAllOrphanAssets(conn: Conn): Promise<number> {
         AND NOT EXISTS (
           SELECT 1 FROM slides s
            WHERE s.presentation_id = a.presentation_id AND s.type = 'image'
-             AND JSON_VALUE(s.config, '$.asset') = a.public_id)
+             AND (JSON_VALUE(s.config, '$.asset') = a.public_id OR JSON_VALUE(s.config, '$.builds.startImage') = a.public_id))
         -- Bilder, die eine gespeicherte Version braucht, bleiben für die Wiederherstellung
         AND NOT EXISTS (SELECT 1 FROM version_assets va WHERE va.public_id = a.public_id)`,
   );

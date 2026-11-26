@@ -3,7 +3,7 @@ import { FileText, Presentation as PptIcon, RefreshCw, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { extractPptxNotes, pageBuilds, pdfPageTitles, renderPdfPages } from '../../lib/importDeck.ts';
-import { uploadPage } from '../../lib/uploadPage.ts';
+import { uploadPage, uploadStartImage } from '../../lib/uploadPage.ts';
 
 interface Props {
   presentationId: number;
@@ -55,7 +55,8 @@ export function ReplaceImagesDialog({ presentationId, imageSlides, onClose, onDo
       const items: { slideId: number; asset: string; width: number; height: number; title: string; builds?: BuildsConfig | null }[] = [];
       for await (const page of renderPdfPages(pdf, () => (i) => slideOf.has(i), regions)) {
         const asset = await uploadPage(presentationId, page);
-        const builds = info ? (pageBuilds(page, regions(page.index), plan.pages[page.index]?.slide).builds ?? null) : undefined;
+        const start = info ? await uploadStartImage(presentationId, page) : null;
+        const builds = info ? (pageBuilds(page, regions(page.index), plan.pages[page.index]?.slide, start).builds ?? null) : undefined;
         items.push({ slideId: slideOf.get(page.index)!, asset, width: page.width, height: page.height, title: page.title, builds });
         setPhase({ step: 'pages', done: items.length, total: imageSlides.length });
       }

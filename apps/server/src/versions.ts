@@ -12,7 +12,7 @@ import {
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { accessOf, requireAccess } from './access.ts';
-import { deleteOrphanAssets } from './assets.ts';
+import { deleteOrphanAssets, imageAssetIds } from './assets.ts';
 import { exec, isDuplicateKey, json, one, query, transaction, type Conn, type Db } from './db.ts';
 import { touchOf, touchPresentation, type EditHub, type Touch } from './editing.ts';
 import type { LiveHub } from './live.ts';
@@ -80,9 +80,7 @@ const assetOf = (config: Record<string, unknown> | undefined) => (typeof config?
 
 const hashOf = (data: VersionData) => createHash('sha256').update(stableJson(data)).digest('hex');
 
-const assetsOf = (data: VersionData) => [
-  ...new Set(data.slides.flatMap((s) => (s.type === 'image' && typeof s.config.asset === 'string' ? [s.config.asset] : []))),
-];
+const assetsOf = (data: VersionData) => [...new Set(data.slides.flatMap((s) => (s.type === 'image' ? imageAssetIds(s.config) : [])))];
 
 /**
  * Aktuellen Stand als Version sichern. Ist er gleich der letzten Version,

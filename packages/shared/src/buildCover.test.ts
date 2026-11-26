@@ -57,5 +57,6 @@ describe('buildExitEffectOf', () => {
     expect(buildExitEffectOf('10', null, 'fade')).toBe('fade');
     expect(buildExitEffectOf('1', null, null)).toBe('appear');
     expect(buildExitEffectOf('99', null, null)).toBe('fade');
+    expect(buildExitEffectOf('23', '32', null)).toBe('zoom-out');
   });
 });

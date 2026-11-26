@@ -27,3 +27,15 @@ export async function uploadPage(presentationId: number, page: RenderedPage): Pr
   ]);
   return asset;
 }
+
+/** Startbild der Seite (alle Elemente vor ihren Ausgängen) hochladen – nur wenn es eins gibt */
+export async function uploadStartImage(presentationId: number, page: RenderedPage): Promise<string | null> {
+  if (!page.start) return null;
+  const { asset } = (await send(
+    `/api/presentations/${presentationId}/assets?width=${page.width}&height=${page.height}`,
+    page.start,
+    'POST',
+    page.start.type,
+  )) as { asset: string };
+  return asset;
+}
