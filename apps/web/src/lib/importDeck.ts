@@ -164,8 +164,11 @@ export async function* renderPdfPages(
       if (boxes.length > 0) {
         // Auf dem unkomprimierten Bild messen – nach WebP/JPEG lägen Artefakte um jede Kante
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        // Weggelassene Formen: genau ihre Box und ihre gezeichnete Farbe (nicht weggelassen → keine Abdeckung)
-        const samples = boxes.map((box, k) => (box.cover ? { fill: coverFills[k] ?? null, spread: 0, box } : fitBuildBox(data, box)));
+        // Weggelassene Formen: ihre gezeichnete Farbe (nicht weggelassen → keine Abdeckung). Die Box wächst wie
+        // bei allen Abdeckungen über Text, der knapp unter der Form hervorragt – sonst blitzte er vorher schon durch.
+        const samples = boxes.map((box, k) =>
+          box.cover ? { fill: coverFills[k] ?? null, spread: 0, box: fitBuildBox(data, box).box } : fitBuildBox(data, box),
+        );
         fills = samples.map((x) => (x.fill && x.spread <= MAX_FILL_SPREAD ? x.fill : null));
         spreads = samples.map((x) => x.spread);
         fitted = samples.map((x) => x.box);
