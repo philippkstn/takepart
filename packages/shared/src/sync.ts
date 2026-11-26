@@ -43,7 +43,7 @@ export interface SyncPlan {
 const norm = (title: string) => title.trim().toLowerCase().replace(/\s+/g, ' ');
 
 /** Längste gemeinsame Folge; liefert Paare [a-Index, b-Index] */
-function lcs<A, B>(a: A[], b: B[], eq: (x: A, y: B) => boolean): [number, number][] {
+export function lcs<A, B>(a: A[], b: B[], eq: (x: A, y: B) => boolean): [number, number][] {
   const n = a.length;
   const m = b.length;
   const dp = Array.from({ length: n + 1 }, () => Array.from<number>({ length: m + 1 }).fill(0));

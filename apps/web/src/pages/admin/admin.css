@@ -726,7 +726,6 @@ fieldset.schedule-fields {
   white-space: nowrap;
 }
 .share-list,
-.version-list,
 .version-slides {
   list-style: none;
   margin: 0;
@@ -743,29 +742,151 @@ fieldset.schedule-fields {
   background: var(--surface-2);
   border: 1px solid var(--border);
 }
-.version-list > li {
+/* Versionsverlauf als Zeitleiste: Punkte auf einer feinen Linie, Änderungen als kleine Marken */
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 18px;
+  bottom: 18px;
+  width: 1px;
+  background: var(--border-strong);
+}
+.timeline-item {
+  position: relative;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
+}
+.timeline-item.is-open {
   background: var(--surface-2);
 }
-.version-item {
+.timeline-head {
   display: flex;
   width: 100%;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding: 10px 12px;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
   text-align: left;
   cursor: pointer;
+  border-radius: var(--radius);
 }
-.version-detail {
-  padding: 0 14px 12px;
+.timeline-head:hover {
+  background: var(--surface-2);
+}
+.timeline-head .grow {
+  min-width: 200px;
+}
+.timeline-dot {
+  position: relative;
+  z-index: 1;
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  background: var(--surface);
+}
+.timeline-item.is-named .timeline-dot {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+.timeline-item.is-current .timeline-dot {
+  border-color: var(--accent);
+  border-style: dashed;
+}
+.timeline-body {
+  padding: 0 12px 14px 39px;
+}
+.change-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.change-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  background: var(--surface-3, var(--surface-2));
+  color: var(--ink-2);
+  border: 1px solid var(--border);
+}
+.change-badge.is-added {
+  background: var(--good-soft);
+  color: var(--good);
+  border-color: transparent;
+}
+.change-badge.is-changed {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: transparent;
+}
+.change-badge.is-removed {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border-color: transparent;
+}
+.change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.change-list li {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.change-list li.is-removed .change-text strong {
+  text-decoration: line-through;
+  text-decoration-color: var(--ink-3);
+}
+.change-text {
+  display: grid;
+  min-width: 0;
+}
+.change-text strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Folien der Version: geänderte hervorgehoben (Rahmen in der Farbe der Marke) */
+.version-slides li {
+  padding: 4px 6px;
+  border-radius: var(--radius-s);
+  border: 1px solid transparent;
+}
+.version-slides li.is-added {
+  border-color: var(--good);
+  background: var(--good-soft);
+}
+.version-slides li.is-changed {
+  border-color: var(--warn);
+  background: var(--warn-soft);
+}
+.version-slides li.is-moved {
+  border-color: var(--border-strong);
 }
 .version-slides {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
   max-height: 260px;
   overflow: auto;
 }

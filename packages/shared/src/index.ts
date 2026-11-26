@@ -23,3 +23,4 @@ export * from './textLayer.ts';
 export * from './ink.ts';
 export * from './editing.ts';
 export * from './sync.ts';
+export * from './versionDiff.ts';

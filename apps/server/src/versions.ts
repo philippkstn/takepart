@@ -1,5 +1,14 @@
 import { createHash } from 'node:crypto';
-import { parseConfig, stableJson, type SlideSchedule, type SlideType } from '@slides/shared';
+import {
+  diffVersions,
+  parseConfig,
+  sameValue,
+  stableJson,
+  versionSlideTitle,
+  type SlideType,
+  type VersionDiff,
+  type VersionSnapshot,
+} from '@slides/shared';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { accessOf, requireAccess } from './access.ts';
@@ -33,20 +42,8 @@ const KEEP_UNNAMED = 50;
 export const VERSION_REASONS = ['auto', 'named', 'import', 'images', 'google', 'run', 'restore'] as const;
 export type VersionReason = (typeof VERSION_REASONS)[number];
 
-interface VersionSlide {
-  id: number;
-  type: SlideType;
-  config: Record<string, unknown>;
-  notes: string;
-  schedule: SlideSchedule;
-  sourceKey: string | null;
-}
-
-interface VersionData {
-  v: 1;
-  presentation: { title: string; brandId: number | null; shareSlides: boolean; targetMinutes: number | null };
-  slides: VersionSlide[];
-}
+type VersionSlide = import('@slides/shared').VersionSlide;
+type VersionData = VersionSnapshot;
 
 async function currentData(conn: Conn, presentationId: number): Promise<VersionData | null> {
   const pres = await one<{ title: string; brand_id: number | null; share_slides: number; target_minutes: number | null }>(
@@ -78,6 +75,8 @@ async function currentData(conn: Conn, presentationId: number): Promise<VersionD
     })),
   };
 }
+
+const assetOf = (config: Record<string, unknown> | undefined) => (typeof config?.asset === 'string' ? config.asset : null);
 
 const hashOf = (data: VersionData) => createHash('sha256').update(stableJson(data)).digest('hex');
 
@@ -184,12 +183,25 @@ export async function autoVersions(db: Db): Promise<number> {
   return due.length;
 }
 
-function headline(config: Record<string, unknown>): string {
-  for (const key of ['title', 'question', 'prompt', 'text']) {
-    const v = config[key];
-    if (typeof v === 'string' && v.trim()) return v.trim().slice(0, 120);
-  }
-  return '';
+const headline = versionSlideTitle;
+
+/** Kurzfassung für die Zeitleiste */
+function summarize(diff: VersionDiff) {
+  const count = (kind: string) => diff.slides.filter((c) => c.kind === kind).length;
+  return {
+    initial: diff.initial,
+    added: count('added'),
+    removed: count('removed'),
+    changed: count('changed'),
+    moved: count('moved'),
+    meta: diff.meta,
+  };
+}
+
+/** Unterscheidet sich die Folie der Version vom jetzigen Stand (Reihenfolge zählt nicht)? */
+function differsFromCurrent(slide: VersionSlide, current: Map<number, VersionSlide>): boolean {
+  const now = current.get(slide.id);
+  return !now || !sameValue({ ...slide, sourceKey: null }, { ...now, sourceKey: null });
 }
 
 /** Anzahl gespeicherter Ergebnisse je Folie (Antworten, Beiträge, Wand-Platzierungen, Protokollnotizen) */
@@ -260,24 +272,23 @@ export function versionRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits
       editors: string | null;
       slide_count: number;
       created_by: string | null;
+      data: string;
     }>(
       db,
-      `SELECT v.id, v.created_at, v.reason, v.label, v.editors, v.slide_count, u.username AS created_by
+      `SELECT v.id, v.created_at, v.reason, v.label, v.editors, v.slide_count, u.username AS created_by, v.data
          FROM presentation_versions v LEFT JOIN users u ON u.id = v.created_by
         WHERE v.presentation_id = ? ORDER BY v.created_at DESC, v.id DESC`,
       [id],
     );
-    const pending = await one<{ pending: number }>(
-      db,
-      `SELECT (p.edited_at IS NOT NULL AND p.edited_at > COALESCE(
-                 (SELECT MAX(v.created_at) FROM presentation_versions v WHERE v.presentation_id = p.id), '1970-01-01')) AS pending
-         FROM presentations p WHERE p.id = ?`,
-      [id],
-    );
+    // Jede Version gegen ihre Vorgängerin (die nächstältere) – für die Zeitleiste
+    const snapshots = rows.map((r) => json<VersionData>(r.data));
+    const now = await currentData(db, id);
+    const sinceLast = now && snapshots[0] ? diffVersions(snapshots[0], now) : null;
     return {
-      // Gibt es Änderungen seit der letzten Version?
-      unsaved: !!Number(pending?.pending ?? 0),
-      versions: rows.map((r) => ({
+      // Änderungen seit der letzten Version (oben in der Zeitleiste als „Aktueller Stand“)
+      unsaved: !!sinceLast && (sinceLast.slides.length > 0 || sinceLast.meta.length > 0),
+      current: sinceLast ? summarize(sinceLast) : null,
+      versions: rows.map((r, i) => ({
         id: r.id,
         createdAt: r.created_at,
         reason: r.reason,
@@ -285,25 +296,157 @@ export function versionRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits
         editors: r.editors ? json<string[]>(r.editors) : [],
         createdBy: r.created_by,
         slideCount: Number(r.slide_count),
+        changes: summarize(diffVersions(snapshots[i + 1] ?? null, snapshots[i]!)),
       })),
     };
   });
 
-  /** Inhalt einer Version samt Vorschau, was das Wiederherstellen ändert */
+  /**
+   * Eine Version im Detail: was sie gegenüber ihrer Vorgängerin geändert hat
+   * (`changes`, je Folie mit der Version, aus der sich die Folie wiederherstellen
+   * lässt), alle Folien mit Markierung und was das Wiederherstellen ändern würde.
+   * `vid` = `current`: der jetzige Stand gegenüber der letzten Version.
+   */
   app.get('/api/presentations/:id/versions/:vid', view, async (request, reply) => {
-    const { id, vid } = params.parse(request.params);
-    const data = await loadVersion(db, id, vid);
-    if (!data) return reply.code(404).send({ error: 'Version nicht gefunden' });
+    const { id, vid } = z
+      .object({ id: z.coerce.number().int(), vid: z.union([z.literal('current'), z.coerce.number().int()]) })
+      .parse(request.params);
+    const now = await currentData(db, id);
+    if (!now) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
+    const nowSlides = new Map(now.slides.map((s) => [s.id, s]));
+
+    let data: VersionData;
+    let previous: { id: number; data: VersionData } | null = null;
+    if (vid === 'current') {
+      data = now;
+      const last = await one<{ id: number; data: string }>(
+        db,
+        'SELECT id, data FROM presentation_versions WHERE presentation_id = ? ORDER BY created_at DESC, id DESC LIMIT 1',
+        [id],
+      );
+      if (last) previous = { id: last.id, data: json<VersionData>(last.data) };
+    } else {
+      const row = await one<{ data: string; created_at: Date }>(
+        db,
+        'SELECT data, created_at FROM presentation_versions WHERE id = ? AND presentation_id = ?',
+        [vid, id],
+      );
+      if (!row) return reply.code(404).send({ error: 'Version nicht gefunden' });
+      data = json<VersionData>(row.data);
+      const prev = await one<{ id: number; data: string }>(
+        db,
+        `SELECT id, data FROM presentation_versions
+          WHERE presentation_id = ? AND (created_at < ? OR (created_at = ? AND id < ?))
+          ORDER BY created_at DESC, id DESC LIMIT 1`,
+        [id, row.created_at, row.created_at, vid],
+      );
+      if (prev) previous = { id: prev.id, data: json<VersionData>(prev.data) };
+    }
+
+    const diff = diffVersions(previous?.data ?? null, data);
+    const inVersion = new Map(data.slides.map((s) => [s.id, s]));
+    const inPrevious = new Map((previous?.data.slides ?? []).map((s) => [s.id, s]));
+    const kindOf = new Map(diff.slides.map((c) => [c.id, c.kind]));
     return {
       title: data.presentation.title,
+      initial: diff.initial,
+      meta: diff.meta,
+      changes: diff.slides.map((c) => {
+        // Woraus sich die Folie wiederherstellen lässt: beim jetzigen Stand die Fassung der letzten
+        // Version (macht die Änderung rückgängig), bei Löschungen die Vorgängerin, sonst diese Version
+        const from =
+          vid === 'current' || c.kind === 'removed'
+            ? previous && inPrevious.has(c.id)
+              ? { version: previous.id, slide: inPrevious.get(c.id)! }
+              : null
+            : { version: vid, slide: inVersion.get(c.id)! };
+        return {
+          ...c,
+          asset: assetOf((from?.slide ?? inVersion.get(c.id))?.config),
+          restoreFrom: from && differsFromCurrent(from.slide, nowSlides) ? from.version : null,
+        };
+      }),
       slides: data.slides.map((s) => ({
         id: s.id,
         type: s.type,
         title: headline(s.config),
-        asset: s.type === 'image' && typeof s.config.asset === 'string' ? s.config.asset : null,
+        asset: assetOf(s.config),
+        change: kindOf.get(s.id) ?? null,
+        // Einzeln wiederherstellbar (nur bei gespeicherten Versionen)
+        restorable: vid !== 'current' && differsFromCurrent(s, nowSlides),
       })),
-      plan: await restorePlan(db, id, data),
+      plan: vid === 'current' ? null : await restorePlan(db, id, data),
     };
+  });
+
+  /**
+   * Eine einzelne Folie aus einer Version wiederherstellen: vorhandene an Ort und
+   * Stelle (Inhalt, Notizen, Ablaufplan), gelöschte mit alter ID an der Stelle,
+   * an der sie in der Version stand. Andere Folien bleiben unberührt; vorher eine Version.
+   */
+  app.post('/api/presentations/:id/versions/:vid/slides/:sid/restore', edit, async (request, reply) => {
+    const { id, vid, sid } = z
+      .object({ id: z.coerce.number().int(), vid: z.coerce.number().int(), sid: z.coerce.number().int() })
+      .parse(request.params);
+    const data = await loadVersion(db, id, vid);
+    const slide = data?.slides.find((s) => s.id === sid);
+    if (!data || !slide) return reply.code(404).send({ error: 'Folie in dieser Version nicht gefunden' });
+    let config: unknown;
+    try {
+      config = parseConfig(slide.type, slide.config);
+    } catch {
+      return reply.code(409).send({ error: 'Diese Folie passt nicht mehr zum aktuellen Format' });
+    }
+    await snapshotVersion(db, id, 'restore', touchOf(request));
+    const values = [JSON.stringify(config), slide.notes || null, slide.sourceKey, ...scheduleValues(slide.schedule)];
+    const inserted = await transaction(db, async (conn) => {
+      const order = (
+        await query<{ id: number }>(conn, 'SELECT id FROM slides WHERE presentation_id = ? ORDER BY position, id FOR UPDATE', [id])
+      ).map((r) => r.id);
+      if (order.includes(sid)) {
+        await exec(
+          conn,
+          `UPDATE slides SET config = ?, notes = ?, source_key = ?, planned_minutes = ?, phases = ?, auto_countdown = ?,
+                  source_hash = NULL, rev = rev + 1 WHERE id = ? AND presentation_id = ?`,
+          [...values, sid, id],
+        );
+        return false;
+      }
+      // Stelle wie in der Version: hinter der nächsten davor stehenden Folie, die es noch gibt
+      const at = data.slides.findIndex((s) => s.id === sid);
+      const before = data.slides
+        .slice(0, at)
+        .reverse()
+        .find((s) => order.includes(s.id));
+      const after = data.slides.slice(at + 1).find((s) => order.includes(s.id));
+      const insert = (withId: boolean) =>
+        exec(
+          conn,
+          `INSERT INTO slides (${withId ? 'id, ' : ''}presentation_id, position, type, config, notes, source_key, ${SCHEDULE_COLUMNS})
+           VALUES (${withId ? '?, ' : ''}?, 0, ?, ?, ?, ?, ?, ?, ?)`,
+          [...(withId ? [sid] : []), id, slide.type, ...values],
+        );
+      let newId = sid;
+      try {
+        await insert(true);
+      } catch (err) {
+        if (!isDuplicateKey(err)) throw err;
+        newId = (await insert(false)).insertId;
+      }
+      const pos = before ? order.indexOf(before.id) + 1 : after ? order.indexOf(after.id) : order.length;
+      order.splice(pos, 0, newId);
+      for (const [i, sId] of order.entries()) await exec(conn, 'UPDATE slides SET position = ? WHERE id = ?', [i, sId]);
+      return true;
+    });
+    await touchPresentation(
+      db,
+      live,
+      edits,
+      id,
+      touchOf(request),
+      inserted ? { structure: true, versions: true } : { slides: [sid], versions: true },
+    );
+    return { ok: true, inserted };
   });
 
   /** Version mit Namen speichern („Stand vor dem Workshop“) */

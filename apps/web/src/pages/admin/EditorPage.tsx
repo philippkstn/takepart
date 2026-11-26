@@ -307,14 +307,15 @@ export default function EditorPage() {
           }}
         />
         <EditorsBar editors={session.editors.map((e) => shown(e.name))} />
+        {/* Bewusst zurückhaltend: Symbol statt Knopf */}
+        <button className="icon-btn" onClick={() => setShowVersions(true)} aria-label="Versionsverlauf" title="Versionsverlauf">
+          <History />
+        </button>
         {isOwner && (
           <button className="btn" onClick={() => setSharing(true)}>
             <Users /> Teilen
           </button>
         )}
-        <button className="btn" onClick={() => setShowVersions(true)}>
-          <History /> Versionen
-        </button>
         {!canHost ? null : pres.data.liveRun ? (
           <Link className="btn btn-primary" to={`/admin/live/${pres.data.liveRun.id}`}>
             <span className="dot dot-live" style={{ background: '#fff' }} /> Live · {formatCode(pres.data.liveRun.code)}
@@ -693,9 +694,8 @@ export default function EditorPage() {
           canEdit={canEdit}
           live={!!pres.data.liveRun || !!pres.data.rehearsalRun}
           onClose={() => setShowVersions(false)}
-          onRestored={async () => {
-            setShowVersions(false);
-            toast('Version wiederhergestellt');
+          onRestored={async (message) => {
+            toast(message);
             await refresh();
           }}
         />
