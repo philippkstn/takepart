@@ -114,7 +114,6 @@ export function GoogleSourceDialog({
   const [url, setUrl] = useState(source?.url ?? '');
   const [autoSync, setAutoSync] = useState(source?.autoSync ?? true);
   const [error, setError] = useState<string | null>(null);
-  const [checked, setChecked] = useState<string | null>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['presentation', presentationId] });
   useEscape(sync.progress ? null : onClose);
 
@@ -130,18 +129,6 @@ export function GoogleSourceDialog({
   const setAuto = useMutation({
     mutationFn: (value: boolean) => api(`/api/presentations/${presentationId}/source`, { method: 'PATCH', body: { autoSync: value } }),
     onSuccess: refresh,
-    onError: (err) => setError(errorMessage(err)),
-  });
-  const check = useMutation({
-    mutationFn: () => api<SourceInfo>(`/api/presentations/${presentationId}/source/check`, { body: {} }),
-    onMutate: () => {
-      setError(null);
-      setChecked(null);
-    },
-    onSuccess: async (info) => {
-      setChecked(info.error ? null : info.changed ? 'Bei Google gibt es eine neue Fassung.' : 'Keine Änderungen bei Google.');
-      await refresh();
-    },
     onError: (err) => setError(errorMessage(err)),
   });
   const unlink = useMutation({
@@ -213,31 +200,21 @@ export function GoogleSourceDialog({
             <span className="small">
               Zuletzt abgeglichen: <strong>{when(source.syncedAt)}</strong> · geprüft: {when(source.checkedAt)}
             </span>
-            {checked && !busy && (
-              <span className="small" role="status">
-                {checked}
-              </span>
-            )}
-            {source.changed && !busy && !checked && (
+            {source.changed && !busy && (
               <span className="small">{source.syncedHash ? 'Bei Google gibt es eine neue Fassung.' : 'Noch nicht abgeglichen.'}</span>
             )}
             {source.error && <div className="error-box">{source.error}</div>}
             {sync.progress && <SyncProgressBar progress={sync.progress} />}
             {sync.error && <div className="error-box">{sync.error}</div>}
             <div className="row">
-              <button className="btn btn-primary" onClick={() => void sync.run()} disabled={busy || live}>
-                <RefreshCw /> Jetzt abgleichen
-              </button>
-              <button className="btn" onClick={() => check.mutate()} disabled={busy || check.isPending}>
-                Auf Änderungen prüfen
-              </button>
+              {/* Per Klick immer vollständig: liest auch Unverändertes neu ein (z. B. nach Verbesserungen am Import) */}
               <button
-                className="btn btn-ghost"
+                className="btn btn-primary"
                 onClick={() => void sync.run(true, true)}
                 disabled={busy || live}
-                title="Alle Folien neu rendern und Animationen neu einlesen – auch wenn sich bei Google nichts geändert hat"
+                title="Alle Folien von Google Slides neu einlesen – Bilder, Notizen und Animationen"
               >
-                Alles neu einlesen
+                <RefreshCw /> Jetzt abgleichen
               </button>
               <button
                 className="btn btn-ghost"
