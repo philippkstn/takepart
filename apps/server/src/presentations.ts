@@ -236,7 +236,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
       .parse(request.body);
     // Brandings gehören dem Konto des Eigentümers – nur er wählt sie aus
     if (body.brandId !== undefined && accessOf(request).role !== 'owner') {
-      return reply.code(403).send({ error: 'Das Branding wählt der Eigentümer der Präsentation' });
+      return reply.code(403).send({ error: 'Das Branding legt fest, wem die Präsentation gehört' });
     }
     if (body.brandId && !(await ownsBrand(db, body.brandId, accountOf(request).id))) {
       return reply.code(404).send({ error: 'Branding nicht gefunden' });

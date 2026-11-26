@@ -53,7 +53,8 @@ export function shareRoutes(app: FastifyInstance, db: Db, edits: EditHub) {
     const userId = params.userId === 'me' ? me : params.userId;
     const access = await accessTo(db, 'presentation', id, me);
     if (!access) return reply.code(404).send({ error: 'Präsentation nicht gefunden' });
-    if (access.role !== 'owner' && userId !== me) return reply.code(403).send({ error: 'Nur der Eigentümer verwaltet die Freigaben' });
+    if (access.role !== 'owner' && userId !== me)
+      return reply.code(403).send({ error: 'Freigaben verwaltet nur, wem die Präsentation gehört' });
     await exec(db, 'DELETE FROM presentation_shares WHERE presentation_id = ? AND user_id = ?', [id, userId]);
     edits.revoke(id, userId);
     return { ok: true };

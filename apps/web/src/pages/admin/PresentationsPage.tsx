@@ -148,27 +148,24 @@ export default function PresentationsPage() {
             <li key={p.id} className="card pres-item anim-rise">
               <Link to={`/admin/p/${p.id}`} className="pres-main">
                 <span className="pres-title">{p.title}</span>
-                <span className="row small faint">
-                  <span>{p.slides} Folien</span>
-                  <span>·</span>
-                  <span>{p.runs} Durchführungen</span>
-                  <span>·</span>
+                {/* Ohne Trennpunkte: beim Umbrechen bliebe sonst einer am Zeilenende stehen */}
+                <span className="pres-meta small faint">
+                  <span>
+                    {p.slides} {p.slides === 1 ? 'Folie' : 'Folien'}
+                  </span>
+                  <span>
+                    {p.runs} {p.runs === 1 ? 'Durchführung' : 'Durchführungen'}
+                  </span>
                   <span>geändert {new Date(p.updatedAt).toLocaleDateString('de-DE')}</span>
                   {p.sharedWith > 0 && (
-                    <>
-                      <span>·</span>
-                      <span className="row" style={{ gap: 4 }}>
-                        <Users size={14} aria-hidden /> geteilt mit {p.sharedWith}
-                      </span>
-                    </>
+                    <span className="pres-meta-icon">
+                      <Users size={14} aria-hidden /> geteilt mit {p.sharedWith}
+                    </span>
                   )}
                   {p.ownerName && (
-                    <>
-                      <span>·</span>
-                      <span className="row" style={{ gap: 4 }}>
-                        <Users size={14} aria-hidden /> von {p.ownerName} · {ROLE_LABELS[p.role]}
-                      </span>
-                    </>
+                    <span className="pres-meta-icon">
+                      <Users size={14} aria-hidden /> von {p.ownerName}, Rolle: {ROLE_LABELS[p.role]}
+                    </span>
                   )}
                 </span>
               </Link>

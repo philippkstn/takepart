@@ -131,13 +131,13 @@ export function VersionsDialog({
   const versions = list.data?.versions ?? [];
 
   return (
-    <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="versions-title" onClick={onClose}>
+    <div className="dialog-backdrop is-top" role="dialog" aria-modal="true" aria-labelledby="versions-title" onClick={onClose}>
       <div className="dialog dialog-wide card card-pad stack" onClick={(e) => e.stopPropagation()}>
         <div className="row-between">
           <h2 id="versions-title" className="row">
             <History size={20} /> Versionen
           </h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Schließen">
+          <button className="icon-btn" onClick={onClose} aria-label="Schließen" autoFocus={!canEdit}>
             <X />
           </button>
         </div>
@@ -157,8 +157,9 @@ export function VersionsDialog({
               className="input"
               placeholder="z. B. Stand nach der Generalprobe"
               value={label}
+              autoFocus
               maxLength={120}
-              title={label.length > 100 ? `${label.length} von 120 Zeichen` : undefined}
+              aria-describedby="version-label-count"
               onChange={(e) => setLabel(e.target.value)}
               aria-label="Name der Version"
             />
@@ -166,6 +167,16 @@ export function VersionsDialog({
               <Save /> Version speichern
             </button>
           </form>
+        )}
+        {canEdit && label.length >= 90 && (
+          <p
+            id="version-label-count"
+            className="small faint"
+            style={label.length >= 120 ? { color: 'var(--danger)' } : undefined}
+            aria-live="polite"
+          >
+            {label.length} von 120 Zeichen{label.length >= 120 && ' – länger geht nicht'}
+          </p>
         )}
         {list.data?.unsaved && (
           <p className="small faint">Die letzten Änderungen sind noch in keiner Version – sie kommen in die nächste.</p>

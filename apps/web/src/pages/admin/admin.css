@@ -30,7 +30,8 @@
   gap: 2px;
   text-decoration: none;
   min-width: 0;
-  flex: 1;
+  /* Mindestbreite: reicht der Platz nicht, rutschen die Knöpfe in die nächste Zeile statt über den Text */
+  flex: 1 1 260px;
 }
 .pres-title {
   font-weight: 650;
@@ -629,6 +630,25 @@
   overflow: auto;
   box-shadow: var(--shadow-2);
   animation: pop 200ms var(--ease);
+}
+.pres-meta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  row-gap: 2px;
+}
+.pres-meta > * {
+  white-space: nowrap;
+}
+.pres-meta-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* Dialoge, deren Höhe sich ändert (Google-Abgleich): oben verankert statt mittig – springt sonst */
+.dialog-backdrop.is-top {
+  align-items: start;
+  padding-top: max(16px, 8vh);
 }
 .dialog-wide {
   width: min(760px, 100%);

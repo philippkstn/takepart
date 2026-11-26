@@ -151,11 +151,17 @@ export function GoogleSourceDialog({
 
   const busy = !!sync.progress;
   return (
-    <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="google-title" onClick={busy ? undefined : onClose}>
+    <div
+      className="dialog-backdrop is-top"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="google-title"
+      onClick={busy ? undefined : onClose}
+    >
       <div className="dialog card card-pad stack" onClick={(e) => e.stopPropagation()}>
         <div className="row-between">
           <h2 id="google-title">{source ? 'Google Slides' : 'Mit Google Slides verknüpfen'}</h2>
-          <button className="icon-btn" onClick={onClose} disabled={busy} aria-label="Schließen">
+          <button className="icon-btn" onClick={onClose} disabled={busy} aria-label="Schließen" autoFocus={!!source}>
             <X />
           </button>
         </div>
@@ -175,6 +181,7 @@ export function GoogleSourceDialog({
             className="input"
             type="url"
             placeholder="https://docs.google.com/presentation/d/…"
+            autoFocus={!source}
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             aria-label="Freigabelink"

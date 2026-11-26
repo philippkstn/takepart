@@ -9,7 +9,7 @@ export const ROLE_LABELS: Record<PresentationRole, string> = {
   view: 'Ansehen',
   edit: 'Bearbeiten',
   host: 'Moderieren',
-  owner: 'Eigentümer',
+  owner: 'Vollzugriff',
 };
 
 export const ROLE_HINTS: Record<Exclude<PresentationRole, 'owner'>, string> = {

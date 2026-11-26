@@ -523,7 +523,7 @@ export default function EditorPage() {
                 onClick={() => setShowGoogle(true)}
                 title="Folien aus Google Slides übernehmen und aktuell halten"
               >
-                <Link2 /> {pres.data.source ? 'Google Slides …' : 'Mit Google Slides verknüpfen'}
+                <Link2 /> {pres.data.source ? 'Google Slides …' : 'Google Slides verknüpfen'}
               </button>
               {slides.some(needsRefit) && (
                 <button
