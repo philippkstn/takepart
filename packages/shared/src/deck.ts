@@ -8,7 +8,13 @@
  */
 
 /** Aufbau-Bereich aus der PPTX – die Abdeckfarbe wird erst am gerenderten Bild gemessen. */
-export type RawBuildRegion = Omit<import('./slides.ts').BuildRegion, 'fill'>;
+export type RawBuildRegion = Omit<import('./slides.ts').BuildRegion, 'fill'> & {
+  /**
+   * Einfarbige Form mit Ausgangs-Animation: Beim Rendern weglassen, die Abdeckung
+   * bekommt ihre gezeichnete Farbe (siehe `buildCover.ts`)
+   */
+  cover?: boolean;
+};
 
 export interface PptxSlideInfo {
   notes: string;

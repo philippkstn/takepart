@@ -312,6 +312,11 @@ export const BUILD_EFFECTS = [
   'wipe-right',
   'wipe-top',
   'wipe-bottom',
+  // Ausgang einer deckenden Form: Die Abdeckung fliegt in diese Richtung hinaus
+  'out-left',
+  'out-right',
+  'out-top',
+  'out-bottom',
 ] as const;
 
 /**

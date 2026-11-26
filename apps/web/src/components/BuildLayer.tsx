@@ -95,6 +95,24 @@ export function BuildLayer({
             </div>
           );
         }
+        if (r.effect.startsWith('out-')) {
+          // Ausgang einer deckenden Form: Die Abdeckung fliegt um eine Folienbreite/-höhe hinaus
+          const out =
+            r.effect === 'out-right'
+              ? `translateX(${100 / r.w}%)`
+              : r.effect === 'out-left'
+                ? `translateX(-${100 / r.w}%)`
+                : r.effect === 'out-top'
+                  ? `translateY(-${100 / r.h}%)`
+                  : `translateY(${100 / r.h}%)`;
+          return (
+            <div
+              key={`${slideId}-${step}-${i}`}
+              className="build-mask build-out"
+              style={{ ...box, ...timing, '--out': out, background: r.fill } as CSSProperties}
+            />
+          );
+        }
         return (
           <div
             key={`${slideId}-${step}-${i}`}

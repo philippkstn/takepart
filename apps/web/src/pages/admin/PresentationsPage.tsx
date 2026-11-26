@@ -172,7 +172,7 @@ export default function PresentationsPage() {
               <div className="row">
                 {!roleAtLeast(p.role, 'host') ? null : p.liveRun ? (
                   <Link className="btn btn-primary" to={`/admin/live/${p.liveRun.id}`}>
-                    <span className="dot dot-live" style={{ background: '#fff' }} />
+                    <span className="dot dot-live dot-ink" />
                     Live · {formatCode(p.liveRun.code)}
                   </Link>
                 ) : (

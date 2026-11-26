@@ -24,3 +24,4 @@ export * from './ink.ts';
 export * from './editing.ts';
 export * from './sync.ts';
 export * from './versionDiff.ts';
+export * from './buildCover.ts';

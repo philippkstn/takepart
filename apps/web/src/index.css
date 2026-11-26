@@ -480,6 +480,11 @@ a.pill:hover {
   background: var(--accent);
   animation: pulse 1.6s ease-in-out infinite;
 }
+/* Punkt in der Schriftfarbe des Knopfs (z. B. „Live“ in .btn-primary): folgt
+   --primary-ink in hell, dunkel und mit Branding. Nach .dot-live, damit es gewinnt. */
+.dot-ink {
+  background: currentColor;
+}
 
 .stack {
   display: grid;

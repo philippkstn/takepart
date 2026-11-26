@@ -15,6 +15,8 @@ import {
   rotatedBounds,
   textRuns,
   buildEffectOf,
+  buildExitEffectOf,
+  pathMatchesBox,
   type BuildsConfig,
   type PptxSlideInfo,
   type RawBuildRegion,
@@ -114,7 +116,7 @@ export async function pdfPageTitles(file: File): Promise<string[]> {
 export async function* renderPdfPages(
   file: File,
   select: (total: number) => (index: number) => boolean = () => () => true,
-  regionsFor: (index: number) => Box[] = () => [],
+  regionsFor: (index: number) => (Box & { cover?: boolean })[] = () => [],
 ): AsyncGenerator<RenderedPage> {
   const task = await openPdf(file);
   const doc = await task.promise;
@@ -134,6 +136,9 @@ export async function* renderPdfPages(
       // Weißer Grund: transparente PDF-Seiten sähen sonst auf dunklem Beamer schwarz aus.
       hctx.fillStyle = '#ffffff';
       hctx.fillRect(0, 0, hiresCanvas.width, hiresCanvas.height);
+      const boxes = regionsFor(i - 1);
+      // Einfarbige Formen mit Ausgangs-Animation weglassen – das Bild zeigt den Endzustand
+      const coverFills = omitCovers(hctx, boxes);
       // intent 'print': zeichnet ohne requestAnimationFrame – der Import läuft so auch
       // weiter, wenn der Tab im Hintergrund liegt. Für statische Folienbilder ohnehin passend.
       await page.render({ canvas: hiresCanvas, canvasContext: hctx, viewport: hiresViewport, intent: 'print' }).promise;
@@ -153,15 +158,15 @@ export async function* renderPdfPages(
       tctx.imageSmoothingQuality = 'high';
       tctx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
 
-      const boxes = regionsFor(i - 1);
       let fills: (string | null)[] = [];
       let spreads: number[] = [];
       let fitted: Box[] = [];
       if (boxes.length > 0) {
         // Auf dem unkomprimierten Bild messen – nach WebP/JPEG lägen Artefakte um jede Kante
         const data = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const samples = boxes.map((box) => fitBuildBox(data, box));
-        fills = samples.map((x) => (x.spread <= MAX_FILL_SPREAD ? x.fill : null));
+        // Weggelassene Formen: genau ihre Box und ihre gezeichnete Farbe (nicht weggelassen → keine Abdeckung)
+        const samples = boxes.map((box, k) => (box.cover ? { fill: coverFills[k] ?? null, spread: 0, box } : fitBuildBox(data, box)));
+        fills = samples.map((x) => (x.fill && x.spread <= MAX_FILL_SPREAD ? x.fill : null));
         spreads = samples.map((x) => x.spread);
         fitted = samples.map((x) => x.box);
       }
@@ -192,6 +197,57 @@ export async function* renderPdfPages(
   } finally {
     await task.destroy();
   }
+}
+
+/** Farbe einer Füllung als #rrggbb – nur deckende Volltonfarben */
+function solidHex(style: unknown): string | null {
+  if (typeof style !== 'string') return null;
+  if (/^#[0-9a-f]{6}$/i.test(style)) return style.toLowerCase();
+  const m = /^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/.exec(style);
+  if (!m || (m[4] !== undefined && Number(m[4]) < 1)) return null;
+  return `#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, '0')).join('')}`;
+}
+
+/**
+ * Zeichnungen einfarbiger Formen mit Ausgangs-Animation auslassen („Abdecker“):
+ * Füllung und Kontur eines Pfads, der genau die Box der Form ist, werden nicht
+ * gezeichnet. Liefert je Box die gezeichnete Füllfarbe (für die Abdeckung), sonst `null`.
+ */
+function omitCovers(ctx: CanvasRenderingContext2D, boxes: (Box & { cover?: boolean })[]): (string | null)[] {
+  const fills: (string | null)[] = boxes.map(() => null);
+  const covers = boxes.map((b, k) => ({ b, k })).filter(({ b }) => b.cover);
+  if (covers.length === 0) return fills;
+  const { width, height } = ctx.canvas;
+  const hit = (inside: (x: number, y: number) => boolean) => covers.find(({ b }) => pathMatchesBox(inside, b, width, height));
+  const insideOf = (args: unknown[]) => {
+    const path = args[0] instanceof Path2D ? args[0] : null;
+    const rule = (path ? args[1] : args[0]) === 'evenodd' ? 'evenodd' : 'nonzero';
+    return (x: number, y: number) => (path ? ctx.isPointInPath(path, x, y, rule) : ctx.isPointInPath(x, y, rule));
+  };
+  const fill = ctx.fill.bind(ctx) as (...a: unknown[]) => void;
+  const stroke = ctx.stroke.bind(ctx) as (...a: unknown[]) => void;
+  const fillRect = ctx.fillRect.bind(ctx);
+  ctx.fill = ((...args: unknown[]) => {
+    const found = hit(insideOf(args));
+    if (!found) return fill(...args);
+    fills[found.k] ??= solidHex(ctx.fillStyle);
+  }) as CanvasRenderingContext2D['fill'];
+  ctx.stroke = ((...args: unknown[]) => {
+    const path = args[0] instanceof Path2D ? args[0] : null;
+    // Kontur: Punkte auf der Kante liegen im Pfad (Füllregel) – dieselbe Prüfung wie bei der Füllung
+    const inside = (x: number, y: number) => (path ? ctx.isPointInPath(path, x, y) : ctx.isPointInPath(x, y));
+    if (!hit(inside)) stroke(...args);
+  }) as CanvasRenderingContext2D['stroke'];
+  ctx.fillRect = (x: number, y: number, w: number, h: number) => {
+    const m = ctx.getTransform();
+    const [ax, ay] = [m.a * x + m.c * y + m.e, m.b * x + m.d * y + m.f];
+    const [bx, by] = [m.a * (x + w) + m.c * (y + h) + m.e, m.b * (x + w) + m.d * (y + h) + m.f];
+    const [l, r, t, btm] = [Math.min(ax, bx), Math.max(ax, bx), Math.min(ay, by), Math.max(ay, by)];
+    const found = hit((px, py) => px >= l && px <= r && py >= t && py <= btm);
+    if (!found) return fillRect(x, y, w, h);
+    fills[found.k] ??= solidHex(ctx.fillStyle);
+  };
+  return fills;
 }
 
 /** Text der Seite mit Position (Anteile der Seite) – leer, wenn die PDF keinen Text enthält */
@@ -320,8 +376,20 @@ const kid = (el: Element | null | undefined, name: string) => kids(el, name)[0] 
 const SHAPES = ['sp', 'pic', 'grpSp', 'graphicFrame', 'cxnSp'];
 
 /** Position aller Elemente einer Folie (relativ 0…1), auch in verschachtelten Gruppen. */
-function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string, Box & { line: number }> {
-  const boxes = new Map<string, Box & { line: number }>();
+/**
+ * Einfarbiges Rechteck ohne Text und Drehung – kann als Abdeckung nachgebaut
+ * werden, wenn es per Ausgangs-Animation verschwindet.
+ */
+function isCoverShape(el: Element): boolean {
+  if (el.localName !== 'sp') return false;
+  const props = kid(el, 'spPr');
+  if (kid(props, 'prstGeom')?.getAttribute('prst') !== 'rect' || !kid(props, 'solidFill')) return false;
+  if (Number(kid(props, 'xfrm')?.getAttribute('rot') ?? 0) !== 0) return false;
+  return Array.from(el.getElementsByTagNameNS('*', 't')).every((t) => !t.textContent?.trim());
+}
+
+function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string, Box & { line: number; cover: boolean }> {
+  const boxes = new Map<string, Box & { line: number; cover: boolean }>();
   type Transform = (x: number, y: number) => [number, number];
   const walk = (container: Element | null, tf: Transform, sx: number, sy: number) => {
     for (const el of kids(container)) {
@@ -347,7 +415,7 @@ function shapeBoxes(slide: Element, slideW: number, slideH: number): Map<string,
       // Gedrehte Elemente (rot in 1/60000 Grad): umschließendes Rechteck abdecken
       const rot = Number(xfrm?.getAttribute('rot') ?? 0) / 60000;
       const b = rotatedBounds(ax, ay, cx * sx, cy * sy, Number.isFinite(rot) ? rot : 0);
-      if (id) boxes.set(id, { x: b.x / slideW, y: b.y / slideH, w: b.w / slideW, h: b.h / slideH, line });
+      if (id) boxes.set(id, { x: b.x / slideW, y: b.y / slideH, w: b.w / slideW, h: b.h / slideH, line, cover: isCoverShape(el) });
       if (el.localName === 'grpSp') {
         // Kinder einer Gruppe liegen in eigenen Koordinaten (chOff/chExt)
         const chOff = kid(xfrm, 'chOff');
@@ -415,10 +483,15 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
     for (const child of kids(kid(kid(group, 'cTn'), 'childTnLst'), 'par')) collect(child, 0);
     if (effects.length === 0) continue;
 
-    const entrances = effects.filter((e) => e.cTn.getAttribute('presetClass') === 'entr');
+    const spidOf = (cTn: Element) => cTn.getElementsByTagNameNS('*', 'spTgt')[0]?.getAttribute('spid') ?? '';
+    // Eingänge – und Ausgänge einfarbiger Rechtecke (die beim Rendern weggelassen werden)
+    const entrances = effects.filter(
+      (e) =>
+        e.cTn.getAttribute('presetClass') === 'entr' || (e.cTn.getAttribute('presetClass') === 'exit' && boxes.get(spidOf(e.cTn))?.cover),
+    );
     const onClick = effects[0]!.cTn.getAttribute('nodeType') === 'clickEffect';
     if (onClick) {
-      if (entrances.length === 0) continue; // nur Ausgang/Betonung – lässt sich aus dem PDF nicht nachbauen
+      if (entrances.length === 0) continue; // nur Betonung oder Ausgang anderer Elemente – lässt sich aus dem PDF nicht nachbauen
       step++;
       stepEnd = 0;
     }
@@ -426,8 +499,9 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
     first = false;
 
     for (const e of entrances) {
-      const spid = e.cTn.getElementsByTagNameNS('*', 'spTgt')[0]?.getAttribute('spid');
+      const spid = spidOf(e.cTn);
       const box = spid ? boxes.get(spid) : undefined;
+      const exit = e.cTn.getAttribute('presetClass') === 'exit';
       if (!box || box.w <= 0 || box.h <= 0 || step > 50) continue;
       const durs = Array.from(e.cTn.getElementsByTagNameNS('*', 'cTn'))
         .map((c) => Number(c.getAttribute('dur')))
@@ -447,11 +521,12 @@ function parseBuilds(slide: Element, slideW: number, slideH: number): { regions:
         step,
         at,
         dur: Math.round(dur),
-        effect: buildEffectOf(
+        effect: (exit ? buildExitEffectOf : buildEffectOf)(
           e.cTn.getAttribute('presetID'),
           e.cTn.getAttribute('presetSubtype'),
           e.cTn.getElementsByTagNameNS('*', 'animEffect')[0]?.getAttribute('filter') ?? null,
         ),
+        ...(exit ? { cover: true } : {}),
       });
       stepEnd = Math.max(stepEnd, at + dur);
     }

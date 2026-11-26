@@ -41,8 +41,11 @@ export function useGoogleSync(
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** `manual`: per Klick ausgelöst – dann darf bei vielen Löschungen nachgefragt werden */
-  const run = async (manual = true) => {
+  /**
+   * `manual`: per Klick ausgelöst – dann darf bei vielen Löschungen nachgefragt werden.
+   * `force`: alles neu einlesen, auch wenn sich bei Google nichts geändert hat.
+   */
+  const run = async (manual = true, force = false) => {
     if (!data?.source || progress) return;
     setError(null);
     try {
@@ -58,6 +61,7 @@ export function useGoogleSync(
                 `In Google Slides fehlen ${count} von ${total} Folien. Diese Folien hier entfernen (Folien mit Ergebnissen bleiben)?`,
               )
           : undefined,
+        force,
       );
       onDone(result);
     } catch (err) {
@@ -226,6 +230,14 @@ export function GoogleSourceDialog({
               </button>
               <button className="btn" onClick={() => check.mutate()} disabled={busy || check.isPending}>
                 Auf Änderungen prüfen
+              </button>
+              <button
+                className="btn btn-ghost"
+                onClick={() => void sync.run(true, true)}
+                disabled={busy || live}
+                title="Alle Folien neu rendern und Animationen neu einlesen – auch wenn sich bei Google nichts geändert hat"
+              >
+                Alles neu einlesen
               </button>
               <button
                 className="btn btn-ghost"

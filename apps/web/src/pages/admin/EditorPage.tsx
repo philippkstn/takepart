@@ -318,7 +318,7 @@ export default function EditorPage() {
         )}
         {!canHost ? null : pres.data.liveRun ? (
           <Link className="btn btn-primary" to={`/admin/live/${pres.data.liveRun.id}`}>
-            <span className="dot dot-live" style={{ background: '#fff' }} /> Live · {formatCode(pres.data.liveRun.code)}
+            <span className="dot dot-live dot-ink" /> Live · {formatCode(pres.data.liveRun.code)}
           </Link>
         ) : (
           <button className="btn btn-primary" onClick={() => start.mutate(id)} disabled={slides.length === 0 || start.isPending}>

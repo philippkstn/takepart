@@ -77,12 +77,14 @@ export async function syncFromGoogle(
   onProgress: (p: SyncProgress) => void,
   /** Rückfrage, wenn ungewöhnlich viele Folien wegfallen; ohne (automatischer Abgleich) wird abgebrochen */
   confirmRemoval?: (count: number, total: number) => boolean,
+  /** Alles neu einlesen, auch Unverändertes (z. B. nach einer Verbesserung des Imports) */
+  force = false,
 ): Promise<SyncResult> {
   onProgress({ step: 'download' });
   const pdf = await download(presentationId, 'pdf');
   if (!pdf.hash) throw new Error('Google hat keine Prüfsumme geliefert');
   // Unverändert seit dem letzten Abgleich: nichts rendern, keine Version
-  if (pdf.hash === baseHash) {
+  if (pdf.hash === baseHash && !force) {
     const images = slides.filter((s) => s.type === 'image').length;
     return { replaced: 0, inserted: 0, removed: 0, kept: 0, unchanged: images, noChange: true };
   }
@@ -141,7 +143,7 @@ export async function syncFromGoogle(
     const pageHash = await sha256([page.full, '\u0000', notes]);
     const sourceKey = keyOfPdfPage.get(page.index) ?? null;
     const slideId = slideOfPage.get(page.index);
-    if (slideId !== undefined && sources[slideId]?.hash === pageHash) {
+    if (slideId !== undefined && sources[slideId]?.hash === pageHash && !force) {
       // Seite unverändert: nichts hochladen, nur die Kennung nachtragen
       unchanged++;
       if ((sources[slideId]?.key ?? null) !== sourceKey) keys.push({ slideId, sourceKey });

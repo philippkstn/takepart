@@ -91,3 +91,15 @@
     clip-path: var(--wipe-to);
   }
 }
+/* Hinausfliegen einer deckenden Form (Ausgangs-Animation): Die Abdeckung bewegt sich aus der Folie */
+.build-out {
+  animation: build-out var(--dur) cubic-bezier(0.4, 0, 1, 1) var(--at) both;
+}
+@keyframes build-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: var(--out);
+  }
+}
