@@ -615,7 +615,8 @@ export function transferRoutes(app: FastifyInstance, db: Db) {
   // Ohne eigenes Limit am Parser: das große Limit gilt nur für die Import-Route.
   app.addContentTypeParser(['application/gzip', 'application/octet-stream'], { parseAs: 'buffer' }, (_req, body, done) => done(null, body));
 
-  app.get('/api/presentations/:id/export', requireAccess(db, 'presentation', 'host'), async (request, reply) => {
+  // Exportieren darf, wer bearbeiten darf (Entscheidung: auch Mitbearbeitende ohne Moderationsrecht)
+  app.get('/api/presentations/:id/export', requireAccess(db, 'presentation', 'edit'), async (request, reply) => {
     const { id } = z.object({ id: z.coerce.number().int() }).parse(request.params);
     const data = await exportPresentation(db, id);
     const body = await gzip(JSON.stringify(data));

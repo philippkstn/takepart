@@ -192,7 +192,7 @@ export default function PresentationsPage() {
                 <button className="icon-btn" onClick={() => duplicate.mutate(p.id)} aria-label="Duplizieren" title="Duplizieren">
                   <Copy />
                 </button>
-                {roleAtLeast(p.role, 'host') && (
+                {roleAtLeast(p.role, 'edit') && (
                   <a
                     className="icon-btn"
                     href={`/api/presentations/${p.id}/export`}
