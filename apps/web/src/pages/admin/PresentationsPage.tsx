@@ -180,14 +180,7 @@ export default function PresentationsPage() {
                     <Play /> Live starten
                   </button>
                 )}
-                {roleAtLeast(p.role, 'host') && (
-                  <RehearsalButton
-                    presentationId={p.id}
-                    running={p.rehearsalRun}
-                    disabled={start.isPending || p.slides === 0}
-                    onStart={start.mutate}
-                  />
-                )}
+                {/* Probelauf nur im Editor – die Liste bleibt schlank */}
                 <Link
                   className="icon-btn"
                   to={`/admin/p/${p.id}`}
