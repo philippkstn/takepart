@@ -66,6 +66,10 @@
 }
 .bar-area {
   min-width: 0;
+  /* Beim Anzeigen aus der Grundlinie wachsen (Säulen: von unten, siehe stage.css), leicht gestaffelt */
+  transform-origin: left center;
+  animation: grow-x var(--grow-duration) var(--ease-grow) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 60ms);
 }
 .bar-fill {
   /* Länge aus BarList (--bar), damit die Bühne daraus auch Säulen machen kann */
@@ -75,7 +79,7 @@
   min-height: 12px;
   border-radius: 0 4px 4px 0;
   background: var(--chart);
-  transition: width 500ms var(--ease);
+  transition: width var(--grow-duration) var(--ease-grow);
 }
 .is-correct .bar-fill {
   background: var(--good);
@@ -134,8 +138,11 @@
   width: min(100%, 2.4em);
   border-radius: 4px 4px 0 0;
   background: var(--chart);
-  transition: height 500ms var(--ease);
+  transition: height var(--grow-duration) var(--ease-grow);
   min-height: 0;
+  transform-origin: center bottom;
+  animation: grow-y var(--grow-duration) var(--ease-grow) both;
+  animation-delay: calc(min(var(--i, 0), 8) * 60ms);
 }
 .column-value {
   font-size: 0.85em;
@@ -153,6 +160,23 @@
   font-weight: 600;
 }
 
+/* Neue Antworten wachsen sichtbar: etwas länger als die übrigen Übergänge, mit kleinem
+   Nachfedern am Ende (Balken, Säulen, Wörter). Ohne Bewegung kürzt index.css auf 1 ms. */
+:root {
+  --grow-duration: 700ms;
+  --ease-grow: cubic-bezier(0.3, 1.25, 0.6, 1);
+}
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
 /* Wortwolke: Größe trägt die Häufigkeit, Text bleibt Tinte */
 .wordcloud {
   display: flex;
@@ -167,6 +191,36 @@
   font-weight: 650;
   color: var(--ink-2);
   overflow-wrap: break-word;
+}
+/* Zoom des Wortes: beim Erscheinen aus dem Kleinen (gestaffelt nach Rang), bei jeder weiteren
+   Nennung kurz größer. Eigenes Element, weil motion die Schriftgröße am Wort selbst animiert. */
+.cloud-zoom {
+  display: inline-block;
+  transform-origin: center;
+  animation: cloud-in 600ms var(--ease-grow) both;
+  animation-delay: calc(var(--i, 0) * 35ms);
+}
+.cloud-zoom.is-bump-a {
+  animation: cloud-bump-a 550ms var(--ease-grow);
+}
+.cloud-zoom.is-bump-b {
+  animation: cloud-bump-b 550ms var(--ease-grow);
+}
+@keyframes cloud-in {
+  from {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}
+@keyframes cloud-bump-a {
+  40% {
+    transform: scale(1.35);
+  }
+}
+@keyframes cloud-bump-b {
+  40% {
+    transform: scale(1.35);
+  }
 }
 .cloud-word.is-top {
   color: var(--ink);

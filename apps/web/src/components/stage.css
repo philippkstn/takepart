@@ -239,7 +239,10 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  transition: height 500ms var(--ease);
+  transition: height var(--grow-duration) var(--ease-grow);
+  /* Säulen wachsen von unten (statt von links wie die Balken) */
+  transform-origin: center bottom;
+  animation-name: grow-y;
 }
 .stage-results[data-layout='columns'] .bar-fill {
   width: min(100%, 3em);

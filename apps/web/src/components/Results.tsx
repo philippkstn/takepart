@@ -28,18 +28,19 @@ interface BarItem {
 export function BarList({ items, max, inline = false }: { items: BarItem[]; max: number; inline?: boolean }) {
   return (
     <ul className={`bars ${inline ? 'bars-inline' : ''}`} role="list">
-      {items.map((item) => (
-        <BarRow key={item.key} item={item} max={max} />
+      {items.map((item, i) => (
+        <BarRow key={item.key} item={item} max={max} index={i} />
       ))}
     </ul>
   );
 }
 
 /**
- * Eine Zeile: Balken wächst weich, eine neue Stimme lässt ihn kurz aufleuchten, und
- * ändert sich die Reihenfolge (Ranking), gleitet die Zeile an ihren neuen Platz.
+ * Eine Zeile: Beim Anzeigen wächst der Balken aus der Grundlinie (gestaffelt nach `index`), jede neue
+ * Stimme lässt ihn sichtbar nachwachsen und kurz aufleuchten, und ändert sich die Reihenfolge
+ * (Ranking), gleitet die Zeile an ihren neuen Platz.
  */
-function BarRow({ item, max }: { item: BarItem; max: number }) {
+function BarRow({ item, max, index }: { item: BarItem; max: number; index: number }) {
   const width = max === 0 ? 0 : (item.value / max) * 100;
   const bump = useBump(item.value);
   // Auch außerhalb der Bühne (Steuerpult, Handy) ohne Bewegung, wenn das System es wünscht
@@ -50,7 +51,7 @@ function BarRow({ item, max }: { item: BarItem; max: number }) {
       transition={{ layout: reduce ? { duration: 0 } : { duration: 0.45, ease: EASE } }}
       className={`bar-row ${item.correct ? 'is-correct' : ''} ${item.dim ? 'is-dim' : ''} ${bump}`}
       title={`${item.label}: ${item.display}`}
-      style={{ ['--bar' as string]: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%` }}
+      style={{ ['--bar' as string]: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%`, ['--i' as string]: index }}
     >
       <div className="bar-label">
         {item.correct !== undefined && (
@@ -111,7 +112,7 @@ function ScaleResults({
       </div>
       <div className="columns" style={{ gridTemplateColumns: `repeat(${max}, 1fr)` }}>
         {results.distribution.map((n, i) => (
-          <ScaleColumn key={i} n={n} top={top} label={i + 1} />
+          <ScaleColumn key={i} n={n} top={top} label={i + 1} index={i} />
         ))}
       </div>
       <div className="row-between scale-ends">
@@ -122,10 +123,10 @@ function ScaleResults({
   );
 }
 
-function ScaleColumn({ n, top, label }: { n: number; top: number; label: number }) {
+function ScaleColumn({ n, top, label, index }: { n: number; top: number; label: number; index: number }) {
   const bump = useBump(n);
   return (
-    <div className={`column ${bump}`} title={`${label}: ${n} Stimmen`}>
+    <div className={`column ${bump}`} title={`${label}: ${n} Stimmen`} style={{ ['--i' as string]: index }}>
       <span className="column-value tabular">{n > 0 ? n : ''}</span>
       <div className="column-track">
         <div className="column-fill" style={{ height: `${(n / top) * 100}%` }} />
@@ -154,7 +155,7 @@ export function WordCloud({ words, limit = 60, highlight = false }: { words: Wor
         {arranged.map((w) => {
           // Alle gleich oft genannt: wenige groß, viele mittel – sonst passt die Wolke selbst verkleinert nicht
           const t = max === min ? (shown.length <= TIED_LARGE_MAX ? 1 : 0.3) : (w.count - min) / (max - min);
-          return <CloudWord key={w.key} word={w.word} count={w.count} t={t} top={highlight && w.rank < leaders} />;
+          return <CloudWord key={w.key} word={w.word} count={w.count} t={t} top={highlight && w.rank < leaders} rank={w.rank} />;
         })}
       </AnimatePresence>
     </div>
@@ -163,20 +164,25 @@ export function WordCloud({ words, limit = 60, highlight = false }: { words: Wor
 
 /**
  * Wort der Wolke: Die Schriftgröße wird animiert (nicht skaliert), damit die Nachbarn
- * mitfließen – ein neues Wort wächst aus dem Nichts, statt die Wolke umzuwerfen.
+ * mitfließen – ein neues Wort wächst aus dem Nichts, statt die Wolke umzuwerfen. Dazu zoomt
+ * der Text selbst: beim Erscheinen aus dem Kleinen mit leichtem Überschwingen, bei jeder
+ * weiteren Nennung kurz größer (`.cloud-zoom` in results.css, Klassen aus useBump).
  */
-function CloudWord({ word, count, t, top }: { word: string; count: number; t: number; top: boolean }) {
+function CloudWord({ word, count, t, top, rank }: { word: string; count: number; t: number; top: boolean; rank: number }) {
   const reduce = useReducedMotion();
+  const bump = useBump(count);
   return (
     <motion.span
       className={`cloud-word ${top ? 'is-top' : ''}`}
       initial={{ fontSize: '0.3em', opacity: 0 }}
       animate={{ fontSize: `${0.9 + t * 2.6}em`, opacity: 0.6 + t * 0.4 }}
       exit={{ fontSize: '0.3em', opacity: 0 }}
-      transition={reduce ? { duration: 0 } : { duration: 0.5, ease: EASE }}
+      transition={reduce ? { duration: 0 } : { duration: 0.6, ease: EASE }}
       title={`${word}: ${count}×`}
     >
-      {word}
+      <span className={`cloud-zoom ${bump}`} style={{ ['--i' as string]: Math.min(rank, 12) }}>
+        {word}
+      </span>
     </motion.span>
   );
 }
