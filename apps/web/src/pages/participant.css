@@ -969,7 +969,8 @@ button.board-group-name:hover {
 .select-compact {
   width: auto;
   max-width: 100%;
-  padding: 6px 8px;
+  padding: 6px 28px 6px 8px;
+  background-position: right 8px center;
   font-size: 0.85rem;
 }
 

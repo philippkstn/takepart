@@ -4,6 +4,7 @@ import { History, RotateCcw, Save, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, ApiError, errorMessage } from '../../lib/api.ts';
 import { SlideIcon } from '../slideIcons.tsx';
+import { useEscape } from '../../lib/useEscape.ts';
 
 type Reason = 'auto' | 'named' | 'import' | 'images' | 'google' | 'run' | 'restore';
 
@@ -39,6 +40,20 @@ interface VersionDetail {
   plan: RestorePlan;
 }
 
+const slidesText = (n: number) => `${n} ${n === 1 ? 'Folie' : 'Folien'}`;
+
+/** „ändert 2 Folien und entfernt 1“ – Nullen weglassen */
+function planText(plan: RestorePlan): string | null {
+  const parts = [
+    plan.changed > 0 && `ändert ${slidesText(plan.changed)}`,
+    plan.restored > 0 && `bringt ${slidesText(plan.restored)} zurück`,
+    plan.removed.length > 0 && `entfernt ${slidesText(plan.removed.length)}`,
+  ].filter(Boolean) as string[];
+  if (parts.length === 0) return null;
+  const list = parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} und ${parts.at(-1)}`;
+  return `Wiederherstellen ${list}${plan.removed.some((s) => s.results > 0) ? ' – darunter Folien mit Ergebnissen' : ''}.`;
+}
+
 const when = (iso: string) => new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' });
 
 /**
@@ -69,6 +84,7 @@ export function VersionsDialog({
   const [open, setOpen] = useState<number | null>(null);
   const [label, setLabel] = useState('');
   const [error, setError] = useState<string | null>(null);
+  useEscape(onClose);
   const detail = useQuery({
     queryKey: ['version', presentationId, open],
     queryFn: () => api<VersionDetail>(`/api/presentations/${presentationId}/versions/${open}`),
@@ -142,6 +158,7 @@ export function VersionsDialog({
               placeholder="z. B. Stand nach der Generalprobe"
               value={label}
               maxLength={120}
+              title={label.length > 100 ? `${label.length} von 120 Zeichen` : undefined}
               onChange={(e) => setLabel(e.target.value)}
               aria-label="Name der Version"
             />
@@ -163,7 +180,7 @@ export function VersionsDialog({
                 <span className="grow">
                   <strong>{v.label ?? REASON_LABELS[v.reason]}</strong>
                   <span className="small faint" style={{ display: 'block' }}>
-                    {when(v.createdAt)} · {v.slideCount} Folien
+                    {when(v.createdAt)} · {slidesText(v.slideCount)}
                     {v.editors.length > 0 && ` · bearbeitet von ${v.editors.join(', ')}`}
                     {v.label && v.createdBy && ` · von ${v.createdBy}`}
                   </span>
@@ -189,12 +206,12 @@ export function VersionsDialog({
                           </li>
                         ))}
                       </ol>
-                      <p className="small muted">
-                        Wiederherstellen ändert {detail.data.plan.changed} Folien, bringt {detail.data.plan.restored} zurück und entfernt{' '}
-                        {detail.data.plan.removed.length}
-                        {detail.data.plan.removed.some((s) => s.results > 0) && ' – darunter Folien mit Ergebnissen'}.
-                      </p>
-                      {canEdit && (
+                      {!planText(detail.data.plan) ? (
+                        <p className="small muted">Entspricht dem aktuellen Stand.</p>
+                      ) : (
+                        canEdit && <p className="small muted">{planText(detail.data.plan)}</p>
+                      )}
+                      {canEdit && planText(detail.data.plan) && (
                         <div className="row">
                           <button
                             className="btn"

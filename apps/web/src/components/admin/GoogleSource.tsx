@@ -2,6 +2,7 @@ import type { Slide } from '@slides/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link2, RefreshCw, Unlink, X } from 'lucide-react';
 import { useState } from 'react';
+import { useEscape } from '../../lib/useEscape.ts';
 import { api, ApiError, errorMessage } from '../../lib/api.ts';
 import { syncFromGoogle, type SyncProgress, type SyncResult } from '../../lib/googleSync.ts';
 
@@ -16,9 +17,11 @@ export interface SourceInfo {
   error: string | null;
 }
 
-const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : '–');
+const when = (iso: string | null) =>
+  iso ? new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) : 'noch nie';
 
 export function syncSummary(r: SyncResult): string {
+  if (r.noChange) return 'Google Slides: keine Änderungen seit dem letzten Abgleich.';
   const parts = [
     r.replaced > 0 && `${r.replaced} aktualisiert`,
     r.inserted > 0 && `${r.inserted} neu`,
@@ -107,10 +110,13 @@ export function GoogleSourceDialog({
   const [url, setUrl] = useState(source?.url ?? '');
   const [autoSync, setAutoSync] = useState(source?.autoSync ?? true);
   const [error, setError] = useState<string | null>(null);
+  const [checked, setChecked] = useState<string | null>(null);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ['presentation', presentationId] });
+  useEscape(sync.progress ? null : onClose);
 
   const link = useMutation({
     mutationFn: () => api<SourceInfo>(`/api/presentations/${presentationId}/source`, { method: 'PUT', body: { url, autoSync } }),
+    onMutate: () => setError(null),
     onSuccess: async () => {
       setError(null);
       await refresh();
@@ -124,7 +130,14 @@ export function GoogleSourceDialog({
   });
   const check = useMutation({
     mutationFn: () => api<SourceInfo>(`/api/presentations/${presentationId}/source/check`, { body: {} }),
-    onSuccess: refresh,
+    onMutate: () => {
+      setError(null);
+      setChecked(null);
+    },
+    onSuccess: async (info) => {
+      setChecked(info.error ? null : info.changed ? 'Bei Google gibt es eine neue Fassung.' : 'Keine Änderungen bei Google.');
+      await refresh();
+    },
     onError: (err) => setError(errorMessage(err)),
   });
   const unlink = useMutation({
@@ -141,15 +154,15 @@ export function GoogleSourceDialog({
     <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="google-title" onClick={busy ? undefined : onClose}>
       <div className="dialog card card-pad stack" onClick={(e) => e.stopPropagation()}>
         <div className="row-between">
-          <h2 id="google-title">Mit Google Slides verknüpfen</h2>
+          <h2 id="google-title">{source ? 'Google Slides' : 'Mit Google Slides verknüpfen'}</h2>
           <button className="icon-btn" onClick={onClose} disabled={busy} aria-label="Schließen">
             <X />
           </button>
         </div>
         <p className="muted small">
-          In Google Slides unter „Freigeben“ „Jeder mit dem Link“ einstellen und den Link hier einfügen. TakePart holt Folienbilder,
-          Sprechernotizen und Animationen und prüft regelmäßig auf Änderungen. Neue Folien erscheinen an der passenden Stelle, eigene
-          Abstimmungen und Übungen dazwischen bleiben, wo sie sind. Vor jedem Abgleich entsteht eine Version.
+          In Google Slides unter „Freigeben“ den allgemeinen Zugriff auf „Jeder mit dem Link“ stellen und den Link hier einfügen. TakePart
+          holt Folienbilder, Sprechernotizen und Animationen und prüft regelmäßig auf Änderungen. Neue Folien erscheinen an der passenden
+          Stelle, eigene Abstimmungen und Übungen dazwischen bleiben, wo sie sind. Vor jedem Abgleich entsteht eine Version.
         </p>
         <form
           className="stack-s"
@@ -189,7 +202,12 @@ export function GoogleSourceDialog({
             <span className="small">
               Zuletzt abgeglichen: <strong>{when(source.syncedAt)}</strong> · geprüft: {when(source.checkedAt)}
             </span>
-            {source.changed && !busy && (
+            {checked && !busy && (
+              <span className="small" role="status">
+                {checked}
+              </span>
+            )}
+            {source.changed && !busy && !checked && (
               <span className="small">{source.syncedHash ? 'Bei Google gibt es eine neue Fassung.' : 'Noch nicht abgeglichen.'}</span>
             )}
             {source.error && <div className="error-box">{source.error}</div>}

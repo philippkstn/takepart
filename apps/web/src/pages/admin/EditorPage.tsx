@@ -66,6 +66,7 @@ import { GoogleSourceDialog, SyncProgressBar, syncSummary, useGoogleSync, type S
 import { useEditSession } from '../../lib/editSession.ts';
 import { onParkedConflict, useSyncedField } from '../../lib/syncedField.ts';
 import { ApiError } from '../../lib/api.ts';
+import { authStatus } from '../../lib/passkey.ts';
 
 interface Presentation {
   id: number;
@@ -121,6 +122,9 @@ export default function EditorPage() {
     toast('Du hast keinen Zugriff mehr auf diese Präsentation', 'error');
     navigate('/admin');
   });
+  const me = useQuery({ queryKey: ['auth'], queryFn: authStatus }).data?.account?.username ?? null;
+  /** Anzeigename in der Anwesenheit – das eigene Konto in einem anderen Fenster als „du“ */
+  const shown = (name: string) => (name === me ? 'du (anderes Fenster)' : name);
   const [sharing, setSharing] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
@@ -144,7 +148,7 @@ export default function EditorPage() {
   const { focus } = session;
   useEffect(() => focus(selected?.id ?? null), [focus, selected?.id]);
   /** Wer außer mir auf welcher Folie ist */
-  const othersOn = (slideId: number) => session.editors.filter((e) => e.slideId === slideId).map((e) => e.name);
+  const othersOn = (slideId: number) => session.editors.filter((e) => e.slideId === slideId).map((e) => shown(e.name));
 
   // Konflikt beim Verlassen einer Folie: Bescheid geben, beim Öffnen der Folie wählen
   useEffect(
@@ -302,7 +306,7 @@ export default function EditorPage() {
             if (t && t !== pres.data!.title) rename.mutate(t);
           }}
         />
-        <EditorsBar editors={session.editors.map((e) => e.name)} />
+        <EditorsBar editors={session.editors.map((e) => shown(e.name))} />
         {isOwner && (
           <button className="btn" onClick={() => setSharing(true)}>
             <Users /> Teilen
@@ -365,7 +369,7 @@ export default function EditorPage() {
             className="select"
             value={pres.data.brandId ?? ''}
             disabled={!isOwner}
-            title={isOwner ? undefined : 'Das Branding wählt der Eigentümer der Präsentation'}
+            title={isOwner ? undefined : 'Das Branding legt fest, wem die Präsentation gehört'}
             onChange={(e) => setBrand.mutate(e.target.value ? Number(e.target.value) : null)}
           >
             <option value="">Ohne Branding</option>
@@ -558,6 +562,7 @@ export default function EditorPage() {
             readOnly={!canEdit}
             lastEditor={session.lastEditor[selected.id] ?? null}
             others={othersOn(selected.id)}
+            me={me}
           />
         ) : (
           <div className="empty stack" style={{ gridColumn: 'span 2', justifyItems: 'center' }}>
@@ -734,12 +739,14 @@ export default function EditorPage() {
 }
 
 const initials = (name: string) =>
-  name
-    .split(/[\s._-]+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('') || '?';
+  name.startsWith('du (')
+    ? 'Du'
+    : name
+        .split(/[\s._-]+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((w) => w[0]!.toUpperCase())
+        .join('') || '?';
 
 /** Wer außer mir gerade in diesem Editor ist */
 function EditorsBar({ editors }: { editors: string[] }) {
@@ -892,14 +899,32 @@ function useSlideSaver(presentationId: number, slideId: number) {
 }
 
 /** Hinweis, wenn eigene und fremde Änderungen an derselben Stelle kollidieren */
-function ConflictBar({ who, what, onResolve }: { who: string | null; what: string; onResolve: (c: 'mine' | 'theirs') => void }) {
+function ConflictBar({
+  who,
+  me,
+  what,
+  onResolve,
+}: {
+  who: string | null;
+  /** Eigener Benutzername – dasselbe Konto in einem anderen Fenster */
+  me: string | null;
+  what: string;
+  onResolve: (c: 'mine' | 'theirs') => void;
+}) {
+  const self = !!who && who === me;
   return (
     <div className="conflict-bar" role="alert">
       <span className="grow small">
-        {who ? <strong>{who}</strong> : 'Jemand anderes'} hat {what} gerade auch geändert. Welche Fassung soll gelten?
+        {self ? (
+          <>Du hast {what} gerade in einem anderen Fenster geändert. Welche Fassung soll gelten?</>
+        ) : (
+          <>
+            {who ? <strong>{who}</strong> : 'Jemand anderes'} hat {what} gerade auch geändert. Welche Fassung soll gelten?
+          </>
+        )}
       </span>
       <button type="button" className="btn btn-small" onClick={() => onResolve('theirs')}>
-        Andere übernehmen
+        {self ? 'Andere Fassung übernehmen' : who ? `Fassung von ${who} übernehmen` : 'Andere Fassung übernehmen'}
       </button>
       <button type="button" className="btn btn-small btn-primary" onClick={() => onResolve('mine')}>
         Meine behalten
@@ -916,6 +941,7 @@ function SlideEditor({
   readOnly,
   lastEditor,
   others,
+  me,
 }: {
   slide: Slide;
   presentation: Presentation;
@@ -925,6 +951,7 @@ function SlideEditor({
   lastEditor: string | null;
   /** Wer außer mir gerade auf dieser Folie ist */
   others: string[];
+  me: string | null;
 }) {
   const queryClient = useQueryClient();
   const saveSlide = useSlideSaver(presentation.id, slide.id);
@@ -968,7 +995,7 @@ function SlideEditor({
                     : ''}
           </span>
         </div>
-        {field.status === 'conflict' && <ConflictBar who={lastEditor} what="diese Folie" onResolve={field.resolve} />}
+        {field.status === 'conflict' && <ConflictBar who={lastEditor} me={me} what="diese Folie" onResolve={field.resolve} />}
         <form className="stack" onSubmit={(e) => e.preventDefault()}>
           <fieldset className="plain-fieldset stack" disabled={readOnly}>
             <SlideForm
@@ -987,6 +1014,7 @@ function SlideEditor({
           server={presentation.notes[slide.id] ?? ''}
           readOnly={readOnly}
           lastEditor={lastEditor}
+          me={me}
         />
         <ScheduleFields
           key={`schedule-${slide.id}`}
@@ -1043,12 +1071,14 @@ function NotesField({
   server,
   readOnly,
   lastEditor,
+  me,
 }: {
   slideId: number;
   presentationId: number;
   server: string;
   readOnly: boolean;
   lastEditor: string | null;
+  me: string | null;
 }) {
   const saveSlide = useSlideSaver(presentationId, slideId);
   const field = useSyncedField<string>({
@@ -1073,7 +1103,7 @@ function NotesField({
                 : 'nur in der Referentenansicht'}
         </span>
       </span>
-      {field.status === 'conflict' && <ConflictBar who={lastEditor} what="die Notizen" onResolve={field.resolve} />}
+      {field.status === 'conflict' && <ConflictBar who={lastEditor} me={me} what="die Notizen" onResolve={field.resolve} />}
       <textarea
         className="textarea"
         rows={4}

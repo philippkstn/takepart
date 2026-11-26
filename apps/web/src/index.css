@@ -296,10 +296,27 @@ select {
   padding: 0.6em 0.9em;
   border-radius: var(--radius-s);
   border: 1px solid var(--border-strong);
-  background: var(--surface);
+  background-color: var(--surface);
   transition:
     border-color 150ms,
     box-shadow 150ms;
+}
+/* Eigener Pfeil mit festem Abstand zum Rand – der native sitzt je nach Browser direkt an der Kante */
+.select {
+  appearance: none;
+  padding-right: 2.4em;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2378787e' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75em center;
+  background-size: 16px;
+}
+/* Gesperrt (z. B. nur Ansehen): nicht wie bedienbar aussehen */
+.switch:has(input:disabled) {
+  opacity: 0.55;
+  cursor: default;
+}
+.switch input:disabled {
+  cursor: default;
 }
 .textarea {
   resize: vertical;

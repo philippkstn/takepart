@@ -84,6 +84,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
       owner_id: number;
       owner_name: string;
       role: Exclude<Role, 'owner'> | null;
+      shared_with: number;
     }>(
       db,
       `SELECT p.id, p.title, p.updated_at, (SELECT b.name FROM brands b WHERE b.id = p.brand_id) AS brand_name,
@@ -92,7 +93,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
               (SELECT r.id FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL AND r.rehearsal = 0 LIMIT 1) AS live_run,
               (SELECT r.code FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL AND r.rehearsal = 0 LIMIT 1) AS live_code,
               (SELECT r.id FROM runs r WHERE r.presentation_id = p.id AND r.ended_at IS NULL AND r.rehearsal = 1 LIMIT 1) AS rehearsal_run,
-              p.user_id AS owner_id, u.username AS owner_name, sh.role
+              p.user_id AS owner_id, u.username AS owner_name, sh.role,
+              (SELECT COUNT(*) FROM presentation_shares s2 WHERE s2.presentation_id = p.id) AS shared_with
          FROM presentations p
          JOIN users u ON u.id = p.user_id
          LEFT JOIN presentation_shares sh ON sh.presentation_id = p.id AND sh.user_id = ?
@@ -112,6 +114,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
       rehearsalRun: r.rehearsal_run ? { id: r.rehearsal_run } : null,
       role: (r.owner_id === me ? 'owner' : r.role) as Role,
       ownerName: r.owner_id === me ? null : r.owner_name,
+      // Für den Eigentümer: mit wie vielen Konten geteilt
+      sharedWith: r.owner_id === me ? Number(r.shared_with) : 0,
     }));
   });
 

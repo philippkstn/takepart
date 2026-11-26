@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ROLE_LABELS, roleAtLeast, type PresentationRole } from '@slides/shared';
-import { Copy, Download, Eye, FlaskConical, LogOut, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload, Users } from 'lucide-react';
+import { Copy, Download, Eye, FlaskConical, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload, UserMinus, Users } from 'lucide-react';
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
@@ -18,6 +18,8 @@ interface PresentationItem {
   role: PresentationRole;
   /** Eigentümer bei geteilten Präsentationen */
   ownerName: string | null;
+  /** Eigene Präsentationen: mit wie vielen Konten geteilt */
+  sharedWith: number;
 }
 
 export function useStartRun() {
@@ -152,6 +154,14 @@ export default function PresentationsPage() {
                   <span>{p.runs} Durchführungen</span>
                   <span>·</span>
                   <span>geändert {new Date(p.updatedAt).toLocaleDateString('de-DE')}</span>
+                  {p.sharedWith > 0 && (
+                    <>
+                      <span>·</span>
+                      <span className="row" style={{ gap: 4 }}>
+                        <Users size={14} aria-hidden /> geteilt mit {p.sharedWith}
+                      </span>
+                    </>
+                  )}
                   {p.ownerName && (
                     <>
                       <span>·</span>
@@ -223,7 +233,7 @@ export default function PresentationsPage() {
                     aria-label="Nicht mehr mit mir teilen"
                     title="Nicht mehr mit mir teilen"
                   >
-                    <LogOut />
+                    <UserMinus />
                   </button>
                 )}
               </div>

@@ -70,7 +70,7 @@ export async function fetchGoogleExport(fileId: string, format: 'pdf' | 'pptx'):
       url = target.toString();
       continue;
     }
-    if (res.status === 404) throw new SourceError('Diese Präsentation gibt es bei Google nicht (mehr)');
+    if (res.status === 404) throw new SourceError('Diese Präsentation gibt es bei Google nicht (mehr). Bitte den Link prüfen.');
     if (res.status === 401 || res.status === 403) throw notShared();
     if (!res.ok || !res.body) throw new SourceError(`Google Slides antwortet mit Fehler ${res.status}`);
     const declared = Number(res.headers.get('content-length') ?? 0);
@@ -210,7 +210,7 @@ export function googleRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits:
     if (!fileId) {
       return reply.code(400).send({
         error:
-          'Das ist kein Link auf eine Google-Slides-Präsentation (docs.google.com/presentation/d/…). Veröffentlichte Links (/d/e/…) gehen nicht.',
+          'Das ist kein Link auf eine Google-Slides-Präsentation (docs.google.com/presentation/d/…). Veröffentlichte Links (/d/e/…) funktionieren nicht.',
       });
     }
     let hash: string;
@@ -347,7 +347,10 @@ export function googleRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits:
     if (current.synced_hash !== body.baseHash) {
       return reply.code(409).send({ error: 'Die Präsentation wurde gerade schon abgeglichen' });
     }
-    await snapshotVersion(db, id, 'google', touchOf(request));
+    // Version nur, wenn sich an den Folien etwas ändert
+    if (body.replace.length + body.insert.length + body.remove.length + body.keys.length > 0) {
+      await snapshotVersion(db, id, 'google', touchOf(request));
+    }
 
     type Result = { kept: number[] } | { error: string; status: number };
     const result = await transaction(db, async (conn: Conn): Promise<Result> => {

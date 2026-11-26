@@ -139,7 +139,7 @@ export function ScheduleFields({
           ? 'Nicht gespeichert'
           : state === 'invalid'
             ? message
-            : 'nur für dich sichtbar';
+            : 'nicht für das Publikum sichtbar';
 
   return (
     <fieldset className="field schedule-fields" disabled={readOnly}>

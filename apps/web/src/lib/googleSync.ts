@@ -27,6 +27,8 @@ export interface SyncResult {
   /** In Google gelöscht, aber wegen Ergebnissen behalten */
   kept: number;
   unchanged: number;
+  /** PDF bytegleich zum letzten Abgleich – nichts getan */
+  noChange?: boolean;
 }
 
 async function download(presentationId: number, format: 'pdf' | 'pptx'): Promise<{ file: File; hash: string | null }> {
@@ -77,8 +79,14 @@ export async function syncFromGoogle(
   confirmRemoval?: (count: number, total: number) => boolean,
 ): Promise<SyncResult> {
   onProgress({ step: 'download' });
-  const [pdf, pptx] = await Promise.all([download(presentationId, 'pdf'), download(presentationId, 'pptx')]);
+  const pdf = await download(presentationId, 'pdf');
   if (!pdf.hash) throw new Error('Google hat keine Prüfsumme geliefert');
+  // Unverändert seit dem letzten Abgleich: nichts rendern, keine Version
+  if (pdf.hash === baseHash) {
+    const images = slides.filter((s) => s.type === 'image').length;
+    return { replaced: 0, inserted: 0, removed: 0, kept: 0, unchanged: images, noChange: true };
+  }
+  const pptx = await download(presentationId, 'pptx');
   const info = await extractPptxNotes(pptx.file);
   const titles = await pdfPageTitles(pdf.file);
   // Google-PDFs enthalten ausgeblendete Folien – die PPTX sagt, welche

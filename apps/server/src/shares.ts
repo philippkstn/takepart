@@ -30,7 +30,7 @@ export function shareRoutes(app: FastifyInstance, db: Db, edits: EditHub) {
     const { id } = idParam.parse(request.params);
     const body = z.object({ username: z.string().trim().min(1).max(100), role: z.enum(SHARE_ROLES) }).parse(request.body);
     const user = await one<{ id: number; username: string }>(db, 'SELECT id, username FROM users WHERE username = ?', [body.username]);
-    if (!user) return reply.code(404).send({ error: 'Kein Konto mit diesem Benutzernamen' });
+    if (!user) return reply.code(404).send({ error: 'Kein Konto mit diesem Benutzernamen. Bitte die Schreibweise prüfen.' });
     if (user.id === accountOf(request).id) return reply.code(400).send({ error: 'Die Präsentation gehört dir schon' });
     await exec(
       db,

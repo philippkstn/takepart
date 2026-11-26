@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
+import { useEscape } from '../../lib/useEscape.ts';
 
 type ShareRole = 'view' | 'edit' | 'host';
 const SHARE_ROLES: ShareRole[] = ['view', 'edit', 'host'];
@@ -24,6 +25,7 @@ export function ShareDialog({ presentationId, onClose }: { presentationId: numbe
   const [username, setUsername] = useState('');
   const [role, setRole] = useState<ShareRole>('edit');
   const [error, setError] = useState<string | null>(null);
+  useEscape(onClose);
 
   const save = useMutation({
     mutationFn: (body: { username: string; role: ShareRole }) =>
@@ -64,6 +66,7 @@ export function ShareDialog({ presentationId, onClose }: { presentationId: numbe
           <input
             className="input"
             placeholder="Benutzername"
+            autoFocus
             value={username}
             autoComplete="off"
             maxLength={100}

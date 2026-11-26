@@ -77,8 +77,13 @@
 }
 .editor-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+/* Titel nimmt den Rest der Zeile; reicht der Platz nicht, rutschen die Knöpfe in die nächste */
+.editor-head .title-input {
+  flex: 1 1 280px;
 }
 .title-input {
   flex: 1;
@@ -111,7 +116,7 @@
 .brand-select .select {
   min-height: 40px;
   width: auto;
-  padding: 0.4em 0.7em;
+  padding: 0.4em 2.2em 0.4em 0.7em;
 }
 .editor-grid {
   display: grid;
@@ -128,8 +133,16 @@
   }
 }
 @media (max-width: 760px) {
+  .editor,
   .editor-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* Kopfzeile umbrechen: Titel über volle Breite, Knöpfe darunter (sonst wird die Seite breiter als das Handy) */
+  .editor-head .title-input {
+    flex-basis: calc(100% - 60px);
+  }
+  .editor-head .btn {
+    flex: 1 1 auto;
   }
 }
 
@@ -141,6 +154,13 @@
   top: 70px;
   max-height: calc(100dvh - 90px);
   overflow: auto;
+}
+@media (max-width: 760px) {
+  /* Untereinander: Die Folienliste klebt nicht mehr oben – sonst schöbe sich das Formular beim Scrollen darüber */
+  .slide-list {
+    position: static;
+    max-height: 50dvh;
+  }
 }
 .slide-list ol {
   list-style: none;
@@ -672,6 +692,19 @@ fieldset.schedule-fields {
 .share-form .input {
   flex: 1 1 220px;
 }
+/* Rollen-Auswahl nur so breit wie nötig – der Benutzername behält den Platz */
+.share-form .select,
+.share-list .select {
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 40px;
+}
+.share-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .share-list,
 .version-list,
 .version-slides {
@@ -943,7 +976,8 @@ fieldset.schedule-fields {
 /* ───────────── Kartenwand im Steuerpult ───────────── */
 
 .select-small {
-  padding: 0.3em 0.5em;
+  padding: 0.3em 2em 0.3em 0.5em;
+  background-position: right 0.5em center;
   font-size: 0.85rem;
   min-height: 0;
 }

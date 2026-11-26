@@ -14,7 +14,7 @@ export const ROLE_LABELS: Record<PresentationRole, string> = {
 
 export const ROLE_HINTS: Record<Exclude<PresentationRole, 'owner'>, string> = {
   view: 'Folien ansehen und für sich duplizieren',
-  edit: 'Folien bearbeiten, Versionen wiederherstellen',
+  edit: 'Folien bearbeiten, Versionen wiederherstellen, exportieren (mit allen Ergebnissen und Namen)',
   host: 'Zusätzlich durchführen, steuern und das Archiv sehen',
 };
 
