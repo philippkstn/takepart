@@ -16,7 +16,7 @@ import { api, ApiError, errorMessage } from './api.ts';
  */
 
 type Entry =
-  | { key: number; kind: 'delete'; slideId: number; versionId: number }
+  | { key: number; kind: 'delete'; slideIds: number[]; versionId: number }
   | { key: number; kind: 'order'; before: number[]; after: number[] }
   | { key: number; kind: 'insert'; ids: number[] };
 
@@ -90,10 +90,12 @@ export function useEditorUndo({
 
   const undoEntry = async (entry: Entry) => {
     if (entry.kind === 'delete') {
-      await api(`/api/presentations/${presentationId}/versions/${entry.versionId}/slides/${entry.slideId}/restore`, { body: {} });
+      // In der alten Reihenfolge – jede Folie kommt an ihre Stelle aus der Version
+      for (const slideId of entry.slideIds)
+        await api(`/api/presentations/${presentationId}/versions/${entry.versionId}/slides/${slideId}/restore`, { body: {} });
       await refresh();
-      select(entry.slideId);
-      toast('Folie wiederhergestellt');
+      select(entry.slideIds[0]!);
+      toast(entry.slideIds.length === 1 ? 'Folie wiederhergestellt' : `${entry.slideIds.length} Folien wiederhergestellt`);
     } else if (entry.kind === 'order') {
       const now = currentIds();
       if (!now || !sameIds(now, entry.after)) {
@@ -106,7 +108,10 @@ export function useEditorUndo({
     } else {
       const now = currentIds() ?? [];
       const first = now.indexOf(entry.ids[0]!);
-      const neighbour = now.slice(0, Math.max(first, 0)).reverse().find((id) => !entry.ids.includes(id));
+      const neighbour = now
+        .slice(0, Math.max(first, 0))
+        .reverse()
+        .find((id) => !entry.ids.includes(id));
       // Eine Version genügt für den ganzen Schritt (unbenannte Versionen sind begrenzt)
       let removed = 0;
       for (const id of entry.ids) {
@@ -158,25 +163,38 @@ export function useEditorUndo({
     return () => window.removeEventListener('keydown', onKey);
   }, [enabled]);
 
+  /** Folien löschen (in Listenreihenfolge) mit „Rückgängig“ im Hinweis; `false`, wenn nichts gelöscht wurde */
+  const removeMany = async (slideIds: number[]): Promise<boolean> => {
+    const order = currentIds() ?? [];
+    const ids = [...slideIds].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    const removed: number[] = [];
+    let versionId: number | null = null;
+    try {
+      // Eine Version vor dem ersten Löschen genügt für den ganzen Schritt
+      for (const id of ids) {
+        const done = await deleteSlide(id, removed.length === 0);
+        if (!done) break;
+        if (removed.length === 0) versionId = done.versionId;
+        removed.push(id);
+      }
+    } catch (err) {
+      toast(errorMessage(err), 'error');
+    }
+    if (removed.length === 0) return false;
+    await refresh();
+    const text = removed.length === 1 ? 'Folie gelöscht' : `${removed.length} Folien gelöscht`;
+    if (versionId === null) toast(text);
+    else {
+      const key = push({ kind: 'delete', slideIds: removed, versionId });
+      toast(text, 'info', { label: 'Rückgängig', run: () => void undoRef.current(key) });
+    }
+    return true;
+  };
+
   return {
     /** Folie löschen mit „Rückgängig“ im Hinweis; `false`, wenn abgebrochen oder fehlgeschlagen */
-    remove: async (slideId: number): Promise<boolean> => {
-      try {
-        const done = await deleteSlide(slideId, true);
-        if (!done) return false;
-        await refresh();
-        if (done.versionId === null) {
-          toast('Folie gelöscht');
-        } else {
-          const key = push({ kind: 'delete', slideId, versionId: done.versionId });
-          toast('Folie gelöscht', 'info', { label: 'Rückgängig', run: () => void undoRef.current(key) });
-        }
-        return true;
-      } catch (err) {
-        toast(errorMessage(err), 'error');
-        return false;
-      }
-    },
+    remove: (slideId: number) => removeMany([slideId]),
+    removeMany,
     /** Erfolgreiches Verschieben merken */
     recordOrder: (before: number[] | null, after: number[]) => {
       if (before && !sameIds(before, after)) push({ kind: 'order', before, after });

@@ -1,4 +1,4 @@
-import { activeAnnouncement, buildSteps, currentPhase, topWords, type HostCommand, type HostView } from '@slides/shared';
+import { activeAnnouncement, buildSteps, currentPhase, plannedTotal, topWords, type HostCommand, type HostView } from '@slides/shared';
 import {
   ArrowLeft,
   PanelLeftClose,
@@ -235,7 +235,14 @@ export default function ControlPage() {
         {narrow && drawer && <div className="control-drawer-backdrop" onClick={() => setDrawer(false)} />}
         <aside className="control-slides">
           <ol>
-            {view.slides.map((s, i) => (
+            {view.slides.flatMap((s, i) => [
+              // Abschnitt der Folienliste als Zwischenüberschrift (nur hier und im Editor)
+              s.section && (
+                <li key={`section-${s.id}`} className="control-section">
+                  <span className="grow">{s.section}</span>
+                  {sectionMinutes(view.slides, i) > 0 && <span className="small faint tabular">{sectionMinutes(view.slides, i)} Min.</span>}
+                </li>
+              ),
               <li key={s.id}>
                 <button
                   className={`control-slide ${s.id === slide?.id ? 'is-current' : ''}`}
@@ -250,8 +257,8 @@ export default function ControlPage() {
                   <span className="grow control-slide-title">{s.headline || <em className="faint">ohne Titel</em>}</span>
                   {s.responses > 0 && <span className="pill tabular">{s.responses}</span>}
                 </button>
-              </li>
-            ))}
+              </li>,
+            ])}
           </ol>
         </aside>
 
@@ -953,4 +960,10 @@ function HandoutToggle({ runId, url }: { runId: number; url: string | null }) {
       )}
     </span>
   );
+}
+
+/** Geplante Minuten des Abschnitts, der bei Folie `start` beginnt (bis zum nächsten Abschnitt) */
+function sectionMinutes(slides: HostView['slides'], start: number): number {
+  const end = slides.findIndex((s, i) => i > start && s.section);
+  return plannedTotal(slides.slice(start, end < 0 ? undefined : end).map((s) => s.plannedMinutes ?? null));
 }

@@ -8,38 +8,32 @@ const EDGE = 48;
 const MAX_SPEED = 18;
 
 export interface SlideDrag {
-  /** Folie, die gerade gezogen wird */
-  id: number;
-  /** Einfügestelle in der aktuellen Liste (0 … Länge), vor der die Linie steht */
+  /** Folien, die gerade gezogen werden (eine oder die ganze Auswahl) */
+  ids: number[];
+  /** Einfügestelle: vor der wievielten Zeile der Liste (0 … Zeilenzahl) – Überschriften zählen als Zeilen */
   at: number;
 }
 
 /**
  * Folien in der Liste per Zeiger verschieben (Maus, Stift, Touch über den Griff).
  * Maus: die ganze Zeile ist ziehbar; Touch nur über den Griff (sonst ginge Scrollen verloren).
- * Die Liste scrollt am Rand mit; Escape bricht ab. `onDrop` bekommt die neue Reihenfolge
- * – gebaut aus den IDs beim Loslassen, nicht beim Start (die Liste kann sich inzwischen ändern).
+ * Die Liste scrollt am Rand mit; Escape bricht ab. Zeilen sind alle `li[data-row]` der
+ * Liste (Folien und Abschnitts-Überschriften); `onDrop` bekommt die Einfügestelle
+ * als Zeilenindex – die neue Reihenfolge baut die Liste beim Loslassen aus ihrem
+ * dann aktuellen Stand (die Liste kann sich inzwischen ändern).
  */
-export function useSlideDrag({
-  ids,
-  enabled,
-  onDrop,
-}: {
-  ids: number[];
-  enabled: boolean;
-  onDrop: (ids: number[], movedId: number) => void;
-}) {
+export function useSlideDrag({ enabled, onDrop }: { enabled: boolean; onDrop: (ids: number[], at: number) => void }) {
   const listRef = useRef<HTMLOListElement>(null);
   const [drag, setDrag] = useState<SlideDrag | null>(null);
-  const latest = useRef({ ids, onDrop });
-  latest.current = { ids, onDrop };
+  const latest = useRef(onDrop);
+  latest.current = onDrop;
   const cleanup = useRef<(() => void) | null>(null);
 
   useEffect(() => () => cleanup.current?.(), []);
 
   /** Einfügestelle aus der Zeigerhöhe: Anzahl der Zeilen, deren Mitte darüber liegt */
   const indexAt = (y: number) => {
-    const rows = listRef.current?.querySelectorAll<HTMLElement>(':scope > li[data-slide-id]') ?? [];
+    const rows = listRef.current?.querySelectorAll<HTMLElement>(':scope > li[data-row]') ?? [];
     let at = 0;
     for (const row of rows) {
       const r = row.getBoundingClientRect();
@@ -49,11 +43,13 @@ export function useSlideDrag({
   };
 
   const start = useCallback(
-    (e: ReactPointerEvent, id: number, fromHandle: boolean) => {
-      if (!enabled || e.button !== 0) return;
+    (e: ReactPointerEvent, ids: number[], fromHandle: boolean) => {
+      if (!enabled || e.button !== 0 || ids.length === 0) return;
       if (e.pointerType !== 'mouse' && !fromHandle) return;
+      // Mit Umschalt/⌘/Strg wird ausgewählt, nicht gezogen
+      if (e.shiftKey || e.metaKey || e.ctrlKey) return;
       const target = e.target as HTMLElement;
-      // Knöpfe in der Zeile (Menü) nicht zum Ziehen nehmen
+      // Knöpfe in der Zeile (Menü, Einklappen …) nicht zum Ziehen nehmen
       if (!fromHandle && target.closest('[data-no-drag]')) return;
       cleanup.current?.();
 
@@ -90,21 +86,13 @@ export function useSlideDrag({
           frame = requestAnimationFrame(scrollLoop);
         }
         ev.preventDefault();
-        setDrag({ id, at: indexAt(y) });
+        setDrag({ ids, at: indexAt(y) });
       };
 
       const finish = (commit: boolean) => {
         cleanup.current?.();
         if (!active || !commit) return;
-        const { ids: now, onDrop: drop } = latest.current;
-        const from = now.indexOf(id);
-        if (from < 0) return;
-        let at = indexAt(y);
-        if (at > from) at--;
-        if (at === from) return;
-        const next = now.filter((x) => x !== id);
-        next.splice(at, 0, id);
-        drop(next, id);
+        latest.current(ids, indexAt(y));
       };
 
       const up = (ev: PointerEvent) => ev.pointerId === e.pointerId && finish(true);

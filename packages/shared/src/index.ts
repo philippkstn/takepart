@@ -28,3 +28,4 @@ export * from './versionDiff.ts';
 export * from './buildCover.ts';
 export * from './buildParagraphs.ts';
 export * from './slideGoals.ts';
+export * from './sections.ts';

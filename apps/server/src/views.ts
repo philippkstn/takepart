@@ -412,6 +412,7 @@ export function hostView(
       plannedMinutes: slidePlannedMinutes(snap.schedule.get(s.id)),
       phases: snap.schedule.get(s.id)?.phases ?? [],
       autoCountdown: snap.schedule.get(s.id)?.autoCountdown ?? false,
+      ...(snap.sections?.has(s.id) && { section: snap.sections.get(s.id) }),
     })),
   };
 }

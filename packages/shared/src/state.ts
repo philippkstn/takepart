@@ -693,6 +693,8 @@ export interface HostSlideSummary {
   phases?: { label: string; minutes: number }[];
   /** Countdown startet beim Öffnen der Folie von selbst (Einstellung der Folie) */
   autoCountdown?: boolean;
+  /** Abschnitt, der an dieser Folie beginnt (Zwischenüberschrift in der Folienübersicht) */
+  section?: string;
 }
 
 export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderboard'> {

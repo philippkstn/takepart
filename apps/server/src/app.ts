@@ -24,6 +24,7 @@ import { participantByToken, participantRoutes } from './participants.ts';
 import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
+import { sectionRoutes } from './sections.ts';
 import { rehearsalRoutes, simulateRehearsals } from './rehearsal.ts';
 import { shareRoutes } from './shares.ts';
 import { isIndexable, linkPreview, renderIndex, seoRoutes, sharedLink } from './seo.ts';
@@ -181,6 +182,7 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
 
   authRoutes(app, db, config);
   presentationRoutes(app, db, live, edits);
+  sectionRoutes(app, db, live, edits);
   shareRoutes(app, db, edits);
   versionRoutes(app, db, live, edits);
   googleRoutes(app, db, live, edits);

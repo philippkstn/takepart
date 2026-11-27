@@ -7,6 +7,7 @@ import {
   parseConfig,
   plannedMinutes,
   schedulePhases,
+  sectionInput,
   SLIDE_TYPES,
   type RunState,
   type SlideType,
@@ -87,6 +88,8 @@ const fileSchema = z.object({
         plannedMinutes: plannedMinutes.optional(),
         phases: schedulePhases.optional(),
         autoCountdown: z.boolean().optional(),
+        // Abschnitt, der an dieser Folie beginnt – optional wie der Ablaufplan
+        section: sectionInput.optional(),
       }),
     )
     .max(1000),
@@ -262,9 +265,9 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
       ORDER BY a.id`,
     [presentationId],
   );
-  const slides = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null }>(
+  const slides = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null; section: string | null }>(
     db,
-    `SELECT id, type, config, notes, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id`,
+    `SELECT id, type, config, notes, section, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id`,
     [presentationId],
   );
   const runs = await query<{ id: number; state: string; started_at: Date; ended_at: Date | null }>(
@@ -410,6 +413,7 @@ export async function exportPresentation(db: Db, presentationId: number): Promis
         ...(schedule.plannedMinutes !== null && { plannedMinutes: schedule.plannedMinutes }),
         ...(schedule.phases.length > 0 && { phases: schedule.phases }),
         ...(schedule.autoCountdown && { autoCountdown: true }),
+        ...(s.section && { section: s.section }),
       };
     }),
     runs: runData,
@@ -486,8 +490,8 @@ export async function importPresentation(db: Db, userId: number, file: ExportFil
       const schedule = { plannedMinutes: s.plannedMinutes ?? null, phases: s.phases ?? [], autoCountdown: s.autoCountdown ?? false };
       const result = await exec(
         conn,
-        `INSERT INTO slides (presentation_id, position, type, config, notes, ${SCHEDULE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [presentationId, position, s.type, JSON.stringify(config), s.notes || null, ...scheduleValues(schedule)],
+        `INSERT INTO slides (presentation_id, position, type, config, notes, ${SCHEDULE_COLUMNS}, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [presentationId, position, s.type, JSON.stringify(config), s.notes || null, ...scheduleValues(schedule), s.section ?? null],
       );
       slides.set(s.id, result.insertId);
     }

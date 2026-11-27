@@ -221,6 +221,7 @@ export function SaveBlockDialog({
   notes,
   schedule = {},
   startId,
+  ids,
   onClose,
 }: {
   slides: Slide[];
@@ -228,6 +229,8 @@ export function SaveBlockDialog({
   /** Ablaufplan je Folie – wird mitgespeichert */
   schedule?: Record<string, SlideSchedule>;
   startId: number;
+  /** Mehrfachauswahl: genau diese Folien (in Listenreihenfolge) statt eines Bereichs */
+  ids?: number[];
   onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -239,7 +242,7 @@ export function SaveBlockDialog({
   const [from, setFrom] = useState(startIndex + 1);
   const [to, setTo] = useState(startIndex + 1);
   const [name, setName] = useState('');
-  const range = slides.slice(Math.min(from, to) - 1, Math.max(from, to));
+  const range = ids ? slides.filter((s) => ids.includes(s.id)) : slides.slice(Math.min(from, to) - 1, Math.max(from, to));
   const usable = range.filter((s) => s.type !== 'image');
   const skipped = range.length - usable.length;
 
@@ -293,30 +296,32 @@ export function SaveBlockDialog({
             onChange={(e) => setName(e.target.value)}
           />
         </label>
-        <div className="row" style={{ gap: 8 }}>
-          <label className="row small" style={{ gap: 6 }}>
-            Folie
-            <input
-              className="input minutes-input"
-              type="number"
-              min={1}
-              max={slides.length}
-              value={from}
-              onChange={(e) => setFrom(clamp(Number(e.target.value)))}
-            />
-          </label>
-          <label className="row small" style={{ gap: 6 }}>
-            bis
-            <input
-              className="input minutes-input"
-              type="number"
-              min={1}
-              max={slides.length}
-              value={to}
-              onChange={(e) => setTo(clamp(Number(e.target.value)))}
-            />
-          </label>
-        </div>
+        {!ids && (
+          <div className="row" style={{ gap: 8 }}>
+            <label className="row small" style={{ gap: 6 }}>
+              Folie
+              <input
+                className="input minutes-input"
+                type="number"
+                min={1}
+                max={slides.length}
+                value={from}
+                onChange={(e) => setFrom(clamp(Number(e.target.value)))}
+              />
+            </label>
+            <label className="row small" style={{ gap: 6 }}>
+              bis
+              <input
+                className="input minutes-input"
+                type="number"
+                min={1}
+                max={slides.length}
+                value={to}
+                onChange={(e) => setTo(clamp(Number(e.target.value)))}
+              />
+            </label>
+          </div>
+        )}
         <p className="small muted">
           {countLabel(usable.length)} mit Einstellungen, Sprechernotizen und Ablaufplan
           {skipped > 0 && ` – ${skipped} importierte ${skipped === 1 ? 'Folie wird' : 'Folien werden'} übersprungen`}
