@@ -24,7 +24,7 @@ import { participantByToken, participantRoutes } from './participants.ts';
 import { moderationRoutes } from './moderation.ts';
 import { breakoutRoutes } from './breakout.ts';
 import { presentationRoutes } from './presentations.ts';
-import { rehearsalRoutes } from './rehearsal.ts';
+import { rehearsalRoutes, simulateRehearsals } from './rehearsal.ts';
 import { shareRoutes } from './shares.ts';
 import { isIndexable, linkPreview, renderIndex, seoRoutes, sharedLink } from './seo.ts';
 import { protocolRoutes } from './protocol.ts';
@@ -106,8 +106,24 @@ export async function buildApp(config: Config, db: Db): Promise<{ app: FastifyIn
   };
   const backgroundTimer = config.NODE_ENV === 'test' ? null : setInterval(() => void background(), 60 * 1000);
   backgroundTimer?.unref();
+  // Probelauf: simuliertes Publikum antwortet nach und nach (Zeitplan aus der DB, siehe rehearsal.ts)
+  let simulating = false;
+  const simulate = async () => {
+    if (simulating) return;
+    simulating = true;
+    try {
+      await simulateRehearsals(db, live);
+    } catch (err) {
+      app.log.warn({ err }, 'Simuliertes Publikum fehlgeschlagen');
+    } finally {
+      simulating = false;
+    }
+  };
+  const simTimer = config.NODE_ENV === 'test' ? null : setInterval(() => void simulate(), 1000);
+  simTimer?.unref();
   app.addHook('onClose', async () => {
     if (backgroundTimer) clearInterval(backgroundTimer);
+    if (simTimer) clearInterval(simTimer);
     edits.close();
   });
   const csp = contentSecurityPolicy(config.APP_ORIGIN);

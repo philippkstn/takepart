@@ -1,4 +1,5 @@
 import { randomBytes, randomInt } from 'node:crypto';
+import { startSimulation } from './rehearsal.ts';
 import {
   boardRights,
   groupKey,
@@ -76,7 +77,7 @@ export async function loadRunState(db: Db, runId: number): Promise<{ state: RunS
   return row ? { state: json<RunState>(row.state), presentationId: row.presentation_id, ended: row.ended_at !== null } : null;
 }
 
-async function saveRunState(db: Db, runId: number, state: RunState) {
+export async function saveRunState(db: Db, runId: number, state: RunState) {
   await exec(db, 'UPDATE runs SET state = ? WHERE id = ?', [JSON.stringify(state), runId]);
 }
 
@@ -322,6 +323,8 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           JSON.stringify(state),
           rehearsal ? 1 : 0,
         ]);
+        // Probelauf: gleich mit 30–50 simulierten Teilnehmenden, die von selbst antworten
+        if (rehearsal) await startSimulation(db, result.insertId);
         return { id: result.insertId };
       } catch (err) {
         if (!isDuplicateKey(err)) throw err;

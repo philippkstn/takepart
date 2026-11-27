@@ -111,6 +111,12 @@ const emptyInk = (slideId: number | null): Room['ink'] => ({
 
 export class LiveHub {
   private rooms = new Map<number, Room>();
+
+  /** Schaut gerade jemand zu (Steuerpult oder Beamer)? Sonst muss z. B. das simulierte Publikum nicht antworten. */
+  watched(runId: number): boolean {
+    for (const c of this.rooms.get(runId)?.clients ?? []) if (c.role === 'host' || c.role === 'display') return true;
+    return false;
+  }
   private pinger: NodeJS.Timeout;
 
   private db: Db;

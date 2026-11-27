@@ -119,24 +119,26 @@ export function DisplayStatus({ displays }: { displays: HostView['displays'] | u
   );
 }
 
-/** Testteilnehmende im Probelauf: anlegen, Zufallsantworten auf die aktuelle Folie, entfernen. */
+/** Testteilnehmende im Probelauf: simuliertes Publikum an/aus, weitere anlegen, sofort antworten lassen, entfernen. */
 export function RehearsalControls({ runId, view }: { runId: number; view: HostView }) {
   const toast = useToast();
   const [count, setCount] = useState(10);
   const [withAnswers, setWithAnswers] = useState(true);
   const [busy, setBusy] = useState(false);
 
-  const run = async (body: { add: number; answer: boolean }) => {
+  const run = async (body: { add: number; answer: boolean; simulate?: boolean }) => {
     setBusy(true);
     try {
       const res = await api<{ added: number; total: number; answered: number; note: string | null }>(`/api/runs/${runId}/rehearsal/fake`, {
         body,
       });
       const parts: string[] = [];
-      if (res.added > 0) parts.push(`${res.added} Testteilnehmende hinzugefügt`);
+      if (body.simulate === true) parts.push(`Publikum simuliert – ${res.total} Testteilnehmende antworten nach und nach`);
+      else if (res.added > 0) parts.push(`${res.added} Testteilnehmende hinzugefügt`);
       if (body.answer && res.answered > 0) parts.push(`${res.answered} Zufallsantworten`);
       if (res.note) parts.push(res.note);
       else if (body.answer && res.answered === 0) parts.push('Alle Testteilnehmenden haben hier schon geantwortet');
+      if (body.simulate === false) parts.push('Simulation angehalten');
       toast(parts.join(' · ') || 'Erledigt', res.note && res.answered === 0 && res.added === 0 ? 'error' : 'info');
     } catch (err) {
       toast(errorMessage(err), 'error');
@@ -159,6 +161,18 @@ export function RehearsalControls({ runId, view }: { runId: number; view: HostVi
 
   return (
     <>
+      <label
+        className="switch small"
+        title="Testteilnehmende antworten von selbst und zeitlich versetzt – wie ein echtes Publikum. Beim Einschalten ohne Testteilnehmende kommen 30–50 dazu."
+      >
+        <input
+          type="checkbox"
+          checked={view.simulating}
+          disabled={busy}
+          onChange={(e) => run({ add: 0, answer: false, simulate: e.target.checked })}
+        />
+        Publikum simulieren
+      </label>
       <span className="row" style={{ gap: 6 }}>
         <input
           className="input minutes-input"
@@ -183,9 +197,9 @@ export function RehearsalControls({ runId, view }: { runId: number; view: HostVi
             className="btn btn-small"
             disabled={busy}
             onClick={() => run({ add: 0, answer: true })}
-            title="Alle Testteilnehmenden, die noch nicht geantwortet haben, antworten zufällig auf die aktuelle Folie"
+            title="Alle Testteilnehmenden, die noch nicht geantwortet haben, antworten sofort auf die aktuelle Folie"
           >
-            <Shuffle /> Zufallsantworten ({view.fakeParticipants})
+            <Shuffle /> Alle antworten jetzt ({view.fakeParticipants})
           </button>
           <button
             className="icon-btn"

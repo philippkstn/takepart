@@ -97,6 +97,21 @@ export interface RunState {
   turns?: TurnsState | null;
   /** Automatischen Start von Countdown/Phasen beim Öffnen einer Folie für diese Durchführung abgeschaltet */
   autoCountdownOff?: boolean;
+  /** Probelauf: simuliertes Publikum – Testteilnehmende antworten von selbst, zeitlich versetzt */
+  sim?: SimState | null;
+}
+
+/**
+ * Simuliertes Publikum im Probelauf. Wann wer antwortet, wird nie gespeichert, sondern
+ * aus Folie, Runde und Person berechnet (`simDelay` in rehearsal.ts) – gezählt ab `at`,
+ * dem Zeitpunkt, an dem die Folie bzw. Runde begann.
+ */
+export interface SimState {
+  auto: boolean;
+  slideId: number | null;
+  round: number;
+  /** Start der aktuellen Folie bzw. Runde (Serverzeit, ms) */
+  at: number;
 }
 
 /** Rundruf der Moderation an alle Handys */
@@ -711,6 +726,8 @@ export interface HostView extends Omit<DisplayView, 'kind' | 'slide' | 'leaderbo
   rehearsal: boolean;
   /** Davon simulierte Testteilnehmende (in `participants` mitgezählt) */
   fakeParticipants: number;
+  /** Probelauf: Testteilnehmende antworten von selbst */
+  simulating: boolean;
   /** Geöffnete Beamer-Fenster und wie viele davon gerade verdeckt bzw. minimiert sind */
   displays: { connected: number; hidden: number };
   /** Parkplatz und jederzeit offene Q&A – immer, egal welche Folie läuft */

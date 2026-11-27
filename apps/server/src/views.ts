@@ -400,6 +400,7 @@ export function hostView(
     presence: presenceView(snap, online),
     rehearsal: snap.run.rehearsal,
     fakeParticipants: snap.run.fakeParticipants,
+    simulating: snap.run.rehearsal && !!snap.run.state.sim?.auto,
     displays,
     inbox: inboxViews(snap),
     slides: snap.slides.map((s) => ({
