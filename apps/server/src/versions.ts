@@ -39,7 +39,7 @@ const AUTO_AFTER_MINUTES = 10;
 /** Unbenannte Versionen je Präsentation; benannte bleiben immer */
 const KEEP_UNNAMED = 50;
 
-export const VERSION_REASONS = ['auto', 'named', 'import', 'images', 'google', 'run', 'restore'] as const;
+export const VERSION_REASONS = ['auto', 'named', 'import', 'images', 'google', 'run', 'restore', 'delete'] as const;
 export type VersionReason = (typeof VERSION_REASONS)[number];
 
 type VersionSlide = import('@slides/shared').VersionSlide;
