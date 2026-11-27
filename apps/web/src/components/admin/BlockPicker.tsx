@@ -63,14 +63,7 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['blocks'] }),
     onError: (err) => toast(errorMessage(err), 'error'),
   });
-  /** Baustein mit Kartenwand: erst nach dem Namen der Wand fragen */
-  const [asking, setAsking] = useState<{ block: SlideBlock; board: string } | null>(null);
   const taken = boardsOf(slides);
-
-  const pickBuiltin = (block: SlideBlock) => {
-    if (block.board) setAsking({ block, board: uniqueBoardName(block.board, taken) });
-    else onInsert(toBatch(blockSlides(block, undefined, { boards: taken })));
-  };
 
   /** Eigene Bausteine: jede Wand bekommt einen freien Namen, damit nichts mit vorhandenen Karten zusammenfällt. */
   const pickCustom = (block: CustomBlock) => {
@@ -98,54 +91,7 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
 
   return (
     <div className="type-picker anim-rise">
-      {BUILTIN_BLOCKS.map((block) =>
-        asking?.block.id === block.id ? (
-          <form
-            key={block.id}
-            className="block-board-form stack-s"
-            onSubmit={(e) => {
-              e.preventDefault();
-              const board = asking.board.trim();
-              if (board) onInsert(toBatch(blockSlides(block, board, { boards: taken })));
-            }}
-          >
-            <strong>{block.name}</strong>
-            <label className="field">
-              Name der Kartenwand
-              <input
-                className="input"
-                autoFocus
-                maxLength={60}
-                value={asking.board}
-                onChange={(e) => setAsking({ block, board: e.target.value })}
-              />
-            </label>
-            {taken.some((b) => b.trim().toLowerCase() === asking.board.trim().toLowerCase()) && (
-              <span className="small faint">Diese Wand gibt es schon – die neuen Folien arbeiten dann mit denselben Karten.</span>
-            )}
-            <div className="row">
-              <button className="btn btn-primary btn-small" type="submit" disabled={disabled || !asking.board.trim()}>
-                Einfügen
-              </button>
-              <button className="btn btn-small" type="button" onClick={() => setAsking(null)}>
-                Abbrechen
-              </button>
-            </div>
-          </form>
-        ) : (
-          <button key={block.id} className="type-option" onClick={() => pickBuiltin(block)} disabled={disabled}>
-            <span className="slide-type-icon">
-              <Blocks size={18} />
-            </span>
-            <span>
-              <strong>{block.name}</strong>
-              <span className="small faint" style={{ display: 'block' }}>
-                {block.description} · {countLabel(blockSlides(block).length)}
-              </span>
-            </span>
-          </button>
-        ),
-      )}
+      <BuiltinBlockList blocks={BUILTIN_BLOCKS} slides={slides} disabled={disabled} onInsert={onInsert} />
       {custom.data && custom.data.length > 0 && <span className="label type-picker-label">Eigene Bausteine</span>}
       {custom.data?.map((block) => (
         <div key={block.id} className="block-custom">
@@ -174,6 +120,79 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
       ))}
       <p className="small faint type-picker-label">Eigene Bausteine speicherst du per Rechtsklick auf eine Folie.</p>
     </div>
+  );
+}
+
+/**
+ * Mitgelieferte Bausteine als Liste (Reiter „Bausteine“ und unter einem Ziel im
+ * Folientyp-Dialog). Bausteine mit Kartenwand fragen vorher nach dem Namen der Wand.
+ */
+export function BuiltinBlockList({
+  blocks,
+  slides,
+  disabled,
+  onInsert,
+}: {
+  blocks: SlideBlock[];
+  slides: Slide[];
+  disabled: boolean;
+  onInsert: (slides: BatchSlide[]) => void;
+}) {
+  const [asking, setAsking] = useState<{ block: SlideBlock; board: string } | null>(null);
+  const taken = boardsOf(slides);
+
+  const pickBuiltin = (block: SlideBlock) => {
+    if (block.board) setAsking({ block, board: uniqueBoardName(block.board, taken) });
+    else onInsert(toBatch(blockSlides(block, undefined, { boards: taken })));
+  };
+
+  return blocks.map((block) =>
+    asking?.block.id === block.id ? (
+      <form
+        key={block.id}
+        className="block-board-form stack-s"
+        onSubmit={(e) => {
+          e.preventDefault();
+          const board = asking.board.trim();
+          if (board) onInsert(toBatch(blockSlides(block, board, { boards: taken })));
+        }}
+      >
+        <strong>{block.name}</strong>
+        <label className="field">
+          Name der Kartenwand
+          <input
+            className="input"
+            autoFocus
+            maxLength={60}
+            value={asking.board}
+            onChange={(e) => setAsking({ block, board: e.target.value })}
+          />
+        </label>
+        {taken.some((b) => b.trim().toLowerCase() === asking.board.trim().toLowerCase()) && (
+          <span className="small faint">Diese Wand gibt es schon – die neuen Folien arbeiten dann mit denselben Karten.</span>
+        )}
+        <div className="row">
+          <button className="btn btn-primary btn-small" type="submit" disabled={disabled || !asking.board.trim()}>
+            Einfügen
+          </button>
+          <button className="btn btn-small" type="button" onClick={() => setAsking(null)}>
+            Abbrechen
+          </button>
+        </div>
+      </form>
+    ) : (
+      <button key={block.id} className="type-option" data-pick onClick={() => pickBuiltin(block)} disabled={disabled}>
+        <span className="slide-type-icon">
+          <Blocks size={18} />
+        </span>
+        <span>
+          <strong>{block.name}</strong>
+          <span className="small faint" style={{ display: 'block' }}>
+            {block.description} · {countLabel(blockSlides(block).length)}
+          </span>
+        </span>
+      </button>
+    ),
   );
 }
 

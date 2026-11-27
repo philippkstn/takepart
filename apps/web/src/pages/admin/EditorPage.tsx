@@ -1,11 +1,6 @@
 import {
-  BOARD_MODE_HINTS,
-  BOARD_MODE_LABELS,
-  BOARD_MODES,
   buildSteps,
-  SLIDE_TYPE_HINTS,
   SLIDE_TYPE_LABELS,
-  CREATABLE_SLIDE_TYPES,
   assetThumbUrl,
   slideHeadline,
   type BatchSlide,
@@ -58,6 +53,7 @@ import {
 } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { InsertPicker, SaveBlockDialog } from '../../components/admin/BlockPicker.tsx';
+import { TypePicker } from '../../components/admin/TypePicker.tsx';
 import { RehearsalList } from '../../components/admin/RehearsalList.tsx';
 import { ImportDialog, isPdf, isPptx } from '../../components/admin/ImportDialog.tsx';
 import { useSlideDrag } from '../../components/admin/useSlideDrag.ts';
@@ -774,7 +770,9 @@ export default function EditorPage() {
               onInsert={(batch) => addBatch.mutate({ slides: batch, afterId: insertAfter })}
               typePicker={
                 <TypePicker
-                  disabled={addSlide.isPending}
+                  disabled={addSlide.isPending || addBatch.isPending}
+                  slides={slides}
+                  onInsert={(batch) => addBatch.mutate({ slides: batch, afterId: insertAfter })}
                   board={lastBoard(slides, slides.find((s) => s.id === insertAfter) ?? null)}
                   onPick={(type, config) => addSlide.mutate({ type, config, afterId: insertAfter })}
                 />
@@ -874,50 +872,6 @@ function EditorsBar({ editors }: { editors: string[] }) {
 }
 
 /** Name der Kartenwand, mit der ein neuer Schritt weiterarbeitet: die letzte vor der Auswahl. */
-/** Auswahl des Folientyps – in der Seitenleiste oder im Einfügen-Dialog */
-function TypePicker({
-  onPick,
-  disabled,
-  board,
-}: {
-  onPick: (type: SlideType, config?: unknown) => void;
-  disabled: boolean;
-  /** Wand, mit der neue Kartenwand-Schritte weiterarbeiten */
-  board: string;
-}) {
-  return (
-    <div className="type-picker anim-rise">
-      {CREATABLE_SLIDE_TYPES.filter((t) => t !== 'board').map((t) => (
-        <button key={t} className="type-option" onClick={() => onPick(t)} disabled={disabled}>
-          <span className="slide-type-icon">
-            <SlideIcon type={t} />
-          </span>
-          <span>
-            <strong>{SLIDE_TYPE_LABELS[t]}</strong>
-            <span className="small faint" style={{ display: 'block' }}>
-              {SLIDE_TYPE_HINTS[t]}
-            </span>
-          </span>
-        </button>
-      ))}
-      <span className="label type-picker-label">Workshop: {SLIDE_TYPE_LABELS.board}</span>
-      {BOARD_MODES.map((mode) => (
-        <button key={mode} className="type-option" disabled={disabled} onClick={() => onPick('board', { mode, board })}>
-          <span className="slide-type-icon">
-            <SlideIcon type="board" />
-          </span>
-          <span>
-            <strong>{BOARD_MODE_LABELS[mode]}</strong>
-            <span className="small faint" style={{ display: 'block' }}>
-              {BOARD_MODE_HINTS[mode]}
-            </span>
-          </span>
-        </button>
-      ))}
-    </div>
-  );
-}
-
 /** Aufklappmenü: Aktionen einer Folie (Rechtsklick, „…“) und Import */
 function SlideMenu({
   x,
