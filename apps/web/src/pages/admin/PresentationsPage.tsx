@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ROLE_LABELS, roleAtLeast, type PresentationRole } from '@slides/shared';
 import { Copy, Download, Eye, FlaskConical, Pencil, Play, Plus, Radio, Sparkles, Trash2, Upload, UserMinus, Users } from 'lucide-react';
-import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useRef, useState, type ChangeEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { NewPresentationDialog } from '../../components/admin/NewPresentationDialog.tsx';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 
@@ -41,16 +42,10 @@ export default function PresentationsPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const list = useQuery({ queryKey: ['presentations'], queryFn: () => api<PresentationItem[]>('/api/presentations') });
-  const [title, setTitle] = useState('');
-  const [template, setTemplate] = useState(true);
+  const [creating, setCreating] = useState(false);
   const start = useStartRun();
   const fileInput = useRef<HTMLInputElement>(null);
 
-  const create = useMutation({
-    mutationFn: () => api<{ id: number }>('/api/presentations', { body: { title, template } }),
-    onSuccess: ({ id }) => navigate(`/admin/p/${id}`),
-    onError: (err) => toast(errorMessage(err), 'error'),
-  });
   const loadDemo = useMutation({
     mutationFn: () => api<{ id: number }>('/api/presentations/demo', { body: {} }),
     onSuccess: ({ id }) => navigate(`/admin/p/${id}`),
@@ -96,48 +91,32 @@ export default function PresentationsPage() {
     if (file) importFile.mutate(file);
   };
 
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (title.trim()) create.mutate();
-  };
-
   return (
     <main className="page stack">
       <div className="row-between">
         <h1>Präsentationen</h1>
-        <button
-          className="btn btn-ghost"
-          onClick={() => fileInput.current?.click()}
-          disabled={importFile.isPending}
-          title="Eine exportierte .takepart-Datei samt Durchführungen übernehmen"
-        >
-          <Upload /> {importFile.isPending ? 'Importiere …' : 'Importieren'}
-        </button>
+        <div className="row">
+          <button className="btn btn-primary" onClick={() => setCreating(true)}>
+            <Plus /> Neue Präsentation
+          </button>
+          <button
+            className="btn btn-ghost"
+            onClick={() => fileInput.current?.click()}
+            disabled={importFile.isPending}
+            title="Eine exportierte .takepart-Datei samt Durchführungen übernehmen"
+          >
+            <Upload /> {importFile.isPending ? 'Importiere …' : 'Importieren'}
+          </button>
+        </div>
         <input ref={fileInput} type="file" accept=".takepart,application/gzip" hidden onChange={pickFile} />
       </div>
-
-      <form className="card card-pad create-form" onSubmit={submit}>
-        <input
-          className="input grow"
-          placeholder="Titel der neuen Präsentation"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          maxLength={200}
-        />
-        <label className="switch small">
-          <input type="checkbox" checked={template} onChange={(e) => setTemplate(e.target.checked)} />
-          Mit Startfolien
-        </label>
-        <button className="btn btn-primary" disabled={!title.trim() || create.isPending}>
-          <Plus /> Anlegen
-        </button>
-      </form>
+      {creating && <NewPresentationDialog onClose={() => setCreating(false)} />}
 
       {list.isLoading ? (
         <Spinner />
       ) : list.data?.length === 0 ? (
         <div className="empty stack" style={{ justifyItems: 'center' }}>
-          <p>Noch keine Präsentation. Leg oben die erste an – oder schau dir zuerst alle Funktionen an.</p>
+          <p>Noch keine Präsentation. Leg die erste an – aus einer Vorlage oder leer –, oder schau dir zuerst alle Funktionen an.</p>
           <button className="btn btn-primary" onClick={() => loadDemo.mutate()} disabled={loadDemo.isPending}>
             <Sparkles /> Demo-Präsentation laden
           </button>

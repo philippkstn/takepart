@@ -4,8 +4,9 @@ import {
   CREATABLE_SLIDE_TYPES,
   defaultConfig,
   parseConfig,
+  resolveTemplate,
   scheduleInput,
-  STARTER_SLIDES,
+  templateSlides,
   type SlideSchedule,
   type SlideType,
 } from '@slides/shared';
@@ -119,13 +120,22 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
     }));
   });
 
-  app.post('/api/presentations', host, async (request) => {
-    const body = z.object({ title: z.string().trim().min(1).max(200), template: z.boolean().default(true) }).parse(request.body);
+  app.post('/api/presentations', host, async (request, reply) => {
+    const body = z
+      .object({
+        title: z.string().trim().min(1).max(200),
+        /** Alt: `true` = Workshop-Gerüst (früher „Mit Startfolien“) */
+        template: z.boolean().optional(),
+        /** Vorlage aus der Galerie (`TEMPLATES`), `leer` = ohne Folien; hat Vorrang vor `template` */
+        templateId: z.string().max(40).optional(),
+      })
+      .parse(request.body);
+    const template = resolveTemplate(body);
+    if (template === undefined) return reply.code(400).send({ error: 'Unbekannte Vorlage' });
+    const slides = template ? templateSlides(template) : [];
     const id = await transaction(db, async (conn) => {
       const result = await exec(conn, 'INSERT INTO presentations (user_id, title) VALUES (?, ?)', [accountOf(request).id, body.title]);
-      if (body.template) {
-        for (const [i, s] of STARTER_SLIDES.entries()) await insertSlide(conn, result.insertId, i, s.type, s.config, s.notes);
-      }
+      for (const [i, s] of slides.entries()) await insertSlide(conn, result.insertId, i, s.type, s.config, s.notes, s.schedule);
       return result.insertId;
     });
     return { id };

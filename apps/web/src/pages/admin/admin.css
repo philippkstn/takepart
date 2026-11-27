@@ -1,11 +1,5 @@
 /* ───────────── Präsentationsliste ───────────── */
 
-.create-form {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
 .pres-list {
   list-style: none;
   margin: 0;
@@ -793,6 +787,61 @@ body.is-dragging-slide * {
 }
 .dialog-wide {
   width: min(760px, 100%);
+}
+
+/* Neue Präsentation: Vorlagen-Galerie */
+.template-gallery {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+}
+.template-gallery > legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+.template-card {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  cursor: pointer;
+  transition:
+    border-color 150ms,
+    background-color 150ms;
+}
+.template-card:hover {
+  border-color: var(--border-strong);
+}
+.template-card.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.template-card:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.template-name {
+  font-weight: 650;
+}
+.template-text {
+  line-height: 1.35;
+}
+.template-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+.template-sketch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: var(--ink-3);
 }
 
 /* Gemeinsames Bearbeiten: wer ist da, Konflikte, Teilen, Versionen, Google Slides */

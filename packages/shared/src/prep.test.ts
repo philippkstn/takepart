@@ -10,7 +10,8 @@ import {
   STARTER_SLIDES,
   uniqueBoardName,
 } from './blocks.ts';
-import { schedulePhases } from './schedule.ts';
+import { schedulePhases, slidePlannedMinutes } from './schedule.ts';
+import { BLANK_TEMPLATE_ID, DEFAULT_TEMPLATE_ID, resolveTemplate, templateSlides, TEMPLATES } from './templates.ts';
 import { fakePostText, fakeResponse } from './rehearsal.ts';
 import { isResponseType, validateResponse } from './responses.ts';
 import { CREATABLE_SLIDE_TYPES, defaultConfig, parseConfig, slideConfigSchemas, type SlideConfigs, type SlideType } from './slides.ts';
@@ -218,5 +219,58 @@ describe('Startfolien einer neuen Präsentation', () => {
     // Feedback blickt auf die gesammelten Erwartungen zurück
     const feedback = parsed.find((s) => s.type === 'feedback')!.config;
     expect(boards.some((b) => b.board === feedback.recall && b.mode === 'collect')).toBe(true);
+  });
+});
+
+describe('Vorlagen für neue Präsentationen', () => {
+  it('haben eindeutige Kennungen, Texte und gültige Folien mit Notizen und Ablaufplan', () => {
+    const ids = TEMPLATES.map((t) => t.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).not.toContain(BLANK_TEMPLATE_ID);
+    for (const t of TEMPLATES) {
+      expect(t.name.trim() && t.description.trim() && t.audience.trim(), t.id).toBeTruthy();
+      expect(t.slides.length, t.id).toBeGreaterThan(0);
+      expect(t.slides.length, t.id).toBeLessThanOrEqual(MAX_BATCH_SLIDES);
+      expect(batchSlides.safeParse(t.slides).success, t.id).toBe(true);
+      for (const [i, s] of t.slides.entries()) {
+        expect(() => parseConfig(s.type, s.config), `${t.id} #${i}`).not.toThrow();
+        expect(s.notes?.trim(), `${t.id} #${i}: Moderationshinweis fehlt`).toBeTruthy();
+        expect(slidePlannedMinutes(templateSlides(t)[i]!.schedule), `${t.id} #${i}: Soll-Dauer fehlt`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('Wände hängen zusammen: jeder Schritt hat vorher Karten, Top N vorher Punkte, Rückblicke eine Sammelwand', () => {
+    for (const t of TEMPLATES) {
+      const seen: { type: string; config: Record<string, unknown> }[] = [];
+      for (const [i, s] of t.slides.entries()) {
+        const config = parseConfig(s.type, s.config) as Record<string, unknown>;
+        const where = `${t.id} #${i}`;
+        const earlier = (mode: string, board: unknown) =>
+          seen.some((p) => p.type === 'board' && p.config.mode === mode && p.config.board === board);
+        if (s.type === 'board') {
+          if (config.mode !== 'collect') expect(earlier('collect', config.board), `${where}: keine Karten`).toBe(true);
+          if ((config.top as number) > 0) expect(earlier('dots', config.board), `${where}: Top N ohne Punkte`).toBe(true);
+          if (config.targets === 'table') expect(earlier('table', config.board), `${where}: keine Tabelle`).toBe(true);
+          if (config.perTeam)
+            expect(
+              seen.some((p) => p.type === 'teams'),
+              `${where}: keine Gruppen`,
+            ).toBe(true);
+        }
+        if (s.type === 'feedback' && config.recall) expect(earlier('collect', config.recall), `${where}: Rückblick ins Leere`).toBe(true);
+        seen.push({ type: s.type, config });
+      }
+    }
+  });
+
+  it('„Mit Startfolien“ (alt) ist das Workshop-Gerüst, „Leer beginnen“ hat keine Folien, Unbekanntes wird abgelehnt', () => {
+    expect(resolveTemplate({ template: true })?.id).toBe(DEFAULT_TEMPLATE_ID);
+    expect(resolveTemplate({})?.id).toBe(DEFAULT_TEMPLATE_ID);
+    expect(resolveTemplate({ template: false })).toBeNull();
+    expect(resolveTemplate({ templateId: BLANK_TEMPLATE_ID, template: true })).toBeNull();
+    expect(resolveTemplate({ templateId: 'retro', template: false })?.id).toBe('retro');
+    expect(resolveTemplate({ templateId: 'gibt-es-nicht' })).toBeUndefined();
+    expect(templateSlides(resolveTemplate({})!).map((s) => s.type)).toEqual(STARTER_SLIDES.map((s) => s.type));
   });
 });
