@@ -32,13 +32,12 @@ import {
   History,
   Layers,
   Link2,
-  Palette,
   Play,
   Plus,
   Radio,
+  Settings,
   RefreshCw,
   Sparkles,
-  Timer,
   Trash2,
   Users,
   X,
@@ -70,6 +69,8 @@ import { needsRefit, refitBuilds } from '../../lib/refitBuilds.ts';
 import { RehearsalButton, useStartRun } from './PresentationsPage.tsx';
 import { ShareDialog } from '../../components/admin/ShareDialog.tsx';
 import { VersionsDialog } from '../../components/admin/VersionsDialog.tsx';
+import { PresentationSettingsDialog } from '../../components/admin/PresentationSettingsDialog.tsx';
+import { scheduleSummary } from '../../components/admin/MoreOptions.tsx';
 import { GoogleSourceDialog, SyncProgressBar, syncSummary, useGoogleSync, type SourceInfo } from '../../components/admin/GoogleSource.tsx';
 import { useEditSession } from '../../lib/editSession.ts';
 import { onParkedConflict, useSyncedField } from '../../lib/syncedField.ts';
@@ -136,6 +137,7 @@ export default function EditorPage() {
   const shown = (name: string) => (name === me ? 'du (anderes Fenster)' : name);
   const [sharing, setSharing] = useState(false);
   const [showVersions, setShowVersions] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
@@ -398,10 +400,24 @@ export default function EditorPage() {
             if (t && t !== pres.data!.title) rename.mutate(t);
           }}
         />
+        {plannedSum > 0 && (
+          <span className="small muted tabular" title="Summe der geplanten Minuten aller Folien">
+            geplant: {plannedSum}
+            {pres.data.targetMinutes !== null && ` von ${pres.data.targetMinutes}`} Min.
+          </span>
+        )}
         <EditorsBar editors={session.editors.map((e) => shown(e.name))} />
-        {/* Bewusst zurückhaltend: Symbol statt Knopf */}
+        {/* Bewusst zurückhaltend: Symbole statt Knöpfe */}
         <button className="icon-btn" onClick={() => setShowVersions(true)} aria-label="Versionsverlauf" title="Versionsverlauf">
           <History />
+        </button>
+        <button
+          className="icon-btn"
+          onClick={() => setShowSettings(true)}
+          aria-label="Einstellungen der Präsentation"
+          title="Einstellungen: Branding, Folien auf Handys, Dauer"
+        >
+          <Settings />
         </button>
         {isOwner && (
           <button className="btn" onClick={() => setSharing(true)}>
@@ -454,62 +470,18 @@ export default function EditorPage() {
         </div>
       )}
 
-      <div className="editor-settings">
-        <label className="brand-select">
-          <Palette size={16} aria-hidden />
-          <span className="visually-hidden">Branding</span>
-          <select
-            className="select"
-            value={pres.data.brandId ?? ''}
-            disabled={!isOwner}
-            title={isOwner ? undefined : 'Das Branding legt fest, wem die Präsentation gehört'}
-            onChange={(e) => setBrand.mutate(e.target.value ? Number(e.target.value) : null)}
-          >
-            <option value="">Ohne Branding</option>
-            {isOwner
-              ? brands.data?.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))
-              : pres.data.brand && <option value={pres.data.brandId ?? ''}>{pres.data.brand.name}</option>}
-          </select>
-        </label>
-        <label className="switch small">
-          <input
-            type="checkbox"
-            disabled={!canEdit}
-            checked={pres.data.shareSlides}
-            onChange={(e) => updateSettings.mutate({ shareSlides: e.target.checked })}
-          />
-          Folien auf Handys zeigen
-        </label>
-        <label className="row small muted" style={{ gap: 6 }}>
-          <Timer size={16} aria-hidden />
-          Dauer
-          <input
-            key={pres.data.targetMinutes ?? ''}
-            className="input minutes-input"
-            type="number"
-            min={1}
-            max={600}
-            placeholder="–"
-            readOnly={!canEdit}
-            defaultValue={pres.data.targetMinutes ?? ''}
-            onBlur={(e) => {
-              const v = e.target.value ? Number(e.target.value) : null;
-              if (v !== pres.data!.targetMinutes) updateSettings.mutate({ targetMinutes: v });
-            }}
-          />
-          Min.
-        </label>
-        {plannedSum > 0 && (
-          <span className="small muted tabular" title="Summe der geplanten Minuten aller Folien">
-            geplant: {plannedSum} Min.
-            {pres.data.targetMinutes !== null && ` von ${pres.data.targetMinutes}`}
-          </span>
-        )}
-      </div>
+      {showSettings && (
+        <PresentationSettingsDialog
+          settings={pres.data}
+          isOwner={isOwner}
+          canEdit={canEdit}
+          brands={brands.data}
+          plannedSum={plannedSum}
+          onBrand={(brandId) => setBrand.mutate(brandId)}
+          onChange={(body) => updateSettings.mutate(body)}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
 
       <div className="editor-grid">
         {slides.length > 0 && (
@@ -1086,6 +1058,21 @@ function SlideEditor({
               value={draft}
               onChange={field.set}
               boards={[...new Set(presentation.slides.flatMap((s) => (s.type === 'board' ? [s.config.board] : [])))]}
+              scheduleSummary={scheduleSummary(presentation.schedule?.[slide.id])}
+              schedule={
+                <ScheduleFields
+                  key={`schedule-${slide.id}`}
+                  slideId={slide.id}
+                  initial={presentation.schedule?.[slide.id] ?? EMPTY_SCHEDULE}
+                  readOnly={readOnly}
+                  onSaved={(schedule) =>
+                    queryClient.setQueryData<Presentation>(
+                      ['presentation', presentation.id],
+                      (p) => p && { ...p, schedule: { ...p.schedule, [slide.id]: schedule } },
+                    )
+                  }
+                />
+              }
             />
           </fieldset>
         </form>
@@ -1098,18 +1085,6 @@ function SlideEditor({
           readOnly={readOnly}
           lastEditor={lastEditor}
           me={me}
-        />
-        <ScheduleFields
-          key={`schedule-${slide.id}`}
-          slideId={slide.id}
-          initial={presentation.schedule?.[slide.id] ?? EMPTY_SCHEDULE}
-          readOnly={readOnly}
-          onSaved={(schedule) =>
-            queryClient.setQueryData<Presentation>(
-              ['presentation', presentation.id],
-              (p) => p && { ...p, schedule: { ...p.schedule, [slide.id]: schedule } },
-            )
-          }
         />
       </section>
       <section className="preview-col">
@@ -1190,8 +1165,8 @@ function NotesField({
       </span>
       {field.status === 'conflict' && <ConflictBar who={lastEditor} me={me} what="die Notizen" onResolve={field.resolve} />}
       <textarea
-        className="textarea"
-        rows={4}
+        className="textarea notes-input"
+        rows={3}
         maxLength={20000}
         value={field.value}
         readOnly={readOnly}

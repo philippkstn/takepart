@@ -8,18 +8,33 @@ import {
   RATING_SOURCE_LABELS,
   type RatingSource,
   type BoardMode,
+  defaultConfig,
   type Slide,
   type SlideConfigs,
+  type SlideType,
 } from '@slides/shared';
 import { Check, GripVertical, Plus, X } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { MoreOptions, type SummaryPart } from './MoreOptions.tsx';
 
 /*
  * Formulare für die Folienkonfiguration. Kontrolliert: `value` kommt vom Editor,
  * `onChange` liefert die komplette neue Konfiguration (gespeichert wird gebündelt).
  */
 
-type FormProps<T extends Slide['type']> = { value: SlideConfigs[T]; onChange: (v: SlideConfigs[T]) => void };
+type ValueProps<T extends Slide['type']> = { value: SlideConfigs[T]; onChange: (v: SlideConfigs[T]) => void };
+/**
+ * Selten gebrauchte Einstellungen gehen an `more` – der Bereich „Mehr Optionen“
+ * am Ende des Formulars (mit dem Ablaufplan). `summary` nennt, was davon vom
+ * Standard abweicht; jedes Formular ruft `more` genau einmal auf.
+ */
+type More = (extras: ReactNode, summary: SummaryPart[]) => ReactNode;
+type FormProps<T extends Slide['type']> = ValueProps<T> & { more: More };
+
+/** Weicht ein Feld vom Standard des Folientyps ab? */
+function changed<T extends SlideType>(type: T, value: SlideConfigs[T], key: keyof SlideConfigs[T]): boolean {
+  return JSON.stringify(value[key]) !== JSON.stringify(defaultConfig(type)[key]);
+}
 
 function Text({
   label,
@@ -74,6 +89,11 @@ function TaskField({ value, onChange }: { value: string; onChange: (v: string) =
       />
     </label>
   );
+}
+
+/** Zusammenfassung für Aufgabe und „Erst aufdecken“ */
+function basics(value: { task: string; startHidden?: boolean }): SummaryPart[] {
+  return [value.startHidden && 'Erst aufdecken', value.task.trim() !== '' && 'Aufgabe'];
 }
 
 /** Ergebnisse dieser Folie auf dem Beamer erst nach dem Aufdecken im Steuerpult zeigen */
@@ -176,7 +196,7 @@ function OptionList({
   );
 }
 
-function ContentForm({ value, onChange }: FormProps<'content'>) {
+function ContentForm({ value, onChange, more }: FormProps<'content'>) {
   return (
     <>
       <Text label="Titel" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
@@ -186,15 +206,15 @@ function ContentForm({ value, onChange }: FormProps<'content'>) {
         checked={value.showJoin}
         onChange={(showJoin) => onChange({ ...value, showJoin })}
       />
+      {more(null, [])}
     </>
   );
 }
 
-function ChoiceForm({ value, onChange }: FormProps<'choice'>) {
+function ChoiceForm({ value, onChange, more }: FormProps<'choice'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList
         label="Antwortmöglichkeiten"
         options={value.options}
@@ -203,32 +223,43 @@ function ChoiceForm({ value, onChange }: FormProps<'choice'>) {
         onChange={(options) => onChange({ ...value, options })}
       />
       <Toggle label="Mehrfachauswahl erlauben" checked={value.multiple} onChange={(multiple) => onChange({ ...value, multiple })} />
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        basics(value),
+      )}
     </>
   );
 }
 
-function OpenForm({ value, onChange }: FormProps<'open'>) {
+function OpenForm({ value, onChange, more }: FormProps<'open'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
-      <label className="field">
-        <span>Höchstlänge pro Antwort</span>
-        <select className="select" value={value.maxLength} onChange={(e) => onChange({ ...value, maxLength: Number(e.target.value) })}>
-          {[100, 200, 280, 500].map((n) => (
-            <option key={n} value={n}>
-              {n} Zeichen
-            </option>
-          ))}
-        </select>
-      </label>
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+          <label className="field">
+            <span>Höchstlänge pro Antwort</span>
+            <select className="select" value={value.maxLength} onChange={(e) => onChange({ ...value, maxLength: Number(e.target.value) })}>
+              {[100, 200, 280, 500].map((n) => (
+                <option key={n} value={n}>
+                  {n} Zeichen
+                </option>
+              ))}
+            </select>
+          </label>
+        </>,
+        [...basics(value), changed('open', value, 'maxLength') && `bis ${value.maxLength} Zeichen`],
+      )}
     </>
   );
 }
 
-function ScaleForm({ value, onChange }: FormProps<'scale'>) {
+function ScaleForm({ value, onChange, more }: FormProps<'scale'>) {
   return (
     <>
       <Text
@@ -238,7 +269,6 @@ function ScaleForm({ value, onChange }: FormProps<'scale'>) {
         onChange={(question) => onChange({ ...value, question })}
         autoFocus
       />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <div className="field">
         <span>Skala</span>
         <div className="segmented" style={{ justifySelf: 'start' }}>
@@ -258,16 +288,21 @@ function ScaleForm({ value, onChange }: FormProps<'scale'>) {
           onChange={(maxLabel) => onChange({ ...value, maxLabel })}
         />
       </div>
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        basics(value),
+      )}
     </>
   );
 }
 
-function WordcloudForm({ value, onChange }: FormProps<'wordcloud'>) {
+function WordcloudForm({ value, onChange, more }: FormProps<'wordcloud'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <div className="field">
         <span>Begriffe pro Person</span>
         <div className="segmented" style={{ justifySelf: 'start' }}>
@@ -278,23 +313,34 @@ function WordcloudForm({ value, onChange }: FormProps<'wordcloud'>) {
           ))}
         </div>
       </div>
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        basics(value),
+      )}
     </>
   );
 }
 
-function RankingForm({ value, onChange }: FormProps<'ranking'>) {
+function RankingForm({ value, onChange, more }: FormProps<'ranking'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList label="Optionen (2–8)" options={value.options} min={2} max={8} onChange={(options) => onChange({ ...value, options })} />
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        basics(value),
+      )}
     </>
   );
 }
 
-function QuizForm({ value, onChange }: FormProps<'quiz'>) {
+function QuizForm({ value, onChange, more }: FormProps<'quiz'>) {
   const toggleCorrect = (i: number) => {
     const correct = value.correct.includes(i) ? value.correct.filter((x) => x !== i) : [...value.correct, i].sort((a, b) => a - b);
     if (correct.length > 0) onChange({ ...value, correct });
@@ -302,7 +348,6 @@ function QuizForm({ value, onChange }: FormProps<'quiz'>) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList
         label="Antworten – Haken setzt die richtige(n)"
         options={value.options}
@@ -339,30 +384,35 @@ function QuizForm({ value, onChange }: FormProps<'quiz'>) {
       <p className="small faint">
         Richtig: 500 Punkte plus bis zu 500 für Schnelligkeit. Für die Rangliste geben Teilnehmende einen Namen an.
       </p>
+      {more(<TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />, basics(value))}
     </>
   );
 }
 
-function BrainstormForm({ value, onChange }: FormProps<'brainstorm'>) {
+function BrainstormForm({ value, onChange, more }: FormProps<'brainstorm'>) {
   return (
     <>
       <Text label="Frage oder Thema" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <Toggle
         label="Publikum darf Ideen hochvoten"
         checked={value.allowVotes}
         onChange={(allowVotes) => onChange({ ...value, allowVotes })}
       />
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        basics(value),
+      )}
     </>
   );
 }
 
-function PinboardForm({ value, onChange }: FormProps<'pinboard'>) {
+function PinboardForm({ value, onChange, more }: FormProps<'pinboard'>) {
   return (
     <>
       <Text label="Titel" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <OptionList
         label="Spalten (1–5)"
         options={value.columns}
@@ -371,16 +421,21 @@ function PinboardForm({ value, onChange }: FormProps<'pinboard'>) {
         placeholder="Spalte"
         onChange={(columns) => onChange({ ...value, columns })}
       />
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        basics(value),
+      )}
     </>
   );
 }
 
-function FeedbackForm({ value, onChange, boards = [] }: FormProps<'feedback'> & { boards?: string[] }) {
+function FeedbackForm({ value, onChange, more, boards = [] }: FormProps<'feedback'> & { boards?: string[] }) {
   return (
     <>
       <Text label="Frage" value={value.question} max={300} onChange={(question) => onChange({ ...value, question })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <Toggle label="Kommentar erlauben" checked={value.withComment} onChange={(withComment) => onChange({ ...value, withComment })} />
       {value.withComment && (
         <Text
@@ -391,32 +446,38 @@ function FeedbackForm({ value, onChange, boards = [] }: FormProps<'feedback'> & 
           onChange={(commentLabel) => onChange({ ...value, commentLabel })}
         />
       )}
-      <label className="field">
-        <span>Rückblick auf Kartenwand</span>
-        <input
-          className="input"
-          list="feedback-recall-boards"
-          value={value.recall}
-          maxLength={60}
-          placeholder="leer = kein Rückblick"
-          onChange={(e) => onChange({ ...value, recall: e.target.value })}
-        />
-        <datalist id="feedback-recall-boards">
-          {[...new Set(boards)].map((b) => (
-            <option key={b} value={b} />
-          ))}
-        </datalist>
-      </label>
-      <p className="small faint">
-        Jede Person sieht über dem Formular ihre eigenen Karten dieser Wand, z. B. die Erwartungen vom Anfang. Beamer und Steuerpult zeigen
-        nichts davon.
-      </p>
-      <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+      {more(
+        <>
+          <RevealToggle value={value.startHidden} onChange={(startHidden) => onChange({ ...value, startHidden })} />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+          <label className="field">
+            <span>Rückblick auf Kartenwand</span>
+            <input
+              className="input"
+              list="feedback-recall-boards"
+              value={value.recall}
+              maxLength={60}
+              placeholder="leer = kein Rückblick"
+              onChange={(e) => onChange({ ...value, recall: e.target.value })}
+            />
+            <datalist id="feedback-recall-boards">
+              {[...new Set(boards)].map((b) => (
+                <option key={b} value={b} />
+              ))}
+            </datalist>
+          </label>
+          <p className="small faint">
+            Jede Person sieht über dem Formular ihre eigenen Karten dieser Wand, z. B. die Erwartungen vom Anfang. Beamer und Steuerpult
+            zeigen nichts davon.
+          </p>
+        </>,
+        [...basics(value), value.recall.trim() !== '' && `Rückblick: ${value.recall.trim()}`],
+      )}
     </>
   );
 }
 
-function PauseForm({ value, onChange }: FormProps<'pause'>) {
+function PauseForm({ value, onChange, more }: FormProps<'pause'>) {
   return (
     <>
       <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
@@ -442,44 +503,46 @@ function PauseForm({ value, onChange }: FormProps<'pause'>) {
         Beim Erreichen der Folie startet die Pause automatisch: Countdown, „Weiter um … Uhr“ und „Ich bin wieder da“ auf den Handys.
         Weiterblättern beendet sie; im Steuerpult lässt sie sich verlängern.
       </p>
+      {more(null, [])}
     </>
   );
 }
 
-function TeamsForm({ value, onChange }: FormProps<'teams'>) {
+function TeamsForm({ value, onChange, more }: FormProps<'teams'>) {
   return (
     <>
       <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <p className="small faint">
         Alle geben auf dem Handy ihren Namen ein. Im Steuerpult wählst du Anzahl oder Größe der Gruppen; jede Person sieht dann ihre Gruppe.
       </p>
-      <OptionList
-        label="Kennzeichnung zum Mischen (optional, z. B. Rollen oder Abteilungen)"
-        options={value.tags}
-        min={0}
-        max={8}
-        placeholder="Kennzeichnung"
-        onChange={(tags) => onChange({ ...value, tags })}
-      />
-      {value.tags.length > 0 && (
-        <Text label="Frage dazu" value={value.tagLabel} max={60} onChange={(tagLabel) => onChange({ ...value, tagLabel })} />
+      {more(
+        <>
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+          <OptionList
+            label="Kennzeichnung zum Mischen (optional, z. B. Rollen oder Abteilungen)"
+            options={value.tags}
+            min={0}
+            max={8}
+            placeholder="Kennzeichnung"
+            onChange={(tags) => onChange({ ...value, tags })}
+          />
+          {value.tags.length > 0 && (
+            <Text label="Frage dazu" value={value.tagLabel} max={60} onChange={(tagLabel) => onChange({ ...value, tagLabel })} />
+          )}
+        </>,
+        [
+          ...basics(value),
+          value.tags.length > 0 && `${value.tags.length} ${value.tags.length === 1 ? 'Kennzeichnung' : 'Kennzeichnungen'}`,
+        ],
       )}
     </>
   );
 }
 
-function QaForm({ value, onChange }: FormProps<'qa'>) {
+function QaForm({ value, onChange, more }: FormProps<'qa'>) {
   return (
     <>
       <Text label="Überschrift" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
-      <Toggle
-        label="Fragen erst nach Freigabe zeigen"
-        hint="Neue Fragen siehst zuerst nur du im Steuerpult."
-        checked={value.moderated}
-        onChange={(moderated) => onChange({ ...value, moderated })}
-      />
       <Toggle
         label="Jederzeit Fragen annehmen"
         hint="Teilnehmende können von jeder Folie aus Fragen stellen. Neue Fragen meldet das Steuerpult und sammelt sie oben in der Kopfzeile."
@@ -487,11 +550,23 @@ function QaForm({ value, onChange }: FormProps<'qa'>) {
         onChange={(anytime) => onChange({ ...value, anytime })}
       />
       <p className="small faint">Teilnehmende geben für Fragen ihren Namen an.</p>
+      {more(
+        <>
+          <Toggle
+            label="Fragen erst nach Freigabe zeigen"
+            hint="Neue Fragen siehst zuerst nur du im Steuerpult."
+            checked={value.moderated}
+            onChange={(moderated) => onChange({ ...value, moderated })}
+          />
+          <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
+        </>,
+        [...basics(value), !value.moderated && 'ohne Freigabe'],
+      )}
     </>
   );
 }
 
-function ImageForm({ value, onChange }: FormProps<'image'>) {
+function ImageForm({ value, onChange, more }: FormProps<'image'>) {
   return (
     <>
       <Text label="Titel (für Folienlisten)" value={value.title} max={200} onChange={(title) => onChange({ ...value, title })} />
@@ -514,11 +589,12 @@ function ImageForm({ value, onChange }: FormProps<'image'>) {
           </span>
         </label>
       )}
+      {more(null, [])}
     </>
   );
 }
 
-function SentenceForm({ value, onChange }: FormProps<'sentence'>) {
+function SentenceForm({ value, onChange, more }: FormProps<'sentence'>) {
   return (
     <>
       <Text
@@ -530,11 +606,11 @@ function SentenceForm({ value, onChange }: FormProps<'sentence'>) {
         onChange={(start) => onChange({ ...value, start })}
         autoFocus
       />
-      <TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />
       <p className="small faint">
         Alle tippen das Wort, das am wahrscheinlichsten als Nächstes kommt. Du blendest die Antworten ein und hängst das häufigste an –
         Runde für Runde.
       </p>
+      {more(<TaskField value={value.task} onChange={(task) => onChange({ ...value, task })} />, basics(value))}
     </>
   );
 }
@@ -572,7 +648,7 @@ const SCALE_PRESETS = [
   { label: 'gering / mittel / hoch', levels: ['gering', 'mittel', 'hoch'] },
 ];
 
-function TargetsField({ value, onChange, table = true }: FormProps<'board'> & { table?: boolean }) {
+function TargetsField({ value, onChange, table = true }: ValueProps<'board'> & { table?: boolean }) {
   const fromTable = table && value.targets === 'table';
   return (
     <div className="form-2col">
@@ -610,7 +686,7 @@ function TargetsField({ value, onChange, table = true }: FormProps<'board'> & { 
   );
 }
 
-function RightsField({ value, onChange }: FormProps<'board'>) {
+function RightsField({ value, onChange }: ValueProps<'board'>) {
   return (
     <>
       <label className="field">
@@ -641,7 +717,7 @@ function RightsField({ value, onChange }: FormProps<'board'>) {
   );
 }
 
-function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boards?: string[] }) {
+function BoardForm({ value, onChange, more, boards = [] }: FormProps<'board'> & { boards?: string[] }) {
   const set = (patch: Partial<SlideConfigs['board']>) => onChange({ ...value, ...patch });
   return (
     <>
@@ -670,7 +746,6 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
         {BOARD_MODE_HINTS[value.mode]}. Folien mit demselben Wand-Namen arbeiten mit denselben Karten und Gruppen.
       </p>
       <Text label="Aufgabe oder Frage" value={value.prompt} max={300} onChange={(prompt) => set({ prompt })} autoFocus />
-      <TaskField value={value.task} onChange={(task) => set({ task })} />
 
       {value.mode === 'collect' && (
         <>
@@ -684,37 +759,11 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
               ))}
             </select>
           </label>
-          <OptionList
-            label="Kennzeichnung je Karte (optional, z. B. Rollen)"
-            options={value.tags}
-            min={0}
-            max={5}
-            placeholder="Kennzeichnung"
-            onChange={(tags) => set({ tags })}
-          />
           <Toggle
             label="Jederzeit offen (Parkplatz)"
             hint="Teilnehmende können von jeder Folie aus Karten hinzufügen – z. B. Lösungsideen, die später drankommen. Das Steuerpult meldet neue Karten und zeigt sie jederzeit oben in der Kopfzeile."
             checked={value.anytime}
             onChange={(anytime) => set({ anytime })}
-          />
-          <Toggle
-            label="Namen abfragen"
-            hint="Vor der ersten Karte fragt das Handy nach dem Namen – nötig für eine Runde reihum (Reihenfolge im Steuerpult unter „Moderation“)."
-            checked={value.askName}
-            onChange={(askName) => set({ askName })}
-          />
-          <Toggle
-            label="Karten auf dem Beamer erst nach dem Aufdecken zeigen"
-            hint="Beim Betreten der Folie sind die Ergebnisse verborgen – du deckst sie im Steuerpult auf, wenn alle fertig sind."
-            checked={value.startHidden}
-            onChange={(startHidden) => set({ startHidden })}
-          />
-          <Toggle
-            label="Jede Gruppe sammelt für sich"
-            hint="Braucht eine „Gruppen bilden“-Folie davor. Alle sehen die Karten ihrer Gruppe und melden sich fertig; Beamer und Steuerpult zeigen die Karten nach Gruppen."
-            checked={value.perTeam}
-            onChange={(perTeam) => set({ perTeam })}
           />
         </>
       )}
@@ -732,7 +781,6 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
               </button>
             </div>
           </div>
-          <RightsField value={value} onChange={onChange} />
         </>
       )}
 
@@ -798,7 +846,6 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
             <Text label="Achse waagerecht (optional)" value={value.xLabel} max={60} onChange={(xLabel) => set({ xLabel })} />
           </div>
           <TargetsField value={value} onChange={onChange} />
-          <RightsField value={value} onChange={onChange} />
         </>
       )}
 
@@ -815,7 +862,6 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
               ))}
             </select>
           </label>
-          <Toggle label="Mehrere Punkte auf denselben Eintrag erlaubt" checked={value.stack} onChange={(stack) => set({ stack })} />
         </>
       )}
 
@@ -929,12 +975,6 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
             placeholder="Kategorie"
             onChange={(choices) => set({ choices })}
           />
-          <Toggle
-            label="Mehrere Kategorien je Eintrag erlaubt"
-            hint="Aus: Jede Person wählt je Eintrag genau eine Kategorie."
-            checked={value.multi}
-            onChange={(multi) => set({ multi })}
-          />
           <p className="small faint">Teilnehmende stimmen ab; im Steuerpult kannst du die Kategorie je Eintrag zusätzlich festlegen.</p>
         </>
       )}
@@ -955,8 +995,78 @@ function BoardForm({ value, onChange, boards = [] }: FormProps<'board'> & { boar
           </p>
         </>
       )}
+
+      {/* Genau ein Bereich für alle Schritte – sonst baut ein Wechsel des Schritts den Ablaufplan neu auf */}
+      {more(
+        <>
+          <TaskField value={value.task} onChange={(task) => set({ task })} />
+          {value.mode === 'collect' && (
+            <>
+              <OptionList
+                label="Kennzeichnung je Karte (optional, z. B. Rollen)"
+                options={value.tags}
+                min={0}
+                max={5}
+                placeholder="Kennzeichnung"
+                onChange={(tags) => set({ tags })}
+              />
+              <Toggle
+                label="Karten auf dem Beamer erst nach dem Aufdecken zeigen"
+                hint="Beim Betreten der Folie sind die Ergebnisse verborgen – du deckst sie im Steuerpult auf, wenn alle fertig sind."
+                checked={value.startHidden}
+                onChange={(startHidden) => set({ startHidden })}
+              />
+              <Toggle
+                label="Namen abfragen"
+                hint="Vor der ersten Karte fragt das Handy nach dem Namen – nötig für eine Runde reihum (Reihenfolge im Steuerpult unter „Moderation“)."
+                checked={value.askName}
+                onChange={(askName) => set({ askName })}
+              />
+              <Toggle
+                label="Jede Gruppe sammelt für sich"
+                hint="Braucht eine „Gruppen bilden“-Folie davor. Alle sehen die Karten ihrer Gruppe und melden sich fertig; Beamer und Steuerpult zeigen die Karten nach Gruppen."
+                checked={value.perTeam}
+                onChange={(perTeam) => set({ perTeam })}
+              />
+            </>
+          )}
+          {(value.mode === 'cluster' || value.mode === 'place') && <RightsField value={value} onChange={onChange} />}
+          {value.mode === 'dots' && (
+            <Toggle label="Mehrere Punkte auf denselben Eintrag erlaubt" checked={value.stack} onChange={(stack) => set({ stack })} />
+          )}
+          {value.mode === 'choose' && (
+            <Toggle
+              label="Mehrere Kategorien je Eintrag erlaubt"
+              hint="Aus: Jede Person wählt je Eintrag genau eine Kategorie."
+              checked={value.multi}
+              onChange={(multi) => set({ multi })}
+            />
+          )}
+        </>,
+        boardSummary(value),
+      )}
     </>
   );
+}
+
+/** Was im Bereich „Mehr Optionen“ der Kartenwand vom Standard abweicht – nur Felder, die der Schritt dort zeigt */
+function boardSummary(value: SlideConfigs['board']): SummaryPart[] {
+  const parts: SummaryPart[] = [value.task.trim() !== '' && 'Aufgabe'];
+  if (value.mode === 'collect')
+    parts.push(
+      value.tags.length > 0 && `${value.tags.length} ${value.tags.length === 1 ? 'Kennzeichnung' : 'Kennzeichnungen'}`,
+      value.startHidden && 'Erst aufdecken',
+      value.askName && 'Namen abfragen',
+      value.perTeam && 'je Gruppe',
+    );
+  if (value.mode === 'cluster' || value.mode === 'place')
+    parts.push(
+      changed('board', value, 'rights') && BOARD_RIGHTS_LABELS[value.rights],
+      changed('board', value, 'showUnsorted') && (value.showUnsorted ? 'Unsortierte sichtbar' : 'Unsortierte verborgen'),
+    );
+  if (value.mode === 'dots') parts.push(changed('board', value, 'stack') && (value.stack ? 'Punkte stapelbar' : 'ein Punkt je Eintrag'));
+  if (value.mode === 'choose') parts.push(changed('board', value, 'multi') && (value.multi ? 'mehrere Kategorien' : 'eine Kategorie'));
+  return parts;
 }
 
 export function SlideForm({
@@ -964,47 +1074,60 @@ export function SlideForm({
   value,
   onChange,
   boards,
+  schedule,
+  scheduleSummary = [],
 }: {
   slide: Slide;
   value: Slide['config'];
   onChange: (v: Slide['config']) => void;
   /** Namen der Kartenwände dieser Präsentation – zur Auswahl */
   boards?: string[];
+  /** Ablaufplan der Folie – steht unter „Mehr Optionen“ */
+  schedule?: ReactNode;
+  /** Zusammenfassung des Ablaufplans für die eingeklappte Zeile */
+  scheduleSummary?: SummaryPart[];
 }) {
+  const more: More = (extras, summary) => (
+    <MoreOptions summary={[...summary, ...scheduleSummary]}>
+      {extras}
+      {schedule}
+    </MoreOptions>
+  );
   // Der Folientyp bestimmt die Form der Konfiguration; der Editor hält beides zusammen.
   const v = value as never;
+  const props = { value: v, onChange, more };
   switch (slide.type) {
     case 'content':
-      return <ContentForm value={v} onChange={onChange} />;
+      return <ContentForm {...props} />;
     case 'choice':
-      return <ChoiceForm value={v} onChange={onChange} />;
+      return <ChoiceForm {...props} />;
     case 'open':
-      return <OpenForm value={v} onChange={onChange} />;
+      return <OpenForm {...props} />;
     case 'scale':
-      return <ScaleForm value={v} onChange={onChange} />;
+      return <ScaleForm {...props} />;
     case 'wordcloud':
-      return <WordcloudForm value={v} onChange={onChange} />;
+      return <WordcloudForm {...props} />;
     case 'ranking':
-      return <RankingForm value={v} onChange={onChange} />;
+      return <RankingForm {...props} />;
     case 'quiz':
-      return <QuizForm value={v} onChange={onChange} />;
+      return <QuizForm {...props} />;
     case 'brainstorm':
-      return <BrainstormForm value={v} onChange={onChange} />;
+      return <BrainstormForm {...props} />;
     case 'pinboard':
-      return <PinboardForm value={v} onChange={onChange} />;
+      return <PinboardForm {...props} />;
     case 'feedback':
-      return <FeedbackForm value={v} onChange={onChange} boards={boards} />;
+      return <FeedbackForm {...props} boards={boards} />;
     case 'qa':
-      return <QaForm value={v} onChange={onChange} />;
+      return <QaForm {...props} />;
     case 'sentence':
-      return <SentenceForm value={v} onChange={onChange} />;
+      return <SentenceForm {...props} />;
     case 'image':
-      return <ImageForm value={v} onChange={onChange} />;
+      return <ImageForm {...props} />;
     case 'board':
-      return <BoardForm value={v} onChange={onChange} boards={boards} />;
+      return <BoardForm {...props} boards={boards} />;
     case 'teams':
-      return <TeamsForm value={v} onChange={onChange} />;
+      return <TeamsForm {...props} />;
     case 'pause':
-      return <PauseForm value={v} onChange={onChange} />;
+      return <PauseForm {...props} />;
   }
 }
