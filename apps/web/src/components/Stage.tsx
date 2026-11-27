@@ -24,6 +24,7 @@ import { PickOverlay } from './PickOverlay.tsx';
 import { TurnsBadge, TurnsOverlay } from './TurnsOverlay.tsx';
 import { FeedbackResults, SlideResultsView } from './Results.tsx';
 import { SentenceStage } from './SentenceStage.tsx';
+import { StageText, useStageEdit } from './stageEdit.tsx';
 import { formatCode, joinHost, joinUrl, QrCode } from './ui.tsx';
 import './stage.css';
 
@@ -292,12 +293,29 @@ function JoinPanel({ code }: { code: string }) {
   );
 }
 
-function Headline({ kicker, text, task = '' }: { kicker: string; text: string; task?: string }) {
+function Headline({
+  kicker,
+  text,
+  task = '',
+  field = 'question',
+}: {
+  kicker: string;
+  text: string;
+  task?: string;
+  /** Feld der Überschrift in `slide.config` (für das Bearbeiten im Editor) */
+  field?: 'question' | 'title';
+}) {
   return (
     <div className="stage-head">
       <span className="stage-kicker">{kicker}</span>
-      {text && <h1 className={`stage-title ${headlineSize(text)}`}>{text}</h1>}
-      {task && <p className="stage-task">{task}</p>}
+      <StageText
+        as="h1"
+        className={`stage-title ${headlineSize(text)}`}
+        field={field}
+        value={text}
+        placeholder={field === 'title' ? 'Titel eingeben' : 'Frage eingeben'}
+      />
+      <StageText as="p" className="stage-task" field="task" value={task} multiline placeholder="Aufgabe (optional)" />
     </div>
   );
 }
@@ -310,7 +328,7 @@ function TeamsStage({ view, slide }: { view: DisplayView; slide: Extract<PublicS
   return (
     <>
       <div className="row-between stage-head-row">
-        <Headline kicker="Gruppen bilden" text={slide.config.title} task={slideTask(slide)} />
+        <Headline kicker="Gruppen bilden" text={slide.config.title} task={slideTask(slide)} field="title" />
         <span className="stage-pill">
           <span className="tabular">{named}</span> {named === 1 ? 'Person' : 'Personen'}
         </span>
@@ -384,6 +402,7 @@ function SlideStage({
   onBoard?: (op: BoardOp) => void;
 }) {
   const label = SLIDE_TYPE_LABELS[slide.type];
+  const edit = useStageEdit();
   switch (slide.type) {
     case 'board':
       return <BoardStage view={view} slide={slide} onBoard={onBoard} />;
@@ -396,7 +415,11 @@ function SlideStage({
       return (
         <div className="stage-content">
           <div className="stack-l">
-            <h1 className="stage-title stage-title-xl">{slide.config.title || 'Pause'}</h1>
+            {edit ? (
+              <StageText as="h1" className="stage-title stage-title-xl" field="title" value={slide.config.title} placeholder="Pause" />
+            ) : (
+              <h1 className="stage-title stage-title-xl">{slide.config.title || 'Pause'}</h1>
+            )}
             <p className="stage-body">{view.pause ? '' : `${slide.config.minutes} Minuten – gleich geht es weiter.`}</p>
           </div>
         </div>
@@ -406,8 +429,14 @@ function SlideStage({
       return (
         <div className={`stage-content ${slide.config.showJoin && view.run.code ? 'with-join' : ''}`}>
           <div className="stack-l">
-            {slide.config.title && <h1 className="stage-title stage-title-xl">{slide.config.title}</h1>}
-            {slide.config.body && <p className="stage-body">{slide.config.body}</p>}
+            <StageText
+              as="h1"
+              className="stage-title stage-title-xl"
+              field="title"
+              value={slide.config.title}
+              placeholder="Titel eingeben"
+            />
+            <StageText as="p" className="stage-body" field="body" value={slide.config.body} multiline placeholder="Text eingeben" />
           </div>
           {slide.config.showJoin && view.run.code && <JoinPanel code={view.run.code} />}
         </div>
@@ -458,7 +487,7 @@ function SlideStage({
       return (
         <>
           <div className="row-between">
-            <Headline kicker="Fragen & Antworten" text={slide.config.title} task={slideTask(slide)} />
+            <Headline kicker="Fragen & Antworten" text={slide.config.title} task={slideTask(slide)} field="title" />
           </div>
           {view.posts.length === 0 ? (
             <div className="stage-waiting">
@@ -499,7 +528,7 @@ function SlideStage({
       return (
         <>
           <div className="row-between stage-head-row">
-            <Headline kicker="Pinnwand" text={slide.config.title} task={slideTask(slide)} />
+            <Headline kicker="Pinnwand" text={slide.config.title} task={slideTask(slide)} field="title" />
             <AnswerCount answers={view.answers} />
           </div>
           {!view.resultsVisible ? (
@@ -530,6 +559,16 @@ function SlideStage({
           <ScrollingResults key={slide.id}>
             {view.results ? (
               <SlideResultsView slide={slide} results={view.results} maxComments={3} />
+            ) : edit && (slide.type === 'choice' || slide.type === 'ranking') ? (
+              // Nur im Editor: Optionen zum Bearbeiten (der Beamer zeigt sie erst mit den Ergebnissen)
+              <ol className="quiz-options inline-options">
+                {slide.config.options.map((o, i) => (
+                  <li key={i}>
+                    {slide.type === 'ranking' && <span className="quiz-letter">{i + 1}</span>}
+                    <StageText as="span" field="options" index={i} value={o} placeholder="Option" />
+                  </li>
+                ))}
+              </ol>
             ) : (
               <HiddenResults answers={view.answers} />
             )}
@@ -564,7 +603,7 @@ function QuizStage({ view, slide, offset }: { view: DisplayView; slide: Extract<
             {slide.config.options.map((o, i) => (
               <li key={i}>
                 <span className="quiz-letter">{'ABCDEF'[i]}</span>
-                {o}
+                <StageText as="span" field="options" index={i} value={o} placeholder="Antwort" />
               </li>
             ))}
           </ol>

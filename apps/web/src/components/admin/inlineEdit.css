@@ -1,0 +1,44 @@
+/* Direkt auf der Folie bearbeiten (nur Editor-Vorschau) */
+.inline-edit {
+  cursor: text;
+  border-radius: 0.2em;
+  outline: 1px dashed transparent;
+  outline-offset: 0.12em;
+  transition: outline-color 120ms var(--ease);
+  /* Leere Felder bleiben anklickbar */
+  min-width: 4em;
+  min-height: 1em;
+}
+.inline-edit:hover {
+  outline-color: var(--border-strong);
+}
+.inline-edit:focus,
+.inline-edit:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 0.12em;
+}
+.inline-edit:empty::before {
+  content: attr(data-placeholder);
+  color: var(--ink-3);
+  font-weight: 400;
+  pointer-events: none;
+}
+/* Beim Tippen die ganze Aufgabe zeigen – die Kürzung auf 5 Zeilen gilt nur fürs Lesen */
+.stage-task.inline-edit:focus {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: none;
+  overflow: visible;
+}
+/* Optionen von Auswahl und Ranking: auf dem Beamer erst mit den Ergebnissen sichtbar */
+.inline-options {
+  grid-template-columns: 1fr;
+}
+.inline-options li > .inline-edit {
+  flex: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .inline-edit {
+    transition: none;
+  }
+}

@@ -67,6 +67,7 @@ import { ScheduleFields } from '../../components/admin/ScheduleFields.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { Stage } from '../../components/Stage.tsx';
 import { staticPreview } from '../../components/staticPreview.ts';
+import { InlineEditProvider } from '../../components/admin/InlineEdit.tsx';
 import { formatCode, FullScreenSpinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { needsRefit, refitBuilds } from '../../lib/refitBuilds.ts';
@@ -1182,7 +1183,9 @@ function SlideEditor({
           )}
         </div>
         <div className="preview-frame">
-          <Stage view={preview} />
+          <InlineEditProvider slide={previewSlide} onChange={readOnly ? null : field.set}>
+            <Stage view={preview} />
+          </InlineEditProvider>
         </div>
       </section>
     </>
