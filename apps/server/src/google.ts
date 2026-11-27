@@ -7,6 +7,7 @@ import { exec, json, one, query, transaction, type Conn, type Db } from './db.ts
 import { touchOf, touchPresentation, type EditHub } from './editing.ts';
 import type { LiveHub } from './live.ts';
 import { insertSlide, renumber } from './presentations.ts';
+import { keepSections } from './sections.ts';
 import { snapshotVersion } from './versions.ts';
 
 /**
@@ -408,7 +409,11 @@ export function googleRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits:
             ).map((r) => r.slide_id),
       );
       const drop = body.remove.filter((sid) => !withResults.has(sid));
-      if (drop.length > 0) await exec(conn, 'DELETE FROM slides WHERE id IN (?)', [drop]);
+      if (drop.length > 0) {
+        // Abschnitte gehen an die nächste verbleibende Folie, statt mit der Google-Seite zu verschwinden
+        await keepSections(conn, id, drop);
+        await exec(conn, 'DELETE FROM slides WHERE id IN (?)', [drop]);
+      }
 
       const order = rows.map((r) => r.id).filter((sid) => !drop.includes(sid));
       const lastAfter = new Map<number, number>();

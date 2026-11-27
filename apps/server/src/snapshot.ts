@@ -34,6 +34,7 @@ import { BRAND_COLUMNS, brandView, type BrandRow } from './brands.ts';
 import { json, one, query, type Conn } from './db.ts';
 import { loadTeamTags } from './teams.ts';
 import { loadSchedule } from './schedule.ts';
+import { loadSections } from './sections.ts';
 
 /**
  * Alles, was für die Ansichten einer Durchführung gebraucht wird – einmal pro
@@ -63,6 +64,8 @@ export interface Snapshot {
   notes: string;
   /** Ablaufplan je Folie (Soll-Dauer, Phasen) – nur für die Host-Ansicht */
   schedule: Map<number, SlideSchedule>;
+  /** Abschnitte der Folienliste (nur für die Folienübersicht im Steuerpult) */
+  sections?: Map<number, string>;
   current: Slide | null;
   index: number;
   /** Antworten auf die aktuelle Folie (beim Satz-Spiel: aktuelle Runde) */
@@ -310,6 +313,7 @@ export async function loadSnapshot(db: Conn, runId: number): Promise<Snapshot | 
     slides,
     notes,
     schedule: await loadSchedule(db, run.presentation_id),
+    sections: await loadSections(db, run.presentation_id),
     current,
     index,
     responses,

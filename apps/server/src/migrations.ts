@@ -450,4 +450,9 @@ export const migrations: Migration[] = [
       'ALTER TABLE slides ADD COLUMN source_key VARCHAR(100) NULL, ADD COLUMN source_hash CHAR(64) NULL',
     ],
   },
+  {
+    // Abschnitte der Folienliste: Titel an der Folie, mit der ein Abschnitt beginnt (nur Editor/Steuerpult)
+    name: '018_slide_sections',
+    statements: ['ALTER TABLE slides ADD COLUMN section VARCHAR(80) NULL'],
+  },
 ];

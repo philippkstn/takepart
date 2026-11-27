@@ -15,6 +15,8 @@ export interface VersionSlide {
   notes: string;
   schedule: SlideSchedule;
   sourceKey: string | null;
+  /** Abschnitt, der an dieser Folie beginnt (fehlt in älteren Versionen und ohne Abschnitt) */
+  section?: string | null;
 }
 
 export interface VersionSnapshot {
@@ -56,6 +58,7 @@ function changedFields(a: VersionSlide, b: VersionSlide): string[] {
   const keys = [...new Set([...Object.keys(a.config), ...Object.keys(b.config)])].filter((k) => !sameValue(a.config[k], b.config[k]));
   if (a.notes !== b.notes) keys.push('notes');
   if (!sameValue(a.schedule, b.schedule)) keys.push('schedule');
+  if ((a.section ?? null) !== (b.section ?? null)) keys.push('section');
   return keys;
 }
 
@@ -114,6 +117,7 @@ export const CHANGE_FIELD_LABELS: Record<string, string> = {
   mode: 'Art',
   notes: 'Notizen',
   schedule: 'Ablaufplan',
+  section: 'Abschnitt',
   position: 'Reihenfolge',
   startHidden: 'Aufdecken',
   showJoin: 'Beitritt',

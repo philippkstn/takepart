@@ -24,6 +24,7 @@ import { snapshotVersion } from './versions.ts';
 import { sourceInfo } from './google.ts';
 import { loadSlides } from './snapshot.ts';
 import { loadSchedule, SCHEDULE_COLUMNS, scheduleFromRow, scheduleValues, type ScheduleRow } from './schedule.ts';
+import { applySections, keepSections, loadSections, sectionChanges } from './sections.ts';
 
 const idParam = z.object({ id: z.coerce.number().int() });
 
@@ -36,12 +37,14 @@ export async function insertSlide(
   config: unknown,
   notes: string | null = null,
   schedule?: SlideSchedule,
+  /** Abschnitt, der an dieser Folie beginnt */
+  section: string | null = null,
 ) {
   const parsed = parseConfig(type, config);
   return exec(
     conn,
-    `INSERT INTO slides (presentation_id, position, type, config, notes, ${SCHEDULE_COLUMNS}) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [presentationId, position, type, JSON.stringify(parsed), notes || null, ...scheduleValues(schedule)],
+    `INSERT INTO slides (presentation_id, position, type, config, notes, ${SCHEDULE_COLUMNS}, section) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [presentationId, position, type, JSON.stringify(parsed), notes || null, ...scheduleValues(schedule), section],
   );
 }
 
@@ -195,6 +198,8 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
       ),
       // Ablaufplan (Soll-Dauer, Phasen, Auto-Start) – ebenfalls nur für den Host
       schedule: Object.fromEntries(await loadSchedule(db, id)),
+      // Abschnitte der Folienliste (Titel an der ersten Folie) – nur Editor und Steuerpult
+      sections: Object.fromEntries(await loadSections(db, id)),
       // Änderungszähler je Folie – zeigt dem Editor, welche Folien sich beim Neuladen geändert haben
       revs: Object.fromEntries(
         (await query<{ id: number; rev: number }>(db, 'SELECT id, rev FROM slides WHERE presentation_id = ?', [id])).map((r) => [
@@ -277,6 +282,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
       ]),
     );
     const schedule = await loadSchedule(db, id);
+    const sections = await loadSections(db, id);
     const newId = await transaction(db, async (conn) => {
       const result = await exec(
         conn,
@@ -299,7 +305,7 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
       );
       for (const [i, s] of slides.entries()) {
         const config = s.type === 'image' ? withAssetIds(s.config, (id) => assetMap.get(id) ?? id) : s.config;
-        await insertSlide(conn, result.insertId, i, s.type, config, notes.get(s.id) ?? null, schedule.get(s.id));
+        await insertSlide(conn, result.insertId, i, s.type, config, notes.get(s.id) ?? null, schedule.get(s.id), sections.get(s.id));
       }
       return result.insertId;
     });
@@ -498,7 +504,11 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
     const { id } = idParam.parse(request.params);
     const slide = await one<{ presentation_id: number }>(db, 'SELECT presentation_id FROM slides WHERE id = ?', [id]);
     if (!slide) return { ok: true };
-    await exec(db, 'DELETE FROM slides WHERE id = ?', [id]);
+    await transaction(db, async (conn) => {
+      // Beginnt hier ein Abschnitt, übernimmt ihn die nächste Folie
+      await keepSections(conn, slide.presentation_id, [id]);
+      await exec(conn, 'DELETE FROM slides WHERE id = ?', [id]);
+    });
     await deleteOrphanAssets(db, slide.presentation_id);
     await touch(request, slide.presentation_id, { structure: true });
     return { ok: true };
@@ -525,6 +535,67 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
     });
     await touch(request, slide.presentation_id, { structure: true });
     return { id: newId };
+  });
+
+  /** Mehrfachauswahl im Editor: IDs der Folien (Reihenfolge egal, doppelte zählen einmal) */
+  const slideIds = z.object({ ids: z.array(z.number().int()).min(1).max(300) });
+  const changedList = (reply: import('fastify').FastifyReply) =>
+    reply.code(409).send({ error: 'Die Folienliste hat sich gerade geändert' });
+
+  /** Mehrere Folien löschen – alle oder keine. Abschnitte gehen an die nächste verbleibende Folie. */
+  app.post('/api/presentations/:id/slides/delete', ownPresentation, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const body = slideIds.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Keine Folien ausgewählt' });
+    const ids = [...new Set(body.data.ids)];
+    const done = await transaction(db, async (conn) => {
+      const found = await query<{ id: number }>(conn, 'SELECT id FROM slides WHERE presentation_id = ? AND id IN (?) FOR UPDATE', [
+        id,
+        ids,
+      ]);
+      if (found.length !== ids.length) return false;
+      await keepSections(conn, id, ids);
+      await exec(conn, 'DELETE FROM slides WHERE presentation_id = ? AND id IN (?)', [id, ids]);
+      return true;
+    });
+    if (!done) return changedList(reply);
+    await deleteOrphanAssets(db, id);
+    await touch(request, id, { structure: true });
+    return { deleted: ids.length };
+  });
+
+  /**
+   * Mehrere Folien duplizieren: Die Kopien folgen in ihrer Reihenfolge als Block
+   * hinter der letzten ausgewählten Folie (ohne Abschnittstitel – sie gehören zum
+   * Abschnitt, in dem sie landen).
+   */
+  app.post('/api/presentations/:id/slides/duplicate', ownPresentation, async (request, reply) => {
+    const { id } = idParam.parse(request.params);
+    const body = slideIds.safeParse(request.body);
+    if (!body.success) return reply.code(400).send({ error: 'Keine Folien ausgewählt' });
+    const wanted = new Set(body.data.ids);
+    const created = await transaction(db, async (conn) => {
+      const rows = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null }>(
+        conn,
+        `SELECT id, type, config, notes, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id FOR UPDATE`,
+        [id],
+      );
+      const chosen = rows.filter((r) => wanted.has(r.id));
+      if (chosen.length !== wanted.size) return null;
+      const order = rows.map((r) => r.id);
+      let at = order.indexOf(chosen.at(-1)!.id) + 1;
+      const newIds: number[] = [];
+      for (const s of chosen) {
+        const result = await insertSlide(conn, id, 0, s.type, json(s.config), s.notes, scheduleFromRow(s));
+        order.splice(at++, 0, result.insertId);
+        newIds.push(result.insertId);
+      }
+      await renumber(conn, order);
+      return newIds;
+    });
+    if (!created) return changedList(reply);
+    await touch(request, id, { structure: true });
+    return { ids: created };
   });
 
   /**
@@ -654,14 +725,20 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
 
   app.put('/api/presentations/:id/order', ownPresentation, async (request, reply) => {
     const { id } = idParam.parse(request.params);
-    const body = z.object({ ids: z.array(z.number().int()) }).parse(request.body);
+    // `sections`: Abschnittstitel, die sich mit dem Verschieben ändern (gemeinsam, damit nichts halb gilt)
+    const body = z.object({ ids: z.array(z.number().int()), sections: sectionChanges.default([]) }).parse(request.body);
     const existing = (await query<{ id: number }>(db, 'SELECT id FROM slides WHERE presentation_id = ?', [id])).map((s) => s.id);
-    if (existing.length !== body.ids.length || !body.ids.every((sid) => existing.includes(sid))) {
+    if (
+      existing.length !== body.ids.length ||
+      !body.ids.every((sid) => existing.includes(sid)) ||
+      !body.sections.every((c) => existing.includes(c.id))
+    ) {
       // Meist hat jemand anderes gerade Folien hinzugefügt oder gelöscht – der Editor lädt neu und versucht es erneut
       return reply.code(409).send({ error: 'Die Folienliste hat sich gerade geändert' });
     }
     await transaction(db, async (conn) => {
       for (const [i, sid] of body.ids.entries()) await exec(conn, 'UPDATE slides SET position = ? WHERE id = ?', [i, sid]);
+      await applySections(conn, id, body.sections);
     });
     await touch(request, id, { structure: true });
     return { ok: true };

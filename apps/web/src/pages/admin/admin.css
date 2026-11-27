@@ -333,6 +333,159 @@ body.is-dragging-slide * {
   margin-left: 16px;
 }
 
+/* Mehrfachauswahl: Umschalt-Klick soll keinen Text markieren; die zuletzt angeklickte Folie hebt sich ab */
+.slide-list li {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.slide-list li.is-selected.is-focus {
+  border-color: var(--accent);
+}
+
+/* Abschnitte: Zwischenüberschrift mit Folienzahl und Minuten, einklappbar */
+.slide-list li.slide-section {
+  gap: 2px;
+  margin-top: 6px;
+  padding: 2px 4px 2px 0;
+  border-top: 1px solid var(--border);
+  border-radius: 0;
+}
+.slide-list li.slide-section:first-child {
+  margin-top: 0;
+  border-top: 0;
+}
+.slide-list li.slide-section:hover {
+  background: transparent;
+}
+.slide-section-toggle {
+  flex-shrink: 0;
+  color: var(--ink-3);
+}
+.slide-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.slide-section-title .grow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slide-section-title .small {
+  flex-shrink: 0;
+  font-weight: 500;
+}
+/* Über dem Ende der Zeile, damit der Titel die ganze Breite bekommt */
+.slide-section-actions {
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  translate: 0 -50%;
+  display: flex;
+  border-radius: var(--radius-s);
+  background: var(--surface);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms;
+}
+.slide-list li.slide-section:hover .slide-section-actions,
+.slide-section-actions:focus-within {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (hover: none) {
+  .slide-section-actions {
+    position: static;
+    translate: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+.slide-section-input {
+  flex: 1;
+  min-height: 34px;
+  margin: 4px 0 4px 6px;
+  font-weight: 600;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Übersicht statt Formular bei Mehrfachauswahl (nimmt Formular- und Vorschauspalte ein) */
+.selection-panel {
+  grid-column: 2 / -1;
+}
+@media (max-width: 760px) {
+  .selection-panel {
+    grid-column: auto;
+  }
+}
+.selection-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 2px;
+  max-height: 40dvh;
+  overflow: auto;
+}
+.selection-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  color: var(--ink-2);
+  font-size: 0.9rem;
+}
+.selection-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.selection-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.selection-actions .menu-hint {
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  margin-left: 4px;
+}
+.btn-danger .menu-hint {
+  color: inherit;
+  opacity: 0.75;
+}
+
+/* Steuerpult: Abschnitte als Zwischenüberschrift in der Folienübersicht */
+.control-section {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 10px 10px 2px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.control-section:first-child {
+  padding-top: 0;
+}
+.control-section .grow {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* Leere Präsentation: die ersten Schritte direkt anbieten */
 .editor-empty {
   grid-column: 1 / -1;

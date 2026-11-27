@@ -6,8 +6,6 @@ import {
   SLIDE_TYPE_HINTS,
   SLIDE_TYPE_LABELS,
   CREATABLE_SLIDE_TYPES,
-  assetThumbUrl,
-  slideHeadline,
   type BatchSlide,
   EMPTY_SCHEDULE,
   plannedTotal,
@@ -19,6 +17,7 @@ import {
   ROLE_LABELS,
   roleAtLeast,
   type PresentationRole,
+  type SectionChange,
 } from '@slides/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -32,8 +31,7 @@ import {
   ChevronRight,
   Copy,
   FileUp,
-  GripVertical,
-  MoreHorizontal,
+  Heading,
   History,
   Layers,
   Link2,
@@ -48,19 +46,14 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import {
-  useEffect,
-  useRef,
-  useState,
-  type DragEvent as ReactDragEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type ReactNode,
-} from 'react';
+import { useEffect, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { InsertPicker, SaveBlockDialog } from '../../components/admin/BlockPicker.tsx';
 import { RehearsalList } from '../../components/admin/RehearsalList.tsx';
 import { ImportDialog, isPdf, isPptx } from '../../components/admin/ImportDialog.tsx';
-import { useSlideDrag } from '../../components/admin/useSlideDrag.ts';
+import { initials, SlideList, type SlideMenuRequest } from '../../components/admin/SlideList.tsx';
+import { SelectionPanel } from '../../components/admin/SelectionPanel.tsx';
+import { useSlideSelection } from '../../components/admin/useSlideSelection.ts';
 import { ReplaceImagesDialog } from '../../components/admin/ReplaceImagesDialog.tsx';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
 import { ScheduleFields } from '../../components/admin/ScheduleFields.tsx';
@@ -91,6 +84,8 @@ interface Presentation {
   notes: Record<string, string>;
   /** Ablaufplan je Folien-ID (Soll-Dauer, Phasen, Auto-Start) */
   schedule?: Record<string, SlideSchedule>;
+  /** Abschnitte der Folienliste: Titel je Folie, an der einer beginnt */
+  sections?: Record<string, string>;
   liveRun: { id: number; code: string } | null;
   rehearsalRun: { id: number; code: string } | null;
   /** Änderungszähler je Folien-ID */
@@ -148,10 +143,12 @@ export default function EditorPage() {
   /** Hinter welcher Folie der Einfügen-Dialog bzw. der PDF-Import einfügt (Rechtsklick oder +) */
   const [insertAfter, setInsertAfter] = useState<number | null>(null);
   const [inserting, setInserting] = useState(false);
-  const [menu, setMenu] = useState<{ slideId: number; x: number; y: number; above?: number } | null>(null);
+  const [menu, setMenu] = useState<SlideMenuRequest | null>(null);
   const [importMenu, setImportMenu] = useState<{ x: number; y: number; above?: number } | null>(null);
-  /** Ab welcher Folie „Als Baustein speichern“ vorschlägt */
-  const [savingBlock, setSavingBlock] = useState<number | null>(null);
+  /** Welche Folien „Als Baustein speichern“ vorschlägt (eine: ab dieser Folie, mehrere: genau die Auswahl) */
+  const [savingBlock, setSavingBlock] = useState<number[] | null>(null);
+  /** Folie, an der gerade ein Abschnitt benannt wird */
+  const [editingSection, setEditingSection] = useState<number | null>(null);
   const [showRehearsals, setShowRehearsals] = useState(false);
   const start = useStartRun();
 
@@ -159,6 +156,13 @@ export default function EditorPage() {
   const plannedOf = (slideId: number) => slidePlannedMinutes(pres.data?.schedule?.[slideId]);
   const plannedSum = plannedTotal(slides.map((s) => plannedOf(s.id)));
   const selected = slides.find((s) => s.id === selectedId) ?? slides[0] ?? null;
+  /** Mehrfachauswahl (Umschalt/⌘-Klick) – liegt über `selectedId` */
+  const selection = useSlideSelection(
+    slides.map((s) => s.id),
+    selected?.id ?? null,
+    setSelectedId,
+  );
+  const sections = pres.data?.sections ?? {};
   const { focus } = session;
   useEffect(() => focus(selected?.id ?? null), [focus, selected?.id]);
   /** Wer außer mir auf welcher Folie ist */
@@ -253,10 +257,34 @@ export default function EditorPage() {
     },
     onError,
   });
+  /** Mehrfachauswahl: mehrere Folien in einem Schritt löschen bzw. duplizieren */
+  const removeSlides = useMutation({
+    mutationFn: (ids: number[]) => api(`/api/presentations/${id}/slides/delete`, { body: { ids } }),
+    onSuccess: refresh,
+    onError,
+  });
+  const duplicateSlides = useMutation({
+    mutationFn: (ids: number[]) => api<{ ids: number[] }>(`/api/presentations/${id}/slides/duplicate`, { body: { ids } }),
+    onSuccess: async ({ ids }) => {
+      await refresh();
+      selection.select(ids);
+      toast(`${ids.length} Folien dupliziert`);
+    },
+    onError,
+  });
   const reorder = useMutation({
-    mutationFn: (ids: number[]) => api(`/api/presentations/${id}/order`, { method: 'PUT', body: { ids } }),
-    onMutate: (ids) => {
-      queryClient.setQueryData<Presentation>(key, (p) => p && { ...p, slides: ids.map((sid) => p.slides.find((s) => s.id === sid)!) });
+    mutationFn: ({ ids, sections: changes }: { ids: number[]; sections: SectionChange[] }) =>
+      api(`/api/presentations/${id}/order`, { method: 'PUT', body: { ids, sections: changes } }),
+    onMutate: ({ ids, sections: changes }) => {
+      queryClient.setQueryData<Presentation>(key, (p) => {
+        if (!p) return p;
+        const next = { ...p.sections };
+        for (const c of changes) {
+          if (c.section) next[c.id] = c.section;
+          else delete next[c.id];
+        }
+        return { ...p, slides: ids.map((sid) => p.slides.find((s) => s.id === sid)!), sections: next };
+      });
     },
     onSettled: refresh,
     onError: (err) => {
@@ -287,26 +315,9 @@ export default function EditorPage() {
     onError,
   });
 
-  const dragging = useSlideDrag({
-    ids: slides.map((s) => s.id),
-    enabled: canEdit,
-    onDrop: (ids, movedId) => {
-      setSelectedId(movedId);
-      reorder.mutate(ids);
-    },
-  });
-
   if (pres.isLoading) return <FullScreenSpinner />;
   if (!pres.data) return <main className="page">Präsentation nicht gefunden.</main>;
 
-  const move = (slideId: number, delta: number) => {
-    const ids = slides.map((s) => s.id);
-    const i = ids.indexOf(slideId);
-    const j = i + delta;
-    if (i < 0 || j < 0 || j >= ids.length) return;
-    [ids[i], ids[j]] = [ids[j]!, ids[i]!];
-    reorder.mutate(ids);
-  };
   const askRemove = (slideId: number) => {
     const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
     if (!window.confirm(`Folie löschen?${warn}`)) return;
@@ -315,6 +326,18 @@ export default function EditorPage() {
     const neighbour = slideId === selected?.id ? (slides[i + 1] ?? slides[i - 1]) : undefined;
     removeSlide.mutate(slideId, { onSuccess: () => neighbour && setSelectedId(neighbour.id) });
   };
+  /** Löschen aus Liste, Menü oder Übersicht: eine Folie wie bisher, mehrere mit einer Rückfrage für alle */
+  const askRemoveMany = (ids: number[]) => {
+    if (ids.length === 1) return askRemove(ids[0]!);
+    const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
+    if (!window.confirm(`${ids.length} Folien löschen?${warn}`)) return;
+    // Danach die nächste verbleibende Folie auswählen
+    const last = Math.max(...ids.map((sid) => slides.findIndex((s) => s.id === sid)));
+    const neighbour = slides.slice(last + 1).find((s) => !ids.includes(s.id)) ?? [...slides].reverse().find((s) => !ids.includes(s.id));
+    removeSlides.mutate(ids, { onSuccess: () => neighbour && setSelectedId(neighbour.id) });
+  };
+  const duplicateMany = (ids: number[]) => (ids.length === 1 ? duplicateSlide.mutate(ids[0]!) : duplicateSlides.mutate(ids));
+
   const openInsert = (afterId: number | null) => {
     setInsertAfter(afterId);
     setInserting(true);
@@ -328,33 +351,6 @@ export default function EditorPage() {
   const below = (el: HTMLElement) => {
     const r = el.getBoundingClientRect();
     return { x: r.left, y: r.bottom + 4, above: r.top - 4 };
-  };
-
-  /** Tastatur in der Folienliste: ↑/↓ wählen, Alt+↑/↓ verschieben, Entf löschen, Strg/⌘+D duplizieren */
-  const onListKey = (e: ReactKeyboardEvent, slideId: number) => {
-    const i = slides.findIndex((s) => s.id === slideId);
-    const focusRow = (id: number) =>
-      requestAnimationFrame(() => dragging.listRef.current?.querySelector<HTMLElement>(`li[data-slide-id="${id}"] .slide-item`)?.focus());
-    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      const delta = e.key === 'ArrowUp' ? -1 : 1;
-      e.preventDefault();
-      if (e.altKey) {
-        if (canEdit) move(slideId, delta);
-        focusRow(slideId);
-        return;
-      }
-      const next = slides[i + delta];
-      if (next) {
-        setSelectedId(next.id);
-        focusRow(next.id);
-      }
-    } else if ((e.key === 'Delete' || e.key === 'Backspace') && canEdit) {
-      e.preventDefault();
-      askRemove(slideId);
-    } else if (e.key.toLowerCase() === 'd' && (e.metaKey || e.ctrlKey) && canEdit) {
-      e.preventDefault();
-      duplicateSlide.mutate(slideId);
-    }
   };
 
   /** PDF/PPTX aus dem Dateimanager in den Editor ziehen → Import hinter der ausgewählten Folie */
@@ -513,94 +509,24 @@ export default function EditorPage() {
 
       <div className="editor-grid">
         {slides.length > 0 && (
-          <aside className={`slide-list card ${fileOver ? 'is-file-over' : ''}`} {...fileDrop}>
-            <ol ref={dragging.listRef} aria-label="Folien">
-              {slides.map((s, i) => {
-                const drop = dragging.drag?.at;
-                const lineBefore = drop === i && dragging.drag?.id !== s.id && slides[i - 1]?.id !== dragging.drag?.id;
-                const lineAfter = drop === slides.length && i === slides.length - 1 && dragging.drag?.id !== s.id;
-                return (
-                  <li
-                    key={s.id}
-                    data-slide-id={s.id}
-                    className={[
-                      s.id === selected?.id ? 'is-selected' : '',
-                      dragging.drag?.id === s.id ? 'is-dragging' : '',
-                      lineBefore ? 'drop-before' : '',
-                      lineAfter ? 'drop-after' : '',
-                    ].join(' ')}
-                    onPointerDown={(e) => dragging.start(e, s.id, false)}
-                    onContextMenu={(e) => {
-                      if (!canEdit) return;
-                      e.preventDefault();
-                      setSelectedId(s.id);
-                      setMenu({ slideId: s.id, x: e.clientX, y: e.clientY });
-                    }}
-                  >
-                    {canEdit && (
-                      <span
-                        className="slide-grip"
-                        aria-hidden
-                        title="Ziehen zum Verschieben"
-                        onPointerDown={(e) => {
-                          e.stopPropagation();
-                          dragging.start(e, s.id, true);
-                        }}
-                      >
-                        <GripVertical size={14} />
-                      </span>
-                    )}
-                    <button
-                      className="slide-item"
-                      onClick={() => setSelectedId(s.id)}
-                      onKeyDown={(e) => onListKey(e, s.id)}
-                      aria-current={s.id === selected?.id ? 'true' : undefined}
-                      aria-keyshortcuts={canEdit ? 'Alt+ArrowUp Alt+ArrowDown Delete' : undefined}
-                    >
-                      <span className="slide-num tabular">{i + 1}</span>
-                      {s.type === 'image' ? (
-                        <img className="slide-thumb" src={assetThumbUrl(s.config.asset)} alt="" loading="lazy" draggable={false} />
-                      ) : (
-                        <span className="slide-type-icon">
-                          <SlideIcon type={s.type} />
-                        </span>
-                      )}
-                      <span className="slide-item-text">
-                        <span className="slide-item-type">
-                          {SLIDE_TYPE_LABELS[s.type]}
-                          {plannedOf(s.id) !== null && <span className="tabular"> · {plannedOf(s.id)} Min.</span>}
-                        </span>
-                        <span className="slide-item-title">{slideHeadline(s) || <em className="faint">ohne Titel</em>}</span>
-                      </span>
-                      {othersOn(s.id).length > 0 && (
-                        <span className="slide-presence" title={`Gerade hier: ${othersOn(s.id).join(', ')}`}>
-                          {othersOn(s.id).map((n) => (
-                            <span key={n} className="editor-chip is-small" aria-hidden>
-                              {initials(n)}
-                            </span>
-                          ))}
-                        </span>
-                      )}
-                    </button>
-                    {canEdit && (
-                      <button
-                        className="icon-btn slide-more"
-                        data-no-drag
-                        aria-label={`Aktionen für Folie ${i + 1}`}
-                        title="Aktionen"
-                        onClick={(e) => {
-                          setSelectedId(s.id);
-                          setMenu({ slideId: s.id, ...below(e.currentTarget) });
-                        }}
-                      >
-                        <MoreHorizontal size={16} />
-                      </button>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-            {canEdit && slides.length > 1 && <p className="slide-list-hint small faint">Zum Verschieben ziehen oder Alt + ↑/↓</p>}
+          <SlideList
+            presentationId={id}
+            slides={slides}
+            sections={sections}
+            plannedOf={plannedOf}
+            selectedId={selected?.id ?? null}
+            selection={selection}
+            onSelect={setSelectedId}
+            canEdit={canEdit}
+            othersOn={othersOn}
+            editingSection={editingSection}
+            onEditingSection={setEditingSection}
+            onMenu={setMenu}
+            onReorder={(ids, changes) => reorder.mutate({ ids, sections: changes })}
+            onRemove={askRemoveMany}
+            onDuplicate={duplicateMany}
+            asideProps={{ className: fileOver ? 'is-file-over' : '', ...fileDrop }}
+          >
             {canEdit && (
               <div className="slide-list-actions">
                 <button className="btn btn-block btn-primary" onClick={() => openInsert(selected?.id ?? null)}>
@@ -627,10 +553,23 @@ export default function EditorPage() {
               </div>
             )}
             {fileOver && <div className="file-over-hint">PDF hier ablegen, um sie zu importieren</div>}
-          </aside>
+          </SlideList>
         )}
 
-        {selected ? (
+        {selection.multi ? (
+          <SelectionPanel
+            slides={slides.filter((s) => selection.has(s.id))}
+            numberOf={(sid) => slides.findIndex((s) => s.id === sid) + 1}
+            plannedOf={plannedOf}
+            canEdit={canEdit}
+            modKey={modKey}
+            onDuplicate={() => duplicateMany(selection.ids)}
+            onRemove={() => askRemoveMany(selection.ids)}
+            onSaveBlock={() => setSavingBlock(selection.ids)}
+            onStartSection={sections[selection.ids[0]!] ? null : () => setEditingSection(selection.ids[0]!)}
+            onClear={selection.clear}
+          />
+        ) : selected ? (
           <SlideEditor
             key={selected.id}
             slide={selected}
@@ -726,15 +665,27 @@ export default function EditorPage() {
           items={[
             { label: 'Danach einfügen …', icon: <Plus />, run: () => openInsert(menu.slideId) },
             { label: 'PDF danach importieren …', icon: <FileUp />, run: () => openImport(menu.slideId) },
-            { label: 'Duplizieren', icon: <Copy />, hint: `${modKey}+D`, run: () => duplicateSlide.mutate(menu.slideId) },
-            ...(slides[0]?.id !== menu.slideId
-              ? [{ label: 'Nach oben', icon: <ArrowUp />, hint: 'Alt+↑', run: () => move(menu.slideId, -1) }]
-              : []),
-            ...(slides.at(-1)?.id !== menu.slideId
-              ? [{ label: 'Nach unten', icon: <ArrowDown />, hint: 'Alt+↓', run: () => move(menu.slideId, 1) }]
-              : []),
-            { label: 'Als Baustein speichern …', icon: <Blocks />, run: () => setSavingBlock(menu.slideId) },
-            { label: 'Löschen', icon: <Trash2 />, hint: 'Entf', danger: true, run: () => askRemove(menu.slideId) },
+            {
+              label: menu.ids.length > 1 ? `${menu.ids.length} Folien duplizieren` : 'Duplizieren',
+              icon: <Copy />,
+              hint: `${modKey}+D`,
+              run: () => duplicateMany(menu.ids),
+            },
+            ...(menu.moveUp ? [{ label: 'Nach oben', icon: <ArrowUp />, hint: 'Alt+↑', run: menu.moveUp }] : []),
+            ...(menu.moveDown ? [{ label: 'Nach unten', icon: <ArrowDown />, hint: 'Alt+↓', run: menu.moveDown }] : []),
+            {
+              label: menu.sectionTitle ? 'Abschnitt umbenennen …' : 'Abschnitt hier beginnen',
+              icon: <Heading />,
+              run: () => setEditingSection(menu.slideId),
+            },
+            { label: 'Als Baustein speichern …', icon: <Blocks />, run: () => setSavingBlock(menu.ids) },
+            {
+              label: menu.ids.length > 1 ? `${menu.ids.length} Folien löschen` : 'Löschen',
+              icon: <Trash2 />,
+              hint: 'Entf',
+              danger: true,
+              run: () => askRemoveMany(menu.ids),
+            },
           ]}
         />
       )}
@@ -788,7 +739,8 @@ export default function EditorPage() {
           slides={slides}
           notes={pres.data.notes}
           schedule={pres.data.schedule}
-          startId={savingBlock}
+          startId={savingBlock[0]!}
+          ids={savingBlock.length > 1 ? savingBlock : undefined}
           onClose={() => setSavingBlock(null)}
         />
       )}
@@ -846,16 +798,6 @@ export default function EditorPage() {
 
 /** Anzeige der Befehlstaste in Tastenhinweisen */
 const modKey = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform) ? '⌘' : 'Strg';
-
-const initials = (name: string) =>
-  name.startsWith('du (')
-    ? 'Du'
-    : name
-        .split(/[\s._-]+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map((w) => w[0]!.toUpperCase())
-        .join('') || '?';
 
 /** Wer außer mir gerade in diesem Editor ist */
 function EditorsBar({ editors }: { editors: string[] }) {

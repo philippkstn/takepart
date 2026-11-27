@@ -52,9 +52,11 @@ async function currentData(conn: Conn, presentationId: number): Promise<VersionD
     [presentationId],
   );
   if (!pres) return null;
-  const rows = await query<ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null; source_key: string | null }>(
+  const rows = await query<
+    ScheduleRow & { id: number; type: SlideType; config: string; notes: string | null; source_key: string | null; section: string | null }
+  >(
     conn,
-    `SELECT id, type, config, notes, source_key, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id`,
+    `SELECT id, type, config, notes, source_key, section, ${SCHEDULE_COLUMNS} FROM slides WHERE presentation_id = ? ORDER BY position, id`,
     [presentationId],
   );
   return {
@@ -72,6 +74,8 @@ async function currentData(conn: Conn, presentationId: number): Promise<VersionD
       notes: r.notes ?? '',
       schedule: scheduleFromRow(r),
       sourceKey: r.source_key,
+      // Nur wenn gesetzt – sonst änderte sich die Prüfsumme aller älteren Stände
+      ...(r.section && { section: r.section }),
     })),
   };
 }
@@ -196,10 +200,15 @@ function summarize(diff: VersionDiff) {
   };
 }
 
-/** Unterscheidet sich die Folie der Version vom jetzigen Stand (Reihenfolge zählt nicht)? */
+/**
+ * Unterscheidet sich die Folie der Version vom jetzigen Stand (Reihenfolge zählt nicht)?
+ * Abschnitte zählen nicht – sie gehören zur Gliederung und kommen nur beim Wiederherstellen
+ * der ganzen Version zurück.
+ */
 function differsFromCurrent(slide: VersionSlide, current: Map<number, VersionSlide>): boolean {
   const now = current.get(slide.id);
-  return !now || !sameValue({ ...slide, sourceKey: null }, { ...now, sourceKey: null });
+  const plain = (s: VersionSlide) => ({ ...s, sourceKey: null, section: null });
+  return !now || !sameValue(plain(slide), plain(now));
 }
 
 /** Anzahl gespeicherter Ergebnisse je Folie (Antworten, Beiträge, Wand-Platzierungen, Protokollnotizen) */
@@ -498,12 +507,13 @@ export function versionRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits
         } catch {
           continue;
         }
-        const values = [JSON.stringify(config), s.notes || null, s.sourceKey, ...scheduleValues(s.schedule)];
+        // Ältere Versionen kennen keine Abschnitte: dann gibt es keine
+        const values = [JSON.stringify(config), s.notes || null, s.sourceKey, ...scheduleValues(s.schedule), s.section ?? null];
         if (existing.has(s.id)) {
           await exec(
             conn,
             `UPDATE slides SET position = ?, config = ?, notes = ?, source_key = ?, planned_minutes = ?, phases = ?, auto_countdown = ?,
-                    source_hash = NULL, rev = rev + 1 WHERE id = ? AND presentation_id = ?`,
+                    section = ?, source_hash = NULL, rev = rev + 1 WHERE id = ? AND presentation_id = ?`,
             [position, ...values, s.id, id],
           );
           continue;
@@ -511,8 +521,8 @@ export function versionRoutes(app: FastifyInstance, db: Db, live: LiveHub, edits
         const insert = (withId: boolean) =>
           exec(
             conn,
-            `INSERT INTO slides (${withId ? 'id, ' : ''}presentation_id, position, type, config, notes, source_key, ${SCHEDULE_COLUMNS})
-             VALUES (${withId ? '?, ' : ''}?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO slides (${withId ? 'id, ' : ''}presentation_id, position, type, config, notes, source_key, ${SCHEDULE_COLUMNS}, section)
+             VALUES (${withId ? '?, ' : ''}?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [...(withId ? [s.id] : []), id, position, s.type, ...values],
           );
         // Gelöschte Folien kommen mit ihrer alten ID zurück (die vergibt die Datenbank nie neu)
