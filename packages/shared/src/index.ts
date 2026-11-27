@@ -27,3 +27,4 @@ export * from './sync.ts';
 export * from './versionDiff.ts';
 export * from './buildCover.ts';
 export * from './buildParagraphs.ts';
+export * from './slideGoals.ts';
