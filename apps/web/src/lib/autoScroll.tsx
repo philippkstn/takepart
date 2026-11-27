@@ -80,12 +80,20 @@ function useBarColumns(ref: RefObject<HTMLElement | null>) {
     const el = ref.current;
     if (!el) return;
     let frame = 0;
-    const fit = () => {
-      delete el.dataset.layout;
+    const decide = () => {
       const n = el.querySelector(':scope > .bars')?.children.length ?? 0;
-      if (n < 2 || n > MAX_PILLARS || el.scrollHeight - el.clientHeight <= 4) return;
+      if (n < 2 || n > MAX_PILLARS || el.scrollHeight - el.clientHeight <= 4) return false;
       const width = el.clientWidth / (parseFloat(getComputedStyle(el).fontSize) || 16);
-      if (width / n >= MIN_PILLAR_EM) el.dataset.layout = 'columns';
+      return width / n >= MIN_PILLAR_EM;
+    };
+    const fit = () => {
+      // Das Messen stellt kurz auf Balken um. Ohne Übergänge, und vor dem Wiedereinschalten
+      // einmal den Endstand berechnen lassen – sonst schrumpften und wüchsen Säulen bei jeder Stimme.
+      el.classList.add('is-measuring');
+      delete el.dataset.layout;
+      if (decide()) el.dataset.layout = 'columns';
+      void el.offsetHeight;
+      el.classList.remove('is-measuring');
     };
     const schedule = () => {
       cancelAnimationFrame(frame);

@@ -24,6 +24,21 @@ export function AnimatedNumber({ value, decimals = 0, className }: { value: numb
 }
 
 /**
+ * Solange ein Ergebnis gerade erscheint (Klasse `is-entering`): Nur dann läuft das Einwachsen
+ * aus der Grundlinie. Danach steht keine Animation mehr am Element – sonst startete sie bei
+ * jeder Stilumstellung (z. B. Nachmessen der Säulen auf der Bühne) neu und der Balken wüchse
+ * bei jeder Stimme wieder von null. Länger als Dauer + größte Staffelung (700 + 8 × 60 ms).
+ */
+export function useEntering(ms = 1400): boolean {
+  const [entering, setEntering] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setEntering(false), ms);
+    return () => clearTimeout(t);
+  }, [ms]);
+  return entering;
+}
+
+/**
  * Klassenname für einen kurzen Puls, sobald ein Wert steigt (neue Stimme). Zwei
  * abwechselnde Klassen mit gleicher Animation, damit sie bei jeder Stimme neu startet,
  * ohne das Element neu aufzubauen (sonst ginge die Breiten-Überblendung verloren).

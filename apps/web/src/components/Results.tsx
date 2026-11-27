@@ -2,7 +2,7 @@ import type { SlideResults, PublicSlide, WordCount } from '@slides/shared';
 import { Check, Star } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import type { ReactNode } from 'react';
-import { AnimatedNumber, EASE, useBump } from '../lib/liveMotion.tsx';
+import { AnimatedNumber, EASE, useBump, useEntering } from '../lib/liveMotion.tsx';
 import './results.css';
 
 /*
@@ -43,13 +43,14 @@ export function BarList({ items, max, inline = false }: { items: BarItem[]; max:
 function BarRow({ item, max, index }: { item: BarItem; max: number; index: number }) {
   const width = max === 0 ? 0 : (item.value / max) * 100;
   const bump = useBump(item.value);
+  const entering = useEntering();
   // Auch außerhalb der Bühne (Steuerpult, Handy) ohne Bewegung, wenn das System es wünscht
   const reduce = useReducedMotion();
   return (
     <motion.li
       layout="position"
       transition={{ layout: reduce ? { duration: 0 } : { duration: 0.45, ease: EASE } }}
-      className={`bar-row ${item.correct ? 'is-correct' : ''} ${item.dim ? 'is-dim' : ''} ${bump}`}
+      className={`bar-row ${item.correct ? 'is-correct' : ''} ${item.dim ? 'is-dim' : ''} ${entering ? 'is-entering' : ''} ${bump}`}
       title={`${item.label}: ${item.display}`}
       style={{ ['--bar' as string]: `${Math.max(width, item.value > 0 ? 1.5 : 0)}%`, ['--i' as string]: index }}
     >
@@ -125,8 +126,13 @@ function ScaleResults({
 
 function ScaleColumn({ n, top, label, index }: { n: number; top: number; label: number; index: number }) {
   const bump = useBump(n);
+  const entering = useEntering();
   return (
-    <div className={`column ${bump}`} title={`${label}: ${n} Stimmen`} style={{ ['--i' as string]: index }}>
+    <div
+      className={`column ${entering ? 'is-entering' : ''} ${bump}`}
+      title={`${label}: ${n} Stimmen`}
+      style={{ ['--i' as string]: index }}
+    >
       <span className="column-value tabular">{n > 0 ? n : ''}</span>
       <div className="column-track">
         <div className="column-fill" style={{ height: `${(n / top) * 100}%` }} />

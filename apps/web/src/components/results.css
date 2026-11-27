@@ -68,6 +68,9 @@
   min-width: 0;
   /* Beim Anzeigen aus der Grundlinie wachsen (Säulen: von unten, siehe stage.css), leicht gestaffelt */
   transform-origin: left center;
+}
+/* Nur beim Erscheinen (useEntering) – danach wächst der Balken per Übergang vom aktuellen Stand */
+.is-entering .bar-area {
   animation: grow-x var(--grow-duration) var(--ease-grow) both;
   animation-delay: calc(min(var(--i, 0), 8) * 60ms);
 }
@@ -141,6 +144,8 @@
   transition: height var(--grow-duration) var(--ease-grow);
   min-height: 0;
   transform-origin: center bottom;
+}
+.is-entering .column-fill {
   animation: grow-y var(--grow-duration) var(--ease-grow) both;
   animation-delay: calc(min(var(--i, 0), 8) * 60ms);
 }

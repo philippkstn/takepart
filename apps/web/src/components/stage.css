@@ -242,7 +242,14 @@
   transition: height var(--grow-duration) var(--ease-grow);
   /* Säulen wachsen von unten (statt von links wie die Balken) */
   transform-origin: center bottom;
+}
+.stage-results[data-layout='columns'] .is-entering .bar-area {
   animation-name: grow-y;
+}
+/* Während useBarColumns nachmisst, springt nichts: ohne Übergänge umstellen und zurück */
+.is-measuring,
+.is-measuring * {
+  transition: none !important;
 }
 .stage-results[data-layout='columns'] .bar-fill {
   width: min(100%, 3em);
