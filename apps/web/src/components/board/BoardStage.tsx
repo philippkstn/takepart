@@ -27,6 +27,7 @@ import { BarList } from '../Results.tsx';
 import { BreakoutWall, doneSummary } from './Breakout.tsx';
 import { TagChips, TieMark, tiedSet, topTieText } from './BoardMarks.tsx';
 import { ChooseStage } from './Choose.tsx';
+import { StageText } from '../stageEdit.tsx';
 import './board.css';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
@@ -64,11 +65,22 @@ export function BoardStage({ view, slide, onBoard }: { view: DisplayView; slide:
           <span className="stage-kicker">
             {BOARD_MODE_LABELS[config.mode]} · {config.board}
           </span>
-          {config.prompt && <h1 className={`stage-title board-title ${headlineSize(config.prompt)}`}>{config.prompt}</h1>}
+          <StageText
+            as="h1"
+            className={`stage-title board-title ${headlineSize(config.prompt)}`}
+            field="prompt"
+            value={config.prompt}
+            placeholder="Aufforderung eingeben"
+          />
           {/* Sobald die Wand Inhalte zeigt, braucht sie den Platz – die Aufgabe wird kompakt */}
-          {config.task && (
-            <p className={`stage-task ${config.mode === 'collect' && !view.resultsVisible ? '' : 'is-compact'}`}>{config.task}</p>
-          )}
+          <StageText
+            as="p"
+            className={`stage-task ${config.mode === 'collect' && !view.resultsVisible ? '' : 'is-compact'}`}
+            field="task"
+            value={config.task}
+            multiline
+            placeholder="Aufgabe (optional)"
+          />
           {tie && <span className="board-tie-note">{tie}</span>}
           {sourceNote && <span className="board-tie-note">{sourceNote}</span>}
         </div>
