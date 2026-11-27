@@ -557,6 +557,29 @@ a.pill:hover {
   background: var(--danger);
   color: #fff;
 }
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.toast-action {
+  flex: none;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: var(--radius-s);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.toast-action:hover {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+}
+.toast-action:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
 
 /* ───────────── Topbar (Admin) ───────────── */
 

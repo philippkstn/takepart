@@ -494,14 +494,43 @@ export function presentationRoutes(app: FastifyInstance, db: Db, live: LiveHub, 
     };
   });
 
-  app.delete('/api/slides/:id', ownSlide, async (request) => {
+  /**
+   * Folie löschen. Mit `?undo=1` (Editor: Rückgängig statt Rückfrage) vorher eine
+   * Version sichern – aus ihr stellt `…/versions/:vid/slides/:sid/restore` die Folie
+   * mit alter ID samt Bildern wieder her – und Folien mit Ergebnissen echter
+   * Durchführungen nur nach `dropResults=1` löschen (die Ergebnisse kommen nicht zurück).
+   * Mit `version=0` entsteht keine Version (weitere Folien desselben Rückgängig-Schritts).
+   */
+  app.delete('/api/slides/:id', ownSlide, async (request, reply) => {
     const { id } = idParam.parse(request.params);
+    const opts = z
+      .object({ undo: z.literal('1').optional(), dropResults: z.literal('1').optional(), version: z.enum(['0', '1']).default('1') })
+      .parse(request.query ?? {});
     const slide = await one<{ presentation_id: number }>(db, 'SELECT presentation_id FROM slides WHERE id = ?', [id]);
-    if (!slide) return { ok: true };
+    if (!slide) return { ok: true, versionId: null };
+    let versionId: number | null = null;
+    if (opts.undo) {
+      if (!opts.dropResults) {
+        const results = await one<{ n: number; open: number | null }>(
+          db,
+          `SELECT COUNT(*) AS n, MAX(r.ended_at IS NULL) AS open FROM (
+              SELECT run_id FROM responses WHERE slide_id = ?
+              UNION ALL SELECT run_id FROM posts WHERE slide_id = ?
+              UNION ALL SELECT run_id FROM board_places WHERE slide_id = ?
+              UNION ALL SELECT run_id FROM run_notes WHERE slide_id = ?
+            ) AS t JOIN runs r ON r.id = t.run_id WHERE r.rehearsal = 0`,
+          [id, id, id, id],
+        );
+        const n = Number(results?.n ?? 0);
+        if (n > 0) return reply.code(409).send({ error: 'Die Folie hat Ergebnisse', results: n, live: !!Number(results?.open) });
+      }
+      // Vor dem Löschen und vor dem Aufräumen der Bilder: Die Version hält sie fest
+      if (opts.version === '1') versionId = await snapshotVersion(db, slide.presentation_id, 'delete', touchOf(request));
+    }
     await exec(db, 'DELETE FROM slides WHERE id = ?', [id]);
     await deleteOrphanAssets(db, slide.presentation_id);
-    await touch(request, slide.presentation_id, { structure: true });
-    return { ok: true };
+    await touch(request, slide.presentation_id, { structure: true, versions: versionId !== null });
+    return { ok: true, versionId };
   });
 
   app.post('/api/slides/:id/duplicate', ownSlide, async (request, reply) => {

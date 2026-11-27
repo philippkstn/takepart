@@ -77,6 +77,7 @@ import { GoogleSourceDialog, SyncProgressBar, syncSummary, useGoogleSync, type S
 import { useEditSession } from '../../lib/editSession.ts';
 import { onParkedConflict, useSyncedField } from '../../lib/syncedField.ts';
 import { ApiError } from '../../lib/api.ts';
+import { useEditorUndo } from '../../lib/useEditorUndo.ts';
 import { authStatus } from '../../lib/passkey.ts';
 
 interface Presentation {
@@ -187,6 +188,8 @@ export default function EditorPage() {
   }, [pres.data?.source, canEdit, live, googleSync]);
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: key });
+  /** ⌘Z/Strg+Z: Löschen, Verschieben, Einfügen rückgängig (useEditorUndo) */
+  const undo = useEditorUndo({ presentationId: id, enabled: canEdit, select: setSelectedId });
   const onError = (err: unknown) => toast(errorMessage(err), 'error');
 
   const addSlide = useMutation({
@@ -194,6 +197,7 @@ export default function EditorPage() {
       api<{ id: number }>(`/api/presentations/${id}/slides`, { body: { type, afterId, config } }),
     onSuccess: async ({ id: newId }) => {
       setInserting(false);
+      undo.recordInsert([newId]);
       await refresh();
       setSelectedId(newId);
     },
@@ -205,6 +209,7 @@ export default function EditorPage() {
       api<{ ids: number[] }>(`/api/presentations/${id}/slides/batch`, { body: { afterId, slides: batch } }),
     onSuccess: async ({ ids }) => {
       setInserting(false);
+      undo.recordInsert(ids);
       await refresh();
       if (ids[0] !== undefined) setSelectedId(ids[0]);
       toast(`${ids.length} ${ids.length === 1 ? 'Folie' : 'Folien'} eingefügt`);
@@ -240,14 +245,10 @@ export default function EditorPage() {
     },
     onError,
   });
-  const removeSlide = useMutation({
-    mutationFn: (slideId: number) => api(`/api/slides/${slideId}`, { method: 'DELETE' }),
-    onSuccess: refresh,
-    onError,
-  });
   const duplicateSlide = useMutation({
     mutationFn: (slideId: number) => api<{ id: number }>(`/api/slides/${slideId}/duplicate`, { body: {} }),
     onSuccess: async ({ id: newId }) => {
+      undo.recordInsert([newId]);
       await refresh();
       setSelectedId(newId);
     },
@@ -256,8 +257,11 @@ export default function EditorPage() {
   const reorder = useMutation({
     mutationFn: (ids: number[]) => api(`/api/presentations/${id}/order`, { method: 'PUT', body: { ids } }),
     onMutate: (ids) => {
+      const before = undo.currentIds();
       queryClient.setQueryData<Presentation>(key, (p) => p && { ...p, slides: ids.map((sid) => p.slides.find((s) => s.id === sid)!) });
+      return { before };
     },
+    onSuccess: (_data, ids, ctx) => undo.recordOrder(ctx?.before ?? null, ids),
     onSettled: refresh,
     onError: (err) => {
       // Inzwischen hat jemand Folien hinzugefügt oder gelöscht – neu geladen, bitte noch einmal
@@ -307,13 +311,12 @@ export default function EditorPage() {
     [ids[i], ids[j]] = [ids[j]!, ids[i]!];
     reorder.mutate(ids);
   };
+  /** Sofort löschen, „Rückgängig“ im Hinweis; nur bei Ergebnissen echter Durchführungen fragt der Server zurück */
   const askRemove = (slideId: number) => {
-    const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
-    if (!window.confirm(`Folie löschen?${warn}`)) return;
     // Danach die Nachbarfolie auswählen statt zurück an den Anfang zu springen
     const i = slides.findIndex((s) => s.id === slideId);
     const neighbour = slideId === selected?.id ? (slides[i + 1] ?? slides[i - 1]) : undefined;
-    removeSlide.mutate(slideId, { onSuccess: () => neighbour && setSelectedId(neighbour.id) });
+    void undo.remove(slideId).then((done) => done && neighbour && setSelectedId(neighbour.id));
   };
   const openInsert = (afterId: number | null) => {
     setInsertAfter(afterId);

@@ -4,27 +4,51 @@ import type { LiveStatus } from '../lib/live.ts';
 
 /* ───────────── Toasts ───────────── */
 
+/** Optionale Aktion im Hinweis, z. B. „Rückgängig“ */
+export interface ToastAction {
+  label: string;
+  run: () => void;
+}
 interface Toast {
   id: number;
   text: string;
   kind: 'info' | 'error';
+  action?: ToastAction;
 }
-const ToastContext = createContext<(text: string, kind?: Toast['kind']) => void>(() => {});
+type PushToast = (text: string, kind?: Toast['kind'], action?: ToastAction) => void;
+const ToastContext = createContext<PushToast>(() => {});
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const push = useCallback((text: string, kind: Toast['kind'] = 'info') => {
-    const id = Date.now() + Math.random();
-    setToasts((t) => [...t.slice(-2), { id, text, kind }]);
-    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), kind === 'error' ? 5000 : 2800);
-  }, []);
+  const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
+  const push = useCallback<PushToast>(
+    (text, kind = 'info', action) => {
+      const id = Date.now() + Math.random();
+      setToasts((t) => [...t.slice(-2), { id, text, kind, action }]);
+      // Mit Aktion länger stehen lassen, damit man sie noch erreicht
+      window.setTimeout(() => dismiss(id), action ? 8000 : kind === 'error' ? 5000 : 2800);
+    },
+    [dismiss],
+  );
   return (
     <ToastContext.Provider value={push}>
       {children}
       <div className="toasts" role="status" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`toast ${t.kind === 'error' ? 'toast-error' : ''}`}>
-            {t.text}
+          <div key={t.id} className={`toast ${t.kind === 'error' ? 'toast-error' : ''} ${t.action ? 'has-action' : ''}`}>
+            <span>{t.text}</span>
+            {t.action && (
+              <button
+                type="button"
+                className="toast-action"
+                onClick={() => {
+                  dismiss(t.id);
+                  t.action!.run();
+                }}
+              >
+                {t.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>

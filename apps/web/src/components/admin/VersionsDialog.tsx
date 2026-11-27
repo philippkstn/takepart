@@ -6,7 +6,7 @@ import { api, ApiError, errorMessage } from '../../lib/api.ts';
 import { useEscape } from '../../lib/useEscape.ts';
 import { SlideIcon } from '../slideIcons.tsx';
 
-type Reason = 'auto' | 'named' | 'import' | 'images' | 'google' | 'run' | 'restore';
+type Reason = 'auto' | 'named' | 'import' | 'images' | 'google' | 'run' | 'restore' | 'delete';
 
 const REASON_LABELS: Record<Reason, string> = {
   auto: 'Automatisch gesichert',
@@ -16,6 +16,7 @@ const REASON_LABELS: Record<Reason, string> = {
   google: 'Vor dem Abgleich mit Google Slides',
   run: 'Beim Start einer Durchführung',
   restore: 'Vor einer Wiederherstellung',
+  delete: 'Vor dem Löschen einer Folie',
 };
 
 const KIND_LABELS: Record<SlideChangeKind, string> = {
