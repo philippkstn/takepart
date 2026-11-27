@@ -8,6 +8,8 @@ import { uploadPage, uploadStartImage } from '../../lib/uploadPage.ts';
 interface Props {
   presentationId: number;
   afterId: number | null;
+  /** Hereingezogene Dateien (PDF, optional PPTX) – schon ausgewählt */
+  initialFiles?: File[];
   onClose: () => void;
   /** `note`: Hinweis zur Zuordnung der Notizen (übersprungene/abweichende Folien) */
   onDone: (count: number, note: string | null) => void;
@@ -17,13 +19,16 @@ type Phase = { step: 'idle' } | { step: 'notes' } | { step: 'pages'; done: numbe
 
 const MAX_PDF_BYTES = 150 * 1024 * 1024;
 
+export const isPdf = (f: File) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name);
+export const isPptx = (f: File) => /\.pptx$/i.test(f.name);
+
 /**
  * Folien importieren: PDF (Pflicht) plus optional die PPTX für Sprechernotizen.
  * Gerendert wird im Browser, Seite für Seite hochgeladen.
  */
-export function ImportDialog({ presentationId, afterId, onClose, onDone }: Props) {
-  const [pdf, setPdf] = useState<File | null>(null);
-  const [pptx, setPptx] = useState<File | null>(null);
+export function ImportDialog({ presentationId, afterId, initialFiles, onClose, onDone }: Props) {
+  const [pdf, setPdf] = useState<File | null>(() => initialFiles?.find(isPdf) ?? null);
+  const [pptx, setPptx] = useState<File | null>(() => initialFiles?.find(isPptx) ?? null);
   const [phase, setPhase] = useState<Phase>({ step: 'idle' });
   const [error, setError] = useState<string | null>(null);
   const [includeHidden, setIncludeHidden] = useState(false);

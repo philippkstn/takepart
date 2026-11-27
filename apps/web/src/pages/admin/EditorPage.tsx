@@ -27,10 +27,13 @@ import {
   ArrowUp,
   Archive,
   Blocks,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Copy,
   FileUp,
+  GripVertical,
+  MoreHorizontal,
   History,
   Layers,
   Link2,
@@ -45,11 +48,19 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent as ReactDragEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { InsertPicker, SaveBlockDialog } from '../../components/admin/BlockPicker.tsx';
 import { RehearsalList } from '../../components/admin/RehearsalList.tsx';
-import { ImportDialog } from '../../components/admin/ImportDialog.tsx';
+import { ImportDialog, isPdf, isPptx } from '../../components/admin/ImportDialog.tsx';
+import { useSlideDrag } from '../../components/admin/useSlideDrag.ts';
 import { ReplaceImagesDialog } from '../../components/admin/ReplaceImagesDialog.tsx';
 import { SlideForm } from '../../components/admin/SlideForm.tsx';
 import { ScheduleFields } from '../../components/admin/ScheduleFields.tsx';
@@ -129,13 +140,16 @@ export default function EditorPage() {
   const [showVersions, setShowVersions] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
+  /** Ins Fenster gezogene Dateien für den PDF-Import */
+  const [droppedFiles, setDroppedFiles] = useState<File[] | undefined>(undefined);
+  const [fileOver, setFileOver] = useState(false);
   const [replacing, setReplacing] = useState(false);
   /** Hinter welcher Folie der Einfügen-Dialog bzw. der PDF-Import einfügt (Rechtsklick oder +) */
   const [insertAfter, setInsertAfter] = useState<number | null>(null);
   const [inserting, setInserting] = useState(false);
-  const [menu, setMenu] = useState<{ slideId: number; x: number; y: number } | null>(null);
+  const [menu, setMenu] = useState<{ slideId: number; x: number; y: number; above?: number } | null>(null);
+  const [importMenu, setImportMenu] = useState<{ x: number; y: number; above?: number } | null>(null);
   /** Ab welcher Folie „Als Baustein speichern“ vorschlägt */
   const [savingBlock, setSavingBlock] = useState<number | null>(null);
   const [showRehearsals, setShowRehearsals] = useState(false);
@@ -179,7 +193,6 @@ export default function EditorPage() {
     mutationFn: ({ type, config, afterId }: { type: SlideType; config?: unknown; afterId: number | null }) =>
       api<{ id: number }>(`/api/presentations/${id}/slides`, { body: { type, afterId, config } }),
     onSuccess: async ({ id: newId }) => {
-      setAdding(false);
       setInserting(false);
       await refresh();
       setSelectedId(newId);
@@ -191,7 +204,6 @@ export default function EditorPage() {
     mutationFn: ({ slides: batch, afterId }: { slides: BatchSlide[]; afterId: number | null }) =>
       api<{ ids: number[] }>(`/api/presentations/${id}/slides/batch`, { body: { afterId, slides: batch } }),
     onSuccess: async ({ ids }) => {
-      setAdding(false);
       setInserting(false);
       await refresh();
       if (ids[0] !== undefined) setSelectedId(ids[0]);
@@ -275,6 +287,15 @@ export default function EditorPage() {
     onError,
   });
 
+  const dragging = useSlideDrag({
+    ids: slides.map((s) => s.id),
+    enabled: canEdit,
+    onDrop: (ids, movedId) => {
+      setSelectedId(movedId);
+      reorder.mutate(ids);
+    },
+  });
+
   if (pres.isLoading) return <FullScreenSpinner />;
   if (!pres.data) return <main className="page">Präsentation nicht gefunden.</main>;
 
@@ -282,9 +303,80 @@ export default function EditorPage() {
     const ids = slides.map((s) => s.id);
     const i = ids.indexOf(slideId);
     const j = i + delta;
-    if (j < 0 || j >= ids.length) return;
+    if (i < 0 || j < 0 || j >= ids.length) return;
     [ids[i], ids[j]] = [ids[j]!, ids[i]!];
     reorder.mutate(ids);
+  };
+  const askRemove = (slideId: number) => {
+    const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
+    if (!window.confirm(`Folie löschen?${warn}`)) return;
+    // Danach die Nachbarfolie auswählen statt zurück an den Anfang zu springen
+    const i = slides.findIndex((s) => s.id === slideId);
+    const neighbour = slideId === selected?.id ? (slides[i + 1] ?? slides[i - 1]) : undefined;
+    removeSlide.mutate(slideId, { onSuccess: () => neighbour && setSelectedId(neighbour.id) });
+  };
+  const openInsert = (afterId: number | null) => {
+    setInsertAfter(afterId);
+    setInserting(true);
+  };
+  const openImport = (afterId: number | null, files?: File[]) => {
+    setInsertAfter(afterId);
+    setDroppedFiles(files);
+    setImporting(true);
+  };
+  /** Menü unter einem Knopf öffnen */
+  const below = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    return { x: r.left, y: r.bottom + 4, above: r.top - 4 };
+  };
+
+  /** Tastatur in der Folienliste: ↑/↓ wählen, Alt+↑/↓ verschieben, Entf löschen, Strg/⌘+D duplizieren */
+  const onListKey = (e: ReactKeyboardEvent, slideId: number) => {
+    const i = slides.findIndex((s) => s.id === slideId);
+    const focusRow = (id: number) =>
+      requestAnimationFrame(() => dragging.listRef.current?.querySelector<HTMLElement>(`li[data-slide-id="${id}"] .slide-item`)?.focus());
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      const delta = e.key === 'ArrowUp' ? -1 : 1;
+      e.preventDefault();
+      if (e.altKey) {
+        if (canEdit) move(slideId, delta);
+        focusRow(slideId);
+        return;
+      }
+      const next = slides[i + delta];
+      if (next) {
+        setSelectedId(next.id);
+        focusRow(next.id);
+      }
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && canEdit) {
+      e.preventDefault();
+      askRemove(slideId);
+    } else if (e.key.toLowerCase() === 'd' && (e.metaKey || e.ctrlKey) && canEdit) {
+      e.preventDefault();
+      duplicateSlide.mutate(slideId);
+    }
+  };
+
+  /** PDF/PPTX aus dem Dateimanager in den Editor ziehen → Import hinter der ausgewählten Folie */
+  const hasFiles = (e: ReactDragEvent) => canEdit && e.dataTransfer.types.includes('Files');
+  const fileDrop = {
+    onDragOver: (e: ReactDragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'copy';
+      setFileOver(true);
+    },
+    onDragLeave: (e: ReactDragEvent) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFileOver(false);
+    },
+    onDrop: (e: ReactDragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setFileOver(false);
+      const files = [...e.dataTransfer.files].filter((f) => isPdf(f) || isPptx(f));
+      if (files.length === 0) return toast('Hier lassen sich PDF- und PowerPoint-Dateien ablegen', 'error');
+      openImport(selected?.id ?? null, files);
+    },
   };
 
   return (
@@ -316,15 +408,6 @@ export default function EditorPage() {
             <Users /> Teilen
           </button>
         )}
-        {!canHost ? null : pres.data.liveRun ? (
-          <Link className="btn btn-primary" to={`/admin/live/${pres.data.liveRun.id}`}>
-            <span className="dot dot-live dot-ink" /> Live · {formatCode(pres.data.liveRun.code)}
-          </Link>
-        ) : (
-          <button className="btn btn-primary" onClick={() => start.mutate(id)} disabled={slides.length === 0 || start.isPending}>
-            <Play /> Live starten
-          </button>
-        )}
         {canHost && (
           <RehearsalButton
             presentationId={id}
@@ -333,6 +416,15 @@ export default function EditorPage() {
             onStart={start.mutate}
             label
           />
+        )}
+        {!canHost ? null : pres.data.liveRun ? (
+          <Link className="btn btn-primary" to={`/admin/live/${pres.data.liveRun.id}`}>
+            <span className="dot dot-live dot-ink" /> Live · {formatCode(pres.data.liveRun.code)}
+          </Link>
+        ) : (
+          <button className="btn btn-primary" onClick={() => start.mutate(id)} disabled={slides.length === 0 || start.isPending}>
+            <Play /> Live starten
+          </button>
         )}
       </div>
       {pres.data.ownerName && (
@@ -420,139 +512,123 @@ export default function EditorPage() {
       </div>
 
       <div className="editor-grid">
-        <aside className="slide-list card">
-          <ol>
-            {slides.map((s, i) => (
-              <li
-                key={s.id}
-                className={s.id === selected?.id ? 'is-selected' : ''}
-                onContextMenu={(e) => {
-                  if (!canEdit) return;
-                  e.preventDefault();
-                  setSelectedId(s.id);
-                  setMenu({ slideId: s.id, x: e.clientX, y: e.clientY });
-                }}
-              >
-                <button className="slide-item" onClick={() => setSelectedId(s.id)}>
-                  <span className="slide-num tabular">{i + 1}</span>
-                  {s.type === 'image' ? (
-                    <img className="slide-thumb" src={assetThumbUrl(s.config.asset)} alt="" loading="lazy" />
-                  ) : (
-                    <span className="slide-type-icon">
-                      <SlideIcon type={s.type} />
-                    </span>
-                  )}
-                  <span className="slide-item-text">
-                    <span className="slide-item-type">
-                      {SLIDE_TYPE_LABELS[s.type]}
-                      {plannedOf(s.id) !== null && <span className="tabular"> · {plannedOf(s.id)} Min.</span>}
-                    </span>
-                    <span className="slide-item-title">{slideHeadline(s) || <em className="faint">ohne Titel</em>}</span>
-                  </span>
-                  {othersOn(s.id).length > 0 && (
-                    <span className="slide-presence" title={`Gerade hier: ${othersOn(s.id).join(', ')}`}>
-                      {othersOn(s.id).map((n) => (
-                        <span key={n} className="editor-chip is-small" aria-hidden>
-                          {initials(n)}
+        {slides.length > 0 && (
+          <aside className={`slide-list card ${fileOver ? 'is-file-over' : ''}`} {...fileDrop}>
+            <ol ref={dragging.listRef} aria-label="Folien">
+              {slides.map((s, i) => {
+                const drop = dragging.drag?.at;
+                const lineBefore = drop === i && dragging.drag?.id !== s.id && slides[i - 1]?.id !== dragging.drag?.id;
+                const lineAfter = drop === slides.length && i === slides.length - 1 && dragging.drag?.id !== s.id;
+                return (
+                  <li
+                    key={s.id}
+                    data-slide-id={s.id}
+                    className={[
+                      s.id === selected?.id ? 'is-selected' : '',
+                      dragging.drag?.id === s.id ? 'is-dragging' : '',
+                      lineBefore ? 'drop-before' : '',
+                      lineAfter ? 'drop-after' : '',
+                    ].join(' ')}
+                    onPointerDown={(e) => dragging.start(e, s.id, false)}
+                    onContextMenu={(e) => {
+                      if (!canEdit) return;
+                      e.preventDefault();
+                      setSelectedId(s.id);
+                      setMenu({ slideId: s.id, x: e.clientX, y: e.clientY });
+                    }}
+                  >
+                    {canEdit && (
+                      <span
+                        className="slide-grip"
+                        aria-hidden
+                        title="Ziehen zum Verschieben"
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          dragging.start(e, s.id, true);
+                        }}
+                      >
+                        <GripVertical size={14} />
+                      </span>
+                    )}
+                    <button
+                      className="slide-item"
+                      onClick={() => setSelectedId(s.id)}
+                      onKeyDown={(e) => onListKey(e, s.id)}
+                      aria-current={s.id === selected?.id ? 'true' : undefined}
+                      aria-keyshortcuts={canEdit ? 'Alt+ArrowUp Alt+ArrowDown Delete' : undefined}
+                    >
+                      <span className="slide-num tabular">{i + 1}</span>
+                      {s.type === 'image' ? (
+                        <img className="slide-thumb" src={assetThumbUrl(s.config.asset)} alt="" loading="lazy" draggable={false} />
+                      ) : (
+                        <span className="slide-type-icon">
+                          <SlideIcon type={s.type} />
                         </span>
-                      ))}
-                    </span>
-                  )}
+                      )}
+                      <span className="slide-item-text">
+                        <span className="slide-item-type">
+                          {SLIDE_TYPE_LABELS[s.type]}
+                          {plannedOf(s.id) !== null && <span className="tabular"> · {plannedOf(s.id)} Min.</span>}
+                        </span>
+                        <span className="slide-item-title">{slideHeadline(s) || <em className="faint">ohne Titel</em>}</span>
+                      </span>
+                      {othersOn(s.id).length > 0 && (
+                        <span className="slide-presence" title={`Gerade hier: ${othersOn(s.id).join(', ')}`}>
+                          {othersOn(s.id).map((n) => (
+                            <span key={n} className="editor-chip is-small" aria-hidden>
+                              {initials(n)}
+                            </span>
+                          ))}
+                        </span>
+                      )}
+                    </button>
+                    {canEdit && (
+                      <button
+                        className="icon-btn slide-more"
+                        data-no-drag
+                        aria-label={`Aktionen für Folie ${i + 1}`}
+                        title="Aktionen"
+                        onClick={(e) => {
+                          setSelectedId(s.id);
+                          setMenu({ slideId: s.id, ...below(e.currentTarget) });
+                        }}
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                    )}
+                  </li>
+                );
+              })}
+            </ol>
+            {canEdit && slides.length > 1 && <p className="slide-list-hint small faint">Zum Verschieben ziehen oder Alt + ↑/↓</p>}
+            {canEdit && (
+              <div className="slide-list-actions">
+                <button className="btn btn-block btn-primary" onClick={() => openInsert(selected?.id ?? null)}>
+                  <Plus /> Folie hinzufügen
                 </button>
-                {s.id === selected?.id && canEdit && (
-                  <div className="slide-actions">
-                    <button className="icon-btn" aria-label="Nach oben" onClick={() => move(s.id, -1)} disabled={i === 0}>
-                      <ArrowUp />
-                    </button>
-                    <button className="icon-btn" aria-label="Nach unten" onClick={() => move(s.id, 1)} disabled={i === slides.length - 1}>
-                      <ArrowDown />
-                    </button>
-                    <button
-                      className="icon-btn"
-                      aria-label="Danach einfügen"
-                      title="Danach einfügen (auch per Rechtsklick)"
-                      onClick={() => {
-                        setInsertAfter(s.id);
-                        setInserting(true);
-                      }}
-                    >
-                      <Plus />
-                    </button>
-                    <button className="icon-btn" aria-label="Duplizieren" onClick={() => duplicateSlide.mutate(s.id)}>
-                      <Copy />
-                    </button>
-                    <button
-                      className="icon-btn"
-                      aria-label="Löschen"
-                      onClick={() => {
-                        const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
-                        if (window.confirm(`Folie löschen?${warn}`)) removeSlide.mutate(s.id);
-                      }}
-                    >
-                      <Trash2 />
-                    </button>
-                  </div>
+                <button
+                  className="btn btn-block"
+                  aria-haspopup="menu"
+                  aria-expanded={!!importMenu}
+                  onClick={(e) => setImportMenu(below(e.currentTarget))}
+                >
+                  <FileUp /> Importieren <ChevronDown size={16} />
+                </button>
+                {slides.some(needsRefit) && (
+                  <button
+                    className="btn btn-block"
+                    onClick={() => refit.mutate()}
+                    disabled={refit.isPending}
+                    title="Abdeckungen älterer Importe an die Folienbilder anpassen, damit vor dem Aufdecken nichts durchscheint"
+                  >
+                    <Layers /> {refit.isPending ? 'Bessere nach …' : 'Animationen nachbessern'}
+                  </button>
                 )}
-              </li>
-            ))}
-          </ol>
-          {canEdit && (
-            <div className="slide-list-actions">
-              <button className="btn btn-block" onClick={() => setAdding((a) => !a)}>
-                <Plus /> Folie hinzufügen
-              </button>
-              <button
-                className="btn btn-block"
-                onClick={() => {
-                  setInsertAfter(selected?.id ?? null);
-                  setImporting(true);
-                }}
-              >
-                <FileUp /> PDF importieren
-              </button>
-              {slides.some((s) => s.type === 'image') && (
-                <button
-                  className="btn btn-block"
-                  onClick={() => setReplacing(true)}
-                  title="Dieselbe Präsentation erneut als PDF hochladen – schärfere Bilder und kopierbarer Text, Ergebnisse bleiben"
-                >
-                  <RefreshCw /> Folienbilder aktualisieren
-                </button>
-              )}
-              <button
-                className="btn btn-block"
-                onClick={() => setShowGoogle(true)}
-                title="Folien aus Google Slides übernehmen und aktuell halten"
-              >
-                <Link2 /> {pres.data.source ? 'Google Slides …' : 'Google Slides verknüpfen'}
-              </button>
-              {slides.some(needsRefit) && (
-                <button
-                  className="btn btn-block"
-                  onClick={() => refit.mutate()}
-                  disabled={refit.isPending}
-                  title="Abdeckungen älterer Importe an die Folienbilder anpassen, damit vor dem Aufdecken nichts durchscheint"
-                >
-                  <Layers /> {refit.isPending ? 'Bessere nach …' : 'Animationen nachbessern'}
-                </button>
-              )}
-            </div>
-          )}
-          {adding && canEdit && (
-            <InsertPicker
-              slides={slides}
-              disabled={addSlide.isPending || addBatch.isPending}
-              onInsert={(batch) => addBatch.mutate({ slides: batch, afterId: selected?.id ?? null })}
-              typePicker={
-                <TypePicker
-                  disabled={addSlide.isPending}
-                  board={lastBoard(slides, selected)}
-                  onPick={(type, config) => addSlide.mutate({ type, config, afterId: selected?.id ?? null })}
-                />
-              }
-            />
-          )}
-        </aside>
+              </div>
+            )}
+            {fileOver && <div className="file-over-hint">PDF hier ablegen, um sie zu importieren</div>}
+          </aside>
+        )}
 
         {selected ? (
           <SlideEditor
@@ -566,11 +642,34 @@ export default function EditorPage() {
             me={me}
           />
         ) : (
-          <div className="empty stack" style={{ gridColumn: 'span 2', justifyItems: 'center' }}>
-            <p>Noch keine Folien. Füge links die erste hinzu – oder lade den Demo-Foliensatz mit allen Funktionen.</p>
-            <button className="btn btn-primary" onClick={() => loadDemo.mutate()} disabled={!canEdit || loadDemo.isPending}>
-              <Sparkles /> Demo-Folien laden
-            </button>
+          <div className={`editor-empty card card-pad stack ${fileOver ? 'is-file-over' : ''}`} {...fileDrop}>
+            <h2>Wie möchtest du anfangen?</h2>
+            {canEdit ? (
+              <div className="start-options">
+                <button className="start-option" onClick={() => openInsert(null)}>
+                  <Plus />
+                  <strong>Folie anlegen</strong>
+                  <span className="small muted">Abstimmung, Quiz, Q&amp;A, Kartenwand … oder ein fertiger Übungsbaustein</span>
+                </button>
+                <button className="start-option" onClick={() => openImport(null)}>
+                  <FileUp />
+                  <strong>PDF importieren</strong>
+                  <span className="small muted">Vorhandene Folien übernehmen – oder die PDF einfach hierher ziehen</span>
+                </button>
+                <button className="start-option" onClick={() => setShowGoogle(true)}>
+                  <Link2 />
+                  <strong>Google Slides verknüpfen</strong>
+                  <span className="small muted">Folien übernehmen und bei Änderungen aktuell halten</span>
+                </button>
+                <button className="start-option" onClick={() => loadDemo.mutate()} disabled={loadDemo.isPending}>
+                  <Sparkles />
+                  <strong>Demo ansehen</strong>
+                  <span className="small muted">Beispielfolien mit allen Funktionen zum Ausprobieren</span>
+                </button>
+              </div>
+            ) : (
+              <p className="muted">Noch keine Folien.</p>
+            )}
           </div>
         )}
       </div>
@@ -622,35 +721,39 @@ export default function EditorPage() {
         <SlideMenu
           x={menu.x}
           y={menu.y}
+          above={menu.above}
           onClose={() => setMenu(null)}
           items={[
-            {
-              label: 'Danach einfügen …',
-              icon: <Plus />,
-              run: () => {
-                setInsertAfter(menu.slideId);
-                setInserting(true);
-              },
-            },
-            {
-              label: 'PDF danach importieren …',
-              icon: <FileUp />,
-              run: () => {
-                setInsertAfter(menu.slideId);
-                setImporting(true);
-              },
-            },
-            { label: 'Duplizieren', icon: <Copy />, run: () => duplicateSlide.mutate(menu.slideId) },
+            { label: 'Danach einfügen …', icon: <Plus />, run: () => openInsert(menu.slideId) },
+            { label: 'PDF danach importieren …', icon: <FileUp />, run: () => openImport(menu.slideId) },
+            { label: 'Duplizieren', icon: <Copy />, hint: `${modKey}+D`, run: () => duplicateSlide.mutate(menu.slideId) },
+            ...(slides[0]?.id !== menu.slideId
+              ? [{ label: 'Nach oben', icon: <ArrowUp />, hint: 'Alt+↑', run: () => move(menu.slideId, -1) }]
+              : []),
+            ...(slides.at(-1)?.id !== menu.slideId
+              ? [{ label: 'Nach unten', icon: <ArrowDown />, hint: 'Alt+↓', run: () => move(menu.slideId, 1) }]
+              : []),
             { label: 'Als Baustein speichern …', icon: <Blocks />, run: () => setSavingBlock(menu.slideId) },
+            { label: 'Löschen', icon: <Trash2 />, hint: 'Entf', danger: true, run: () => askRemove(menu.slideId) },
+          ]}
+        />
+      )}
+      {importMenu && (
+        <SlideMenu
+          x={importMenu.x}
+          y={importMenu.y}
+          above={importMenu.above}
+          onClose={() => setImportMenu(null)}
+          items={[
+            { label: 'PDF importieren …', icon: <FileUp />, run: () => openImport(selected?.id ?? null) },
             {
-              label: 'Löschen',
-              icon: <Trash2 />,
-              danger: true,
-              run: () => {
-                const warn = pres.data!.liveRun ? ' Antworten in der laufenden Durchführung gehen dabei verloren.' : '';
-                if (window.confirm(`Folie löschen?${warn}`)) removeSlide.mutate(menu.slideId);
-              },
+              label: pres.data.source ? 'Google Slides …' : 'Google Slides verknüpfen …',
+              icon: <Link2 />,
+              run: () => setShowGoogle(true),
             },
+            ...(slides.some((s) => s.type === 'image')
+              ? [{ label: 'Folienbilder aktualisieren …', icon: <RefreshCw />, run: () => setReplacing(true) }]
+              : []),
           ]}
         />
       )}
@@ -658,7 +761,9 @@ export default function EditorPage() {
         <div className="dialog-backdrop" role="dialog" aria-modal="true" aria-labelledby="insert-title" onClick={() => setInserting(false)}>
           <div className="dialog card card-pad stack" onClick={(e) => e.stopPropagation()}>
             <div className="row-between">
-              <h2 id="insert-title">Nach Folie {slides.findIndex((s) => s.id === insertAfter) + 1} einfügen</h2>
+              <h2 id="insert-title">
+                {insertAfter === null ? 'Folie hinzufügen' : `Nach Folie ${slides.findIndex((s) => s.id === insertAfter) + 1} einfügen`}
+              </h2>
               <button className="icon-btn" onClick={() => setInserting(false)} aria-label="Schließen">
                 <X />
               </button>
@@ -725,6 +830,7 @@ export default function EditorPage() {
         <ImportDialog
           presentationId={id}
           afterId={insertAfter}
+          initialFiles={droppedFiles}
           onClose={() => setImporting(false)}
           onDone={async (count, note) => {
             setImporting(false);
@@ -737,6 +843,9 @@ export default function EditorPage() {
     </main>
   );
 }
+
+/** Anzeige der Befehlstaste in Tastenhinweisen */
+const modKey = typeof navigator !== 'undefined' && /Mac|iP(hone|ad)/.test(navigator.platform) ? '⌘' : 'Strg';
 
 const initials = (name: string) =>
   name.startsWith('du (')
@@ -809,16 +918,19 @@ function TypePicker({
   );
 }
 
-/** Kontextmenü einer Folie (Rechtsklick in der Folienliste) */
+/** Aufklappmenü: Aktionen einer Folie (Rechtsklick, „…“) und Import */
 function SlideMenu({
   x,
   y,
+  above,
   items,
   onClose,
 }: {
   x: number;
   y: number;
-  items: { label: string; icon: ReactNode; run: () => void; danger?: boolean }[];
+  /** Unterkante, falls das Menü unten keinen Platz hat und über dem Knopf aufgehen soll */
+  above?: number;
+  items: { label: string; icon: ReactNode; run: () => void; danger?: boolean; hint?: string }[];
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -830,18 +942,30 @@ function SlideMenu({
     };
     window.addEventListener('pointerdown', close);
     window.addEventListener('keydown', close);
-    window.addEventListener('scroll', onClose, true);
+    // Nur echtes Scrollen schließt – nicht das Nachrutschen der Seite, wenn eine andere Folie geöffnet wird
+    window.addEventListener('wheel', onClose, { passive: true });
+    window.addEventListener('touchmove', onClose, { passive: true });
+    window.addEventListener('resize', onClose);
     window.addEventListener('blur', onClose);
     ref.current?.querySelector('button')?.focus();
     return () => {
       window.removeEventListener('pointerdown', close);
       window.removeEventListener('keydown', close);
-      window.removeEventListener('scroll', onClose, true);
+      window.removeEventListener('wheel', onClose);
+      window.removeEventListener('touchmove', onClose);
+      window.removeEventListener('resize', onClose);
       window.removeEventListener('blur', onClose);
     };
   }, [onClose]);
   // Am Fensterrand nach innen klappen
-  const style = { left: Math.min(x, window.innerWidth - 240), top: Math.min(y, window.innerHeight - 48 * items.length - 16) };
+  const height = 40 * items.length + 8;
+  const top =
+    y + height <= window.innerHeight - 8
+      ? y
+      : above !== undefined && above - height >= 8
+        ? above - height
+        : window.innerHeight - height - 8;
+  const style = { left: Math.min(x, window.innerWidth - 240), top: Math.max(8, top) };
   return (
     <div ref={ref} className="context-menu" role="menu" style={style}>
       {items.map((it) => (
@@ -855,7 +979,8 @@ function SlideMenu({
           }}
         >
           {it.icon}
-          {it.label}
+          <span className="grow">{it.label}</span>
+          {it.hint && <kbd className="menu-hint">{it.hint}</kbd>}
         </button>
       ))}
     </div>

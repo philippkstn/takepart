@@ -172,11 +172,18 @@
   gap: 4px;
 }
 .slide-list li {
+  position: relative;
+  display: flex;
+  align-items: center;
   border-radius: var(--radius);
   border: 1px solid transparent;
   transition:
     background 150ms,
-    border-color 150ms;
+    border-color 150ms,
+    opacity 150ms;
+}
+.slide-list li:hover {
+  background: var(--surface-2);
 }
 .slide-list li.is-selected {
   background: var(--surface-2);
@@ -194,8 +201,12 @@
   cursor: pointer;
   border-radius: var(--radius);
 }
+.slide-item {
+  flex: 1;
+  min-width: 0;
+}
 .slide-item:hover {
-  background: var(--surface-2);
+  background: transparent;
 }
 .slide-num {
   width: 1.6em;
@@ -231,11 +242,141 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.slide-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 2px;
-  padding: 0 6px 6px;
+/* Verschieben: Griff (auch für Touch), „…“-Menü, Einfügelinie */
+.slide-grip {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-3);
+  cursor: grab;
+  touch-action: none;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.slide-more {
+  flex-shrink: 0;
+  margin-right: 4px;
+  opacity: 0;
+  transition: opacity 120ms;
+}
+.slide-list li:hover .slide-grip,
+.slide-list li:hover .slide-more,
+.slide-list li.is-selected .slide-grip,
+.slide-list li.is-selected .slide-more,
+.slide-list li:focus-within .slide-more,
+.slide-more[aria-expanded='true'] {
+  opacity: 1;
+}
+/* Ohne Maus (Touch): Griff und Menü immer zeigen */
+@media (hover: none) {
+  .slide-grip,
+  .slide-more {
+    opacity: 1;
+  }
+}
+.slide-list li.is-dragging {
+  opacity: 0.4;
+}
+.slide-list li.drop-before::before,
+.slide-list li.drop-after::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+  pointer-events: none;
+}
+.slide-list li.drop-before::before {
+  top: -4px;
+}
+.slide-list li.drop-after::after {
+  bottom: -4px;
+}
+body.is-dragging-slide,
+body.is-dragging-slide * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+.slide-list .slide-thumb {
+  -webkit-user-drag: none;
+}
+.slide-list-hint {
+  margin: -4px 0 0;
+  text-align: center;
+}
+/* PDF aus dem Dateimanager in die Liste ziehen */
+.slide-list.is-file-over {
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+.file-over-hint {
+  position: sticky;
+  bottom: 0;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+  color: var(--ink);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+}
+.context-menu .menu-hint {
+  font: inherit;
+  font-size: 0.75rem;
+  color: var(--ink-3);
+  margin-left: 16px;
+}
+
+/* Leere Präsentation: die ersten Schritte direkt anbieten */
+.editor-empty {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 760px);
+}
+.editor-empty.is-file-over {
+  outline: 2px dashed var(--accent);
+}
+.start-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 560px) {
+  .start-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.start-option {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background 150ms,
+    border-color 150ms;
+}
+.start-option:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--border-strong);
+}
+.start-option > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--ink-2);
+  margin-bottom: 4px;
 }
 .type-picker {
   display: grid;
@@ -1078,6 +1219,16 @@ fieldset.schedule-fields {
 .slide-list-actions {
   display: grid;
   gap: 8px;
+}
+/* Bei langen Listen bleiben Hinzufügen und Import unten sichtbar */
+.slide-list > .slide-list-actions {
+  position: sticky;
+  bottom: -10px;
+  margin: 0 -10px -10px;
+  padding: 10px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 1;
 }
 .control-pos {
   display: grid;
