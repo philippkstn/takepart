@@ -134,6 +134,7 @@ npm run build
 ## Erst aufdecken
 
 - `config.startHidden` (Abstimmung, offene Frage, Skala, Wortwolke, Ranking, Brainstorming, Pinnwand, Feedback, Kartenwand): Betreten der Folie setzt `RunState.resultsVisible = false`, Verlassen wieder `true` (`applyStartHidden` in `runs.ts`, gilt für jeden Typ mit dem Feld). Im Editor `RevealToggle` in `SlideForm.tsx`. Quiz und Satz-Spiel decken ohnehin selbst auf, Q&A zeigt Fragen immer.
+- Editor-Formular: Selten Gebrauchtes (Erst aufdecken, Aufgabe, Ablaufplan, typspezifische Schalter) steht unter „Mehr Optionen“ (`MoreOptions.tsx`, `<details>`, offen/zu per `usePref('editor-more-options')`, Zusammenfassung des Gesetzten); jedes Formular in `SlideForm.tsx` ruft `more(extras, summary)` genau einmal auf. Präsentations-Einstellungen (Branding, Folien auf Handys, Dauer) im Dialog hinter dem Zahnrad (`PresentationSettingsDialog.tsx`).
 
 ## Aufgabenbeschreibung und lange Überschriften
 
