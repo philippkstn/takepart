@@ -353,12 +353,14 @@ export const PARKING_BOARD = 'Parkplatz';
  * Workshops – Ankommen, Parkplatz, wer ist da, Erwartungen; am Ende Vorsatz,
  * Vorher-Nachher-Vergleich, offene Punkte, Fragen und Feedback mit Rückblick auf
  * die eigenen Erwartungen. Dazwischen kommt der Inhalt (Import, Bausteine).
+ * Zugleich die Vorlage „Workshop-Gerüst“ (`templates.ts`).
  */
 export const STARTER_SLIDES: BlockSlide[] = [
   {
     type: 'content',
     config: { title: 'Gleich geht’s los.', body: 'Mach schon mal mit: Link öffnen oder QR-Code scannen.', showJoin: true },
     notes: 'Läuft, während alle ankommen. Wer schon beigetreten ist, ist bei den ersten Fragen gleich dabei.',
+    schedule: { plannedMinutes: 5 },
   },
   {
     type: 'board',
@@ -371,11 +373,13 @@ export const STARTER_SLIDES: BlockSlide[] = [
       anytime: true,
     },
     notes: 'Kurz zeigen, dass der Parkplatz den ganzen Termin über offen ist. Am Ende schauen wir gemeinsam darauf.',
+    schedule: { plannedMinutes: 2 },
   },
   {
     type: 'wordcloud',
     config: { question: 'Aus welchem Bereich kommst du?', maxWords: 1 },
     notes: 'Zeigt, wer im Raum ist. Zwei oder drei große Begriffe aufgreifen.',
+    schedule: { plannedMinutes: 3 },
   },
   {
     type: 'choice',
@@ -383,11 +387,14 @@ export const STARTER_SLIDES: BlockSlide[] = [
       question: 'Wie viel hast du mit dem Thema heute schon zu tun?',
       options: ['Täglich', 'Mehrmals pro Woche', 'Ab und zu', 'Noch gar nicht'],
     },
+    notes: 'Hilft, das Niveau einzuschätzen. Ergebnis kurz kommentieren und den Inhalt danach ausrichten.',
+    schedule: { plannedMinutes: 2 },
   },
   {
     type: 'scale',
     config: { question: 'Wie sicher fühlst du dich heute mit dem Thema?', max: 5, minLabel: 'unsicher', maxLabel: 'sehr sicher' },
     notes: 'Dieselbe Frage kommt am Ende noch einmal – so wird der Unterschied sichtbar.',
+    schedule: { plannedMinutes: 2 },
   },
   {
     type: 'board',
@@ -398,7 +405,9 @@ export const STARTER_SLIDES: BlockSlide[] = [
       maxCards: 2,
       askName: true,
     },
-    notes: 'Reihum: Jede Person nennt ihre Erwartung und tippt sie selbst ein. Die Feedbackrunde am Ende zeigt jeder Person ihre eigenen Karten wieder.',
+    notes:
+      'Reihum: Jede Person nennt ihre Erwartung und tippt sie selbst ein. Die Feedbackrunde am Ende zeigt jeder Person ihre eigenen Karten wieder.',
+    schedule: { plannedMinutes: 10 },
   },
   {
     type: 'board',
@@ -409,23 +418,32 @@ export const STARTER_SLIDES: BlockSlide[] = [
       lanes: [{ title: '', cells: ['Heute', 'Später', 'Parkplatz'] }],
     },
     notes: 'Gemeinsam einordnen – ehrlich sagen, was heute nicht drin ist.',
+    schedule: { plannedMinutes: 5 },
   },
   {
     type: 'board',
     config: { board: 'Vorsatz', mode: 'collect', prompt: 'Was probierst du als Erstes aus?', maxCards: 2 },
     notes: 'Möglichst konkret: was, wann, mit wem.',
+    schedule: { plannedMinutes: 5 },
   },
   {
     type: 'scale',
     config: { question: 'Wie sicher fühlst du dich jetzt mit dem Thema?', max: 5, minLabel: 'unsicher', maxLabel: 'sehr sicher' },
     notes: 'Mit dem Anfang vergleichen.',
+    schedule: { plannedMinutes: 2 },
   },
   {
     type: 'board',
     config: { board: PARKING_BOARD, mode: 'collect', prompt: 'Parkplatz: Was ist offen geblieben?', maxCards: 10 },
     notes: 'Hier liegen alle Karten vom Parkplatz. Durchgehen: beantworten, mitnehmen oder bewusst streichen.',
+    schedule: { plannedMinutes: 10 },
   },
-  { type: 'qa', config: { title: 'Eure Fragen' } },
+  {
+    type: 'qa',
+    config: { title: 'Eure Fragen' },
+    notes: 'Fragen mit den meisten Stimmen zuerst. Was offen bleibt, schriftlich nachreichen.',
+    schedule: { plannedMinutes: 10 },
+  },
   {
     type: 'feedback',
     config: {
@@ -435,6 +453,12 @@ export const STARTER_SLIDES: BlockSlide[] = [
       recall: EXPECTATIONS_BOARD,
     },
     notes: 'Jedes Handy zeigt die eigenen Erwartungen vom Anfang.',
+    schedule: { plannedMinutes: 5 },
   },
-  { type: 'content', config: { title: 'Danke!', body: 'Schön, dass du dabei warst.' } },
+  {
+    type: 'content',
+    config: { title: 'Danke!', body: 'Schön, dass du dabei warst.' },
+    notes: 'Kurz sagen, wie es weitergeht – Fotoprotokoll, nächster Termin.',
+    schedule: { plannedMinutes: 1 },
+  },
 ];
