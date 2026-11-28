@@ -1394,3 +1394,70 @@ button.board-group-name:hover {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* Beitritt sichtbar machen (Welcome.tsx): Status in der Kopfzeile, Namensabfrage beim Beitritt, einmaliger Hinweis */
+.p-brand-text {
+  display: grid;
+  min-width: 0;
+  line-height: 1.2;
+}
+.p-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.p-who-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--border-strong);
+  flex-shrink: 0;
+}
+.p-who.is-on {
+  color: var(--ink-2);
+}
+.p-who.is-on .p-who-dot {
+  background: var(--good);
+}
+.welcome-joined {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+.welcome-joined > svg {
+  width: 28px;
+  height: 28px;
+  color: var(--good);
+  flex-shrink: 0;
+}
+.welcome-joined > div {
+  display: grid;
+  min-width: 0;
+}
+.welcome-joined strong {
+  font-size: 1.15rem;
+}
+.joined-notice {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px 10px 14px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-2);
+  font-size: 0.95rem;
+}
+.joined-notice > svg {
+  color: var(--good);
+  flex-shrink: 0;
+}

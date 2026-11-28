@@ -85,20 +85,29 @@ function LockedNote() {
   return <Info icon={<Lock size={20} />}>Die Abstimmung ist geschlossen.</Info>;
 }
 
-/** Fragt einmalig den Namen ab (für Q&A und Quiz). */
+/** Fragt einmalig den Namen ab (für Q&A und Quiz) – meist schon beim Beitritt erledigt (Welcome). */
 export function NameGate({ view, token, reason, children }: { view: ParticipantView; token: string; reason: string; children: ReactNode }) {
+  if (view.name) return <>{children}</>;
+  return (
+    <div className="card card-pad anim-rise">
+      <NameForm token={token} reason={reason} />
+    </div>
+  );
+}
+
+/** Namensfeld mit Erklärung; gespeichert wird über `/api/p/name`, die neue Ansicht kommt per WebSocket. */
+export function NameForm({ token, title = 'Wie heißt du?', reason }: { token: string; title?: string; reason?: ReactNode }) {
   const [name, setName] = useState('');
   const { send, busy } = useSend(token);
-  if (view.name) return <>{children}</>;
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     await send('/api/p/name', { name });
   };
   return (
-    <form className="card card-pad stack anim-rise" onSubmit={submit}>
+    <form className="stack" onSubmit={submit}>
       <div className="stack-s">
-        <h2>Wie heißt du?</h2>
-        <p className="muted">{reason}</p>
+        <h2>{title}</h2>
+        {reason && <p className="muted">{reason}</p>}
       </div>
       <input
         className="input input-large"
@@ -106,7 +115,10 @@ export function NameGate({ view, token, reason, children }: { view: ParticipantV
         onChange={(e) => setName(e.target.value)}
         maxLength={40}
         autoFocus
+        autoComplete="given-name"
+        enterKeyHint="go"
         placeholder="Dein Name"
+        aria-label="Dein Name"
       />
       <button className="btn btn-primary btn-large" disabled={busy || name.trim().length < 2}>
         Weiter
@@ -124,7 +136,10 @@ function ImageSlide({ slide, step, ink }: { slide: Slide<'image'>; step: number;
   // erscheint erst dekodiert, bis dahin bleibt die vorige Folie sichtbar.
   const shown = useDecodedSlide(slide.config.asset ? slide : null);
   // Ohne Bildkennung hat die Vortragende das Mitlesen ausgeschaltet.
-  if (!slide.config.asset) return <Info icon={<Hourglass size={20} />}>Schau auf die Präsentation – gleich geht es weiter.</Info>;
+  if (!slide.config.asset)
+    return (
+      <Info icon={<Hourglass size={20} />}>Schau auf die Präsentation – sobald du mitmachen kannst, erscheint es hier von selbst.</Info>
+    );
   const ratio = { '--slide-ratio': slide.config.width / slide.config.height } as CSSProperties;
   if (!shown) return <div className="p-slide is-loading anim-rise" style={ratio} aria-busy />;
   const src = assetUrl(shown.config.asset);
@@ -150,7 +165,7 @@ function Content({ slide }: { slide: Slide<'content'> }) {
           {slide.config.body}
         </p>
       )}
-      <Info icon={<Hourglass size={20} />}>Bleib dran – gleich geht es weiter.</Info>
+      <Info icon={<Hourglass size={20} />}>Bleib dran – sobald du mitmachen kannst, erscheint es hier von selbst.</Info>
     </div>
   );
 }
@@ -798,7 +813,7 @@ function Leaderboard({ view }: { view: ParticipantView }) {
 export function ParticipantActivity({ view, token, ink }: { view: ParticipantView; token: string; ink?: InkState }) {
   const slide = view.slide;
   if (view.leaderboard) return <Leaderboard view={view} />;
-  if (!slide) return <Info icon={<Hourglass size={20} />}>Gleich geht es los.</Info>;
+  if (!slide) return <Info icon={<Hourglass size={20} />}>Gleich geht es los – die erste Frage erscheint hier von selbst.</Info>;
   switch (slide.type) {
     case 'content':
       return <Content slide={slide} />;

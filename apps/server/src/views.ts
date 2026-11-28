@@ -1,4 +1,6 @@
 import {
+  nameUse,
+  type NameUse,
   isPostType,
   isResponseType,
   activeAnnouncement,
@@ -246,12 +248,14 @@ export function participantView(snap: Snapshot, participantId: number): Particip
   // Gruppen bilden: Rolle von einer früheren Gruppen-Folie vorausgewählt
   if (slide?.type === 'teams' && !own && snap.teamTags.has(participantId)) response = { tag: snap.teamTags.get(participantId) };
   if (slide?.type === 'quiz' && own) response = { choice: (own.payload as QuizAnswer).choice };
+  const name = snap.names.get(participantId) ?? null;
 
   return {
     kind: 'participant',
     run: runInfo(snap),
     serverTime: snap.now,
-    name: snap.names.get(participantId) ?? null,
+    name,
+    nameUses: name ? [] : [...new Set(snap.slides.map(nameUse).filter((u): u is NameUse => u !== null))],
     slide: slide ? participantSlide(snap, slide) : null,
     slideIndex: snap.index,
     slideCount: snap.slides.length,

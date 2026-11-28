@@ -487,6 +487,16 @@ export function isAnytimeSlide(slide: Slide): slide is AnytimeSlide {
   return slide.type === 'qa' && slide.config.anytime;
 }
 
+/** Wofür eine Folie den Namen der Teilnehmenden braucht (NameGate im Handy) – `null` = gar nicht */
+export type NameUse = 'quiz' | 'qa' | 'teams' | 'turns';
+export function nameUse(slide: Slide): NameUse | null {
+  if (slide.type === 'quiz') return 'quiz';
+  if (slide.type === 'qa') return 'qa';
+  if (slide.type === 'teams') return 'teams';
+  if (slide.type === 'board' && slide.config.mode === 'collect' && slide.config.askName) return 'turns';
+  return null;
+}
+
 /** Die beiden Satzanfänge aus der ersten Idee – als Vorlage für neue Präsentationen. */
 export const SENTENCE_STARTERS = [
   'Ein Azubi kommt rein und teilt uns mit, dass',

@@ -8,6 +8,7 @@ import {
   type BoardConfig,
   type BoardMode,
   type BoardRights,
+  type NameUse,
   type Slide,
   type SlideConfigs,
   type SlideType,
@@ -553,6 +554,8 @@ export interface ParticipantView {
   run: RunInfo;
   serverTime: number;
   name: string | null;
+  /** Ohne Namen: wofür die Präsentation ihn irgendwo braucht – das Handy fragt dann gleich beim Beitritt */
+  nameUses: NameUse[];
   slide: PublicSlide | null;
   slideIndex: number;
   slideCount: number;

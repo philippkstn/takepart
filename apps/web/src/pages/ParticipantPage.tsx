@@ -12,6 +12,7 @@ import { CallbackNotice } from '../components/participant/Breakout.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { PhaseBanner } from '../components/participant/PhaseBanner.tsx';
 import { TurnStrip } from '../components/participant/TurnStrip.tsx';
+import { JoinedNotice, ParticipantWho, WelcomeName } from '../components/participant/Welcome.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { errorMessage } from '../lib/api.ts';
 import { joinRun } from '../lib/join.ts';
@@ -121,6 +122,8 @@ export default function ParticipantPage({ code }: { code: string }) {
   }
 
   if (!view || !token) return <FullScreenSpinner />;
+  // Name gleich beim Beitritt, wenn ihn die Präsentation irgendwo braucht – nicht erst mitten im Vortrag
+  const welcome = !view.name && view.nameUses.length > 0;
 
   return (
     <div className="p-shell takepart-scope" style={brandStyle(view.run.brand)}>
@@ -132,7 +135,10 @@ export default function ParticipantPage({ code }: { code: string }) {
             ) : (
               <BrandMark size={24} />
             )}
-            <span className="p-title">{view.run.title}</span>
+            <span className="p-brand-text">
+              <span className="p-title">{view.run.title}</span>
+              <ParticipantWho name={view.name} connected={open} />
+            </span>
           </span>
           <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
             {/* Eigene Gruppe auch auf späteren Folien im Blick */}
@@ -167,16 +173,18 @@ export default function ParticipantPage({ code }: { code: string }) {
         <CountdownAlert countdown={view.countdown} offset={offset} />
         <PauseAlert pause={view.pause} offset={offset} />
         <PickedAlert picked={view.picked} />
+        <JoinedNotice code={code} name={view.name} ready={!welcome} />
       </div>
       <AnnouncementPopup announcement={view.announcement} />
       {/* Kartenwand: auf dem Desktop breiter, damit Gruppen und Felder nebeneinander passen */}
-      <main className={`p-main ${view.pause ? '' : mainWidth(view)}`}>
+      <main className={`p-main ${view.pause || welcome ? '' : mainWidth(view)}`}>
+        {welcome && <WelcomeName view={view} token={token} />}
         <CallbackNotice callback={view.callback} offset={offset} />
-        {view.pause && (
+        {view.pause && !welcome && (
           <PauseActivity pause={view.pause} token={token} offset={offset} parking={view.parking.some((p) => p.kind === 'board')} />
         )}
         {/* Während der Pause nur versteckt, damit angefangene Eingaben (z. B. eine Karte) erhalten bleiben */}
-        <div className="p-activity" hidden={!!view.pause}>
+        <div className="p-activity" hidden={!!view.pause || welcome}>
           <ParticipantActivity key={activityKey(view)} view={view} token={token} ink={ink} />
         </div>
       </main>
