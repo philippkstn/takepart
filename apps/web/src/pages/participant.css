@@ -1395,36 +1395,7 @@ button.board-group-name:hover {
   overflow-wrap: anywhere;
 }
 
-/* Beitritt sichtbar machen (Welcome.tsx): Status in der Kopfzeile, Namensabfrage beim Beitritt, einmaliger Hinweis */
-.p-brand-text {
-  display: grid;
-  min-width: 0;
-  line-height: 1.2;
-}
-.p-who {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.p-who-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--border-strong);
-  flex-shrink: 0;
-}
-.p-who.is-on {
-  color: var(--ink-2);
-}
-.p-who.is-on .p-who-dot {
-  background: var(--good);
-}
+/* Beitritt sichtbar machen (Welcome.tsx): Namensabfrage beim Beitritt, einmalige Begrüßung */
 .welcome-joined {
   display: flex;
   align-items: center;

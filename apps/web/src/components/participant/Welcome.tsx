@@ -8,7 +8,6 @@ import { NameForm } from './Activities.tsx';
  * - Braucht die Präsentation irgendwo einen Namen (Quiz, Fragen, Gruppen, Reihum),
  *   fragt das Handy direkt beim Beitritt danach (nur „Wie heißt du?“) statt mitten im Vortrag.
  * - Danach (bzw. ohne Namensabfrage sofort) einmal je Tab „Du bist dabei“.
- * - Die Kopfzeile zeigt dauerhaft, als wer man dabei ist (`ParticipantWho`).
  */
 
 /** Erster Bildschirm nach dem Beitritt, solange der Name fehlt, die Präsentation ihn aber braucht */
@@ -55,15 +54,5 @@ export function JoinedNotice({ code, name, ready }: { code: string; name: string
         <X />
       </button>
     </div>
-  );
-}
-
-/** Dauerhaft in der Kopfzeile: als wer man dabei ist und ob die Verbindung steht */
-export function ParticipantWho({ name, connected }: { name: string | null; connected: boolean }) {
-  return (
-    <span className={`p-who ${connected ? 'is-on' : ''}`}>
-      <span className="p-who-dot" aria-hidden />
-      {connected ? (name ? `Dabei als ${name}` : 'Du bist dabei') : 'Verbinde …'}
-    </span>
   );
 }

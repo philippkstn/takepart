@@ -12,7 +12,7 @@ import { CallbackNotice } from '../components/participant/Breakout.tsx';
 import { CountdownBadge } from '../components/Countdown.tsx';
 import { PhaseBanner } from '../components/participant/PhaseBanner.tsx';
 import { TurnStrip } from '../components/participant/TurnStrip.tsx';
-import { JoinedNotice, ParticipantWho, WelcomeName } from '../components/participant/Welcome.tsx';
+import { JoinedNotice, WelcomeName } from '../components/participant/Welcome.tsx';
 import { BrandMark, ConnectionBadge, FullScreenSpinner } from '../components/ui.tsx';
 import { errorMessage } from '../lib/api.ts';
 import { joinRun } from '../lib/join.ts';
@@ -135,10 +135,7 @@ export default function ParticipantPage({ code }: { code: string }) {
             ) : (
               <BrandMark size={24} />
             )}
-            <span className="p-brand-text">
-              <span className="p-title">{view.run.title}</span>
-              <ParticipantWho name={view.name} connected={open} />
-            </span>
+            <span className="p-title">{view.run.title}</span>
           </span>
           <span className="row" style={{ gap: 6, flexWrap: 'nowrap' }}>
             {/* Eigene Gruppe auch auf späteren Folien im Blick */}
