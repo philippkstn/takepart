@@ -239,7 +239,7 @@
   width: 100%;
   display: flex;
   justify-content: center;
-  transition: height var(--grow-duration) var(--ease-grow);
+  transition: height var(--grow-duration) var(--ease);
   /* Säulen wachsen von unten (statt von links wie die Balken) */
   transform-origin: center bottom;
 }
@@ -257,6 +257,7 @@
   min-height: 0;
   max-height: none;
   border-radius: 4px 4px 0 0;
+  transform-origin: center bottom;
 }
 .stage-results[data-layout='columns'] .bar-label {
   grid-row: 2;

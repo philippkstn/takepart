@@ -82,7 +82,8 @@
   min-height: 12px;
   border-radius: 0 4px 4px 0;
   background: var(--chart);
-  transition: width var(--grow-duration) var(--ease-grow);
+  transition: width var(--grow-duration) var(--ease);
+  transform-origin: left center;
 }
 .is-correct .bar-fill {
   background: var(--good);
@@ -141,7 +142,7 @@
   width: min(100%, 2.4em);
   border-radius: 4px 4px 0 0;
   background: var(--chart);
-  transition: height var(--grow-duration) var(--ease-grow);
+  transition: height var(--grow-duration) var(--ease);
   min-height: 0;
   transform-origin: center bottom;
 }
@@ -170,6 +171,47 @@
 :root {
   --grow-duration: 700ms;
   --ease-grow: cubic-bezier(0.3, 1.25, 0.6, 1);
+  /* Gedämpfte Feder für neue Stimmen: schießt ~20 % über das Ziel hinaus und schwingt einmal zurück */
+  --pull-duration: 900ms;
+  --ease-spring: linear(
+    0,
+    0.034,
+    0.124,
+    0.252,
+    0.403,
+    0.562,
+    0.718,
+    0.86,
+    0.982,
+    1.081,
+    1.154,
+    1.203,
+    1.228,
+    1.233,
+    1.222,
+    1.199,
+    1.168,
+    1.132,
+    1.095,
+    1.059,
+    1.027,
+    0.999,
+    0.977,
+    0.961,
+    0.951,
+    0.946,
+    0.946,
+    0.949,
+    0.955,
+    0.962,
+    0.971,
+    0.98,
+    0.988,
+    0.995,
+    1.001,
+    1.006,
+    1
+  );
 }
 @keyframes grow-x {
   from {
@@ -184,6 +226,8 @@
 
 /* Wortwolke: Größe trägt die Häufigkeit, Text bleibt Tinte */
 .wordcloud {
+  /* Bezug für Wörter, die AnimatePresence (popLayout) beim Verschwinden herausnimmt */
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -300,16 +344,34 @@
   animation: rise 240ms var(--ease);
 }
 
-/* Neue Stimme: der betroffene Balken bzw. die Säule leuchtet kurz auf, der Wert
-   hebt sich leicht (useBump in lib/liveMotion.tsx; zwei Klassen, damit die Animation
-   bei jeder Stimme neu startet). Nur Helligkeit und Größe – keine Farbe, kein Schein. */
+/* Neue Stimme: Der betroffene Balken bzw. die Säule wird wie an einer Feder ein Stück
+   weiter gezogen und schnellt zurück – nur in Längsrichtung (scaleX bzw. scaleY), die Breite
+   bleibt. Dazu wächst die Länge selbst mit --ease-spring über das Ziel hinaus. Der Wert hebt
+   sich leicht (useBump in lib/liveMotion.tsx; zwei Klassen, damit die Animation bei jeder
+   Stimme neu startet). Nur Form und Helligkeit – keine Farbe, kein Schein. */
 .is-bump-a .bar-fill,
-.is-bump-a .column-fill {
-  animation: bump-fill-a 650ms var(--ease);
-}
 .is-bump-b .bar-fill,
-.is-bump-b .column-fill {
-  animation: bump-fill-b 650ms var(--ease);
+.is-bump-a .column-fill,
+.is-bump-b .column-fill,
+.stage-results[data-layout='columns'] .is-bump-a .bar-area,
+.stage-results[data-layout='columns'] .is-bump-b .bar-area {
+  /* Nur der Balken mit der neuen Stimme federt über das Ziel – die übrigen gleiten ohne Überschwingen */
+  transition-duration: var(--pull-duration);
+  transition-timing-function: var(--ease-spring);
+}
+.is-bump-a .bar-fill {
+  animation: pull-x-a var(--pull-duration) ease-in-out;
+}
+.is-bump-b .bar-fill {
+  animation: pull-x-b var(--pull-duration) ease-in-out;
+}
+.is-bump-a .column-fill,
+[data-layout='columns'] .is-bump-a .bar-fill {
+  animation: pull-y-a var(--pull-duration) ease-in-out;
+}
+.is-bump-b .column-fill,
+[data-layout='columns'] .is-bump-b .bar-fill {
+  animation: pull-y-b var(--pull-duration) ease-in-out;
 }
 .is-bump-a .bar-value,
 .is-bump-a .column-value {
@@ -326,14 +388,64 @@
 [data-layout='columns'] .bar-value {
   transform-origin: center bottom;
 }
-@keyframes bump-fill-a {
-  30% {
-    filter: brightness(1.25) saturate(1.1);
+@keyframes pull-x-a {
+  20% {
+    transform: scaleX(1.07);
+    filter: brightness(1.15);
+  }
+  42% {
+    transform: scaleX(0.97);
+  }
+  62% {
+    transform: scaleX(1.02);
+  }
+  80% {
+    transform: scaleX(0.995);
   }
 }
-@keyframes bump-fill-b {
-  30% {
-    filter: brightness(1.25) saturate(1.1);
+@keyframes pull-x-b {
+  20% {
+    transform: scaleX(1.07);
+    filter: brightness(1.15);
+  }
+  42% {
+    transform: scaleX(0.97);
+  }
+  62% {
+    transform: scaleX(1.02);
+  }
+  80% {
+    transform: scaleX(0.995);
+  }
+}
+@keyframes pull-y-a {
+  20% {
+    transform: scaleY(1.1);
+    filter: brightness(1.15);
+  }
+  42% {
+    transform: scaleY(0.97);
+  }
+  62% {
+    transform: scaleY(1.02);
+  }
+  80% {
+    transform: scaleY(0.995);
+  }
+}
+@keyframes pull-y-b {
+  20% {
+    transform: scaleY(1.1);
+    filter: brightness(1.15);
+  }
+  42% {
+    transform: scaleY(0.97);
+  }
+  62% {
+    transform: scaleY(1.02);
+  }
+  80% {
+    transform: scaleY(0.995);
   }
 }
 @keyframes bump-value-a {

@@ -1,7 +1,7 @@
 import type { SlideResults, PublicSlide, WordCount } from '@slides/shared';
 import { Check, Star } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
-import type { ReactNode } from 'react';
+import { useRef, type ReactNode } from 'react';
 import { AnimatedNumber, EASE, useBump, useEntering } from '../lib/liveMotion.tsx';
 import './results.css';
 
@@ -146,18 +146,19 @@ function ScaleColumn({ n, top, label, index }: { n: number; top: number; label: 
 const TIED_LARGE_MAX = 12;
 
 export function WordCloud({ words, limit = 60, highlight = false }: { words: WordCount[]; limit?: number; highlight?: boolean }) {
+  const slots = useStableSlots(words.slice(0, limit).map((w) => w.key));
   if (words.length === 0) return null;
   const shown = words.slice(0, limit);
   const max = shown[0]!.count;
   const min = shown[shown.length - 1]!.count;
   // Hervorheben nur, wenn es echte Spitzenreiter gibt – nicht bei lauter Gleichstand.
   const leaders = max > min ? shown.filter((w) => w.count === max).length : 0;
-  // Mischen nach festem Muster: große Wörter in die Mitte, kleine nach außen.
-  const arranged: (WordCount & { rank: number })[] = [];
-  shown.forEach((w, rank) => (rank % 2 === 0 ? arranged.push({ ...w, rank }) : arranged.unshift({ ...w, rank })));
+  // Feste Plätze statt Sortierung nach Häufigkeit: Ein Wort bleibt, wo es erschienen ist,
+  // neue kommen abwechselnd rechts und links dazu – sonst springt bei jeder Stimme die halbe Wolke.
+  const arranged = shown.map((w, rank) => ({ ...w, rank })).sort((a, b) => slots.get(a.key)! - slots.get(b.key)!);
   return (
     <div className="wordcloud">
-      <AnimatePresence initial={false}>
+      <AnimatePresence initial={false} mode="popLayout">
         {arranged.map((w) => {
           // Alle gleich oft genannt: wenige groß, viele mittel – sonst passt die Wolke selbst verkleinert nicht
           const t = max === min ? (shown.length <= TIED_LARGE_MAX ? 1 : 0.3) : (w.count - min) / (max - min);
@@ -169,9 +170,25 @@ export function WordCloud({ words, limit = 60, highlight = false }: { words: Wor
 }
 
 /**
- * Wort der Wolke: Die Schriftgröße wird animiert (nicht skaliert), damit die Nachbarn
- * mitfließen – ein neues Wort wächst aus dem Nichts, statt die Wolke umzuwerfen. Dazu zoomt
- * der Text selbst: beim Erscheinen aus dem Kleinen mit leichtem Überschwingen, bei jeder
+ * Platz je Schlüssel in Reihenfolge des ersten Auftretens, abwechselnd hinten und vorn
+ * angefügt (die ersten – meist häufigsten – Wörter stehen so in der Mitte). Plätze ändern
+ * sich nie, solange die Wolke steht.
+ */
+function useStableSlots(keys: string[]) {
+  const ref = useRef<{ slots: Map<string, number>; low: number; high: number }>({ slots: new Map(), low: 0, high: -1 });
+  const state = ref.current;
+  for (const key of keys) {
+    if (state.slots.has(key)) continue;
+    const back = state.slots.size % 2 === 0;
+    state.slots.set(key, back ? ++state.high : --state.low);
+  }
+  return state.slots;
+}
+
+/**
+ * Wort der Wolke: Die Schriftgröße steht sofort auf dem Endwert, `layout` gleitet
+ * Größe und Lage per FLIP dorthin – auch Nachbarn und Zeilenumbrüche fließen mit,
+ * statt zu springen. Beim Erscheinen zoomt das Wort aus dem Kleinen, bei jeder
  * weiteren Nennung kurz größer (`.cloud-zoom` in results.css, Klassen aus useBump).
  */
 function CloudWord({ word, count, t, top, rank }: { word: string; count: number; t: number; top: boolean; rank: number }) {
@@ -179,11 +196,13 @@ function CloudWord({ word, count, t, top, rank }: { word: string; count: number;
   const bump = useBump(count);
   return (
     <motion.span
+      layout
       className={`cloud-word ${top ? 'is-top' : ''}`}
-      initial={{ fontSize: '0.3em', opacity: 0 }}
-      animate={{ fontSize: `${0.9 + t * 2.6}em`, opacity: 0.6 + t * 0.4 }}
-      exit={{ fontSize: '0.3em', opacity: 0 }}
-      transition={reduce ? { duration: 0 } : { duration: 0.6, ease: EASE }}
+      style={{ fontSize: `${0.9 + t * 2.6}em` }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 0.6 + t * 0.4 }}
+      exit={{ opacity: 0, scale: 0.3 }}
+      transition={reduce ? { duration: 0 } : { duration: 0.6, ease: EASE, layout: { type: 'spring', bounce: 0.2, duration: 0.7 } }}
       title={`${word}: ${count}×`}
     >
       <span className={`cloud-zoom ${bump}`} style={{ ['--i' as string]: Math.min(rank, 12) }}>

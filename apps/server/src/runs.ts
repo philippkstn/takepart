@@ -430,6 +430,8 @@ export function runRoutes(app: FastifyInstance, db: Db, live: LiveHub) {
           delete state.sentence[cmd.slideId];
           if (state.teams) delete state.teams[cmd.slideId];
           if (state.teamDone) delete state.teamDone[cmd.slideId];
+          // Probelauf: Zeitplan des simulierten Publikums neu starten – sonst antworten alle Fälligen auf einmal
+          if (state.sim?.slideId === cmd.slideId) state.sim = { ...state.sim, at: Date.now() };
           await saveRunState(db, id, state);
           return;
         }

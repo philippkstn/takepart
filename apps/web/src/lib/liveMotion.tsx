@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 /** Gleiche Kurve wie `--ease` in index.css */
 export const EASE = [0.2, 0.8, 0.2, 1] as const;
@@ -42,14 +42,25 @@ export function useEntering(ms = 1400): boolean {
  * Klassenname für einen kurzen Puls, sobald ein Wert steigt (neue Stimme). Zwei
  * abwechselnde Klassen mit gleicher Animation, damit sie bei jeder Stimme neu startet,
  * ohne das Element neu aufzubauen (sonst ginge die Breiten-Überblendung verloren).
- * Beim ersten Anzeigen pulst nichts.
+ * Beim ersten Anzeigen pulst nichts. Nach `ms` fällt die Klasse wieder weg – so gilt
+ * z. B. die Feder der Balken nur für den, der gerade eine Stimme bekommen hat, nicht
+ * für spätere Änderungen durch andere Stimmen (neuer Höchstwert).
  */
-export function useBump(value: number): string {
-  const prev = useRef(value);
-  const [count, setCount] = useState(0);
+export function useBump(value: number, ms = BUMP_MS): string {
+  // Im Rendern abgeleitet (nicht im Effekt): Die Klasse muss im selben Commit stehen wie der
+  // neue Wert, sonst startet der Übergang der Länge noch ohne die Feder.
+  const [bump, setBump] = useState({ prev: value, count: 0, active: false });
+  if (value !== bump.prev) {
+    const up = value > bump.prev;
+    setBump({ prev: value, count: up ? bump.count + 1 : bump.count, active: up || bump.active });
+  }
   useEffect(() => {
-    if (value > prev.current) setCount((c) => c + 1);
-    prev.current = value;
-  }, [value]);
-  return count === 0 ? '' : count % 2 ? 'is-bump-a' : 'is-bump-b';
+    if (!bump.active) return;
+    const timer = window.setTimeout(() => setBump((b) => ({ ...b, active: false })), ms);
+    return () => clearTimeout(timer);
+  }, [bump.active, bump.count, ms]);
+  return !bump.active ? '' : bump.count % 2 ? 'is-bump-a' : 'is-bump-b';
 }
+
+/** Länger als jede Bump-Animation (Feder der Balken: --pull-duration 900 ms) */
+const BUMP_MS = 1000;
