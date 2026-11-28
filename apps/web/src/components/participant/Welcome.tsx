@@ -29,7 +29,7 @@ export function WelcomeName({ view, token }: { view: ParticipantView; token: str
 
 const seenKey = (code: string) => `takepart:joined:${code}`;
 
-/** Einmal je Tab: kurzer Hinweis oben, dass der Beitritt geklappt hat und alles Weitere von selbst kommt */
+/** Einmal je Tab: kurze Begrüßung oben, damit klar ist, dass der Beitritt geklappt hat */
 export function JoinedNotice({ code, name, ready }: { code: string; name: string | null; ready: boolean }) {
   const [show, setShow] = useState(false);
   useEffect(() => {
@@ -50,9 +50,7 @@ export function JoinedNotice({ code, name, ready }: { code: string; name: string
   return (
     <div className="joined-notice anim-rise" role="status">
       <CircleCheck aria-hidden />
-      <span className="grow">
-        <strong>{name ? `Hallo ${name}, du bist dabei.` : 'Du bist dabei.'}</strong> Alles Weitere erscheint hier von selbst.
-      </span>
+      <span className="grow">{name ? `Hey ${name}, schön, dass du da bist!` : 'Hey, schön, dass du da bist!'}</span>
       <button className="icon-btn" aria-label="Hinweis schließen" onClick={() => setShow(false)}>
         <X />
       </button>
