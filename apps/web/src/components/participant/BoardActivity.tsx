@@ -23,6 +23,7 @@ import { useToast } from '../ui.tsx';
 import { TeamBar } from './Breakout.tsx';
 import { ChooseActivity } from './BoardChoose.tsx';
 import { TagChips } from '../board/BoardMarks.tsx';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type BoardSlide = Extract<PublicSlide, { type: 'board' }>;
 type Config = BoardSlide['config'];
@@ -138,6 +139,7 @@ export function CardComposer({
 
 /** Eigene Karte: ändern oder löschen, solange gesammelt wird */
 export function OwnCard({ post, tags, token, editable }: { post: PostView; tags: string[]; token: string; editable: boolean }) {
+  const confirm = useConfirm();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(post.text);
   const [tag, setTag] = useState<number | null>(post.column);
@@ -192,7 +194,10 @@ export function OwnCard({ post, tags, token, editable }: { post: PostView; tags:
             className="icon-btn"
             aria-label="Karte löschen"
             disabled={busy}
-            onClick={() => window.confirm('Karte löschen?') && send(`/api/p/posts/${post.id}`, undefined, 'DELETE')}
+            onClick={async () =>
+              (await confirm({ title: 'Karte löschen?', confirmLabel: 'Löschen', danger: true })) &&
+              send(`/api/p/posts/${post.id}`, undefined, 'DELETE')
+            }
           >
             <Trash2 />
           </button>

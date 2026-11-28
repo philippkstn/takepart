@@ -10,6 +10,7 @@ import { SlideResultsView } from '../../components/Results.tsx';
 import { SlideIcon } from '../../components/slideIcons.tsx';
 import { FullScreenSpinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 interface ArchiveSlide {
   id: number;
@@ -39,6 +40,7 @@ interface RunResults {
 }
 
 export default function ArchivePage() {
+  const confirm = useConfirm();
   const runId = Number(useParams().runId);
   const navigate = useNavigate();
   const toast = useToast();
@@ -70,9 +72,7 @@ export default function ArchivePage() {
                 <RunTimes key={`${run.startedAt}-${run.endedAt}`} runId={run.id} startedAt={run.startedAt} endedAt={run.endedAt} />
               </div>
             ) : (
-              <p className="muted small">
-                Seit {new Date(run.startedAt).toLocaleTimeString('de-DE', { timeStyle: 'short' })} Uhr
-              </p>
+              <p className="muted small">Seit {new Date(run.startedAt).toLocaleTimeString('de-DE', { timeStyle: 'short' })} Uhr</p>
             )}
           </div>
         </div>
@@ -91,7 +91,14 @@ export default function ArchivePage() {
           </a>
           <button
             className="btn btn-danger"
-            onClick={() => window.confirm('Diese Durchführung mit allen Ergebnissen endgültig löschen?') && remove.mutate()}
+            onClick={async () =>
+              (await confirm({
+                title: 'Durchführung endgültig löschen?',
+                text: 'Alle Ergebnisse dieser Durchführung gehen verloren.',
+                confirmLabel: 'Löschen',
+                danger: true,
+              })) && remove.mutate()
+            }
           >
             <Trash2 /> Löschen
           </button>

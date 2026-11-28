@@ -1,0 +1,52 @@
+/* Rückfragen (ConfirmDialog.tsx) – eigenständig, weil auch Teilnehmer-Seiten sie nutzen (ohne admin.css) */
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  /* über anderen Dialogen (60), unter Hinweisen (100) */
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgb(0 0 0 / 40%);
+  animation: fade 160ms ease;
+}
+.confirm-dialog {
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-shadow: var(--shadow-2);
+  animation: pop 200ms var(--ease);
+}
+.confirm-title {
+  font-size: 1.125rem;
+  line-height: 1.35;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.confirm-text {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.confirm-error {
+  color: var(--danger);
+}
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btn-danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bg);
+}
+.btn-danger-solid:hover {
+  filter: brightness(0.92);
+}
+@media (max-width: 480px) {
+  .confirm-actions > .btn {
+    flex: 1;
+  }
+}

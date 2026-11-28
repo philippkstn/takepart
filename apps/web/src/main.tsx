@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { lazy, StrictMode, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createBrowserRouter, Navigate, RouterProvider, useParams } from 'react-router';
+import { ConfirmProvider } from './components/ConfirmDialog.tsx';
 import { FullScreenSpinner, ToastProvider } from './components/ui.tsx';
 import { HomePage } from './pages/HomePage.tsx';
 
@@ -59,9 +60,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <Suspense fallback={<FullScreenSpinner />}>
-          <RouterProvider router={router} />
-        </Suspense>
+        <ConfirmProvider>
+          <Suspense fallback={<FullScreenSpinner />}>
+            <RouterProvider router={router} />
+          </Suspense>
+        </ConfirmProvider>
       </ToastProvider>
     </QueryClientProvider>
   </StrictMode>,

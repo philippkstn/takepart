@@ -76,7 +76,7 @@ export async function syncFromGoogle(
   baseHash: string | null,
   onProgress: (p: SyncProgress) => void,
   /** Rückfrage, wenn ungewöhnlich viele Folien wegfallen; ohne (automatischer Abgleich) wird abgebrochen */
-  confirmRemoval?: (count: number, total: number) => boolean,
+  confirmRemoval?: (count: number, total: number) => boolean | Promise<boolean>,
   /** Alles neu einlesen, auch Unverändertes (z. B. nach einer Verbesserung des Imports) */
   force = false,
 ): Promise<SyncResult> {
@@ -118,7 +118,7 @@ export async function syncFromGoogle(
 
   // Mehr als die Hälfte der Google-Folien weg? Eher ein Fehler beim Export als echte Löschungen
   const keyedCount = slides.filter((s) => sources[s.id]?.key).length;
-  if (keyedCount >= 4 && sync.remove.length > keyedCount / 2 && !confirmRemoval?.(sync.remove.length, keyedCount)) {
+  if (keyedCount >= 4 && sync.remove.length > keyedCount / 2 && !(await confirmRemoval?.(sync.remove.length, keyedCount))) {
     throw new Error(
       `Der Abgleich würde ${sync.remove.length} von ${keyedCount} Google-Folien entfernen. Das sieht nach einem unvollständigen Export aus – ` +
         'es wurde nichts geändert. Bitte in Google Slides prüfen und erneut abgleichen.',

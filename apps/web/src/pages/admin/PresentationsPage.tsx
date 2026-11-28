@@ -6,6 +6,7 @@ import { Link, useNavigate } from 'react-router';
 import { NewPresentationDialog } from '../../components/admin/NewPresentationDialog.tsx';
 import { formatCode, Spinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 interface PresentationItem {
   id: number;
@@ -38,6 +39,7 @@ export function useStartRun() {
 }
 
 export default function PresentationsPage() {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const toast = useToast();
@@ -185,8 +187,14 @@ export default function PresentationsPage() {
                 {p.role === 'owner' ? (
                   <button
                     className="icon-btn"
-                    onClick={() => {
-                      if (confirmDelete(p.title)) remove.mutate(p.id);
+                    onClick={async () => {
+                      const ok = await confirm({
+                        title: `„${p.title}“ löschen?`,
+                        text: 'Alle Durchführungen und Ergebnisse werden ebenfalls gelöscht.',
+                        confirmLabel: 'Löschen',
+                        danger: true,
+                      });
+                      if (ok) remove.mutate(p.id);
                     }}
                     aria-label="Löschen"
                     title="Löschen"
@@ -196,8 +204,8 @@ export default function PresentationsPage() {
                 ) : (
                   <button
                     className="icon-btn"
-                    onClick={() => {
-                      if (window.confirm(`„${p.title}“ nicht mehr mit dir teilen?`)) leave.mutate(p.id);
+                    onClick={async () => {
+                      if (await confirm({ title: `„${p.title}“ nicht mehr mit dir teilen?`, confirmLabel: 'Abgeben' })) leave.mutate(p.id);
                     }}
                     aria-label="Nicht mehr mit mir teilen"
                     title="Nicht mehr mit mir teilen"
@@ -216,10 +224,6 @@ export default function PresentationsPage() {
       </p>
     </main>
   );
-}
-
-function confirmDelete(title: string) {
-  return window.confirm(`„${title}“ mit allen Durchführungen und Ergebnissen löschen?`);
 }
 
 /** Probelauf starten bzw. zum laufenden Probelauf – als Symbol-Knopf neben „Live starten“ */

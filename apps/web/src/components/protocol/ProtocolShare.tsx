@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useToast } from '../ui.tsx';
 import './protocol-extra.css';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 export interface ProtocolShareState {
   url: string;
@@ -33,6 +34,7 @@ const DEFAULT_EXPIRY_DAYS = 30;
  * enthält er Kartentexte, Freitexte, Gruppen und – wenn nicht abgewählt – Namen.
  */
 export function ProtocolShare({ runId, protocol }: { runId: number; protocol: ProtocolShareState | null }) {
+  const confirm = useConfirm();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [withoutNames, setWithoutNames] = useState(protocol ? !protocol.names : false);
@@ -134,8 +136,8 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
       </div>
       {expired && (
         <p className="small protocol-share-expired">
-          Der Link ist am {new Date(protocol!.expiresAt!).toLocaleDateString('de-DE', { dateStyle: 'long' })} abgelaufen. Mit einem
-          neuen Datum (oder ohne Ablauf) funktioniert derselbe Link wieder.
+          Der Link ist am {new Date(protocol!.expiresAt!).toLocaleDateString('de-DE', { dateStyle: 'long' })} abgelaufen. Mit einem neuen
+          Datum (oder ohne Ablauf) funktioniert derselbe Link wieder.
         </p>
       )}
       {protocol ? (
@@ -150,7 +152,15 @@ export function ProtocolShare({ runId, protocol }: { runId: number; protocol: Pr
           <button
             className="btn btn-small btn-danger"
             disabled={busy}
-            onClick={() => window.confirm('Link zurückziehen? Wer ihn hat, sieht das Protokoll dann nicht mehr.') && void send(false)}
+            onClick={async () => {
+              const ok = await confirm({
+                title: 'Link zurückziehen?',
+                text: 'Wer ihn hat, sieht das Protokoll dann nicht mehr.',
+                confirmLabel: 'Zurückziehen',
+                danger: true,
+              });
+              if (ok) void send(false);
+            }}
           >
             <Link2Off /> Zurückziehen
           </button>

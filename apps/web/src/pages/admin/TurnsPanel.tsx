@@ -2,6 +2,7 @@ import { TURN_SOURCES, type HostCommand, type HostView, type TurnSource } from '
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Eye, EyeOff, RotateCcw, UserPlus, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import './turns.css';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 
@@ -17,6 +18,7 @@ const SOURCE_LABELS: Record<TurnSource, string> = {
  * Beamer zeigen. Die Reihenfolge bleibt beim Blättern stehen.
  */
 export function TurnsPanel({ view, command, busy }: { view: HostView; command: Cmd; busy: boolean }) {
+  const confirm = useConfirm();
   const turns = view.turnsHost;
   const [source, setSource] = useState<TurnSource>('joined');
   const [board, setBoard] = useState(turns.boards[0] ?? '');
@@ -31,8 +33,9 @@ export function TurnsPanel({ view, command, busy }: { view: HostView; command: C
     if (source === 'board' && turns.boards.length === 0) setSource('joined');
   }, [turns.boards, board, source]);
 
-  const make = () => {
-    if (has && !window.confirm('Neue Reihenfolge erzeugen? Die bisherige wird ersetzt.')) return;
+  const make = async () => {
+    if (has && !(await confirm({ title: 'Neue Reihenfolge erzeugen?', text: 'Die bisherige wird ersetzt.', confirmLabel: 'Neu erzeugen' })))
+      return;
     void command({ action: 'turns-make', source, board: source === 'board' ? board : '' });
   };
   const add = (e: FormEvent) => {
@@ -94,11 +97,7 @@ export function TurnsPanel({ view, command, busy }: { view: HostView; command: C
             >
               <ChevronLeft /> Zurück
             </button>
-            <button
-              className="btn btn-small btn-ink"
-              onClick={() => command({ action: 'turns-step', delta: 1 })}
-              disabled={busy}
-            >
+            <button className="btn btn-small btn-ink" onClick={() => command({ action: 'turns-step', delta: 1 })} disabled={busy}>
               {current === null ? 'Runde starten' : current === turns.order.length - 1 ? 'Runde beenden' : 'Weiter'} <ChevronRight />
             </button>
             {current !== null && (
@@ -117,7 +116,10 @@ export function TurnsPanel({ view, command, busy }: { view: HostView; command: C
             </button>
             <button
               className="icon-btn"
-              onClick={() => window.confirm('Reihenfolge löschen?') && void command({ action: 'turns-clear' })}
+              onClick={async () =>
+                (await confirm({ title: 'Reihenfolge löschen?', confirmLabel: 'Löschen', danger: true })) &&
+                void command({ action: 'turns-clear' })
+              }
               disabled={busy}
               title="Reihenfolge löschen"
               aria-label="Reihenfolge löschen"

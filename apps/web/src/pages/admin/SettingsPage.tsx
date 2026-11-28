@@ -6,6 +6,7 @@ import { api, errorMessage } from '../../lib/api.ts';
 import { authStatus, MIN_PASSWORD_LENGTH, passkeyError, registerPasskey, type Account } from '../../lib/passkey.ts';
 import { BrandSettings } from './BrandSettings.tsx';
 import { UsersSettings } from './UsersSettings.tsx';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 interface Passkey {
   id: string;
@@ -31,6 +32,7 @@ export default function SettingsPage() {
 }
 
 function AccountSettings({ account, hasPasskey }: { account: Account; hasPasskey: boolean }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [username, setUsername] = useState(account.username);
@@ -128,8 +130,13 @@ function AccountSettings({ account, hasPasskey }: { account: Account; hasPasskey
               type="button"
               className="btn btn-ghost"
               disabled={!hasPasskey || removePassword.isPending}
-              onClick={() =>
-                window.confirm('Passwort entfernen? Danach geht die Anmeldung nur noch per Passkey.') && removePassword.mutate()
+              onClick={async () =>
+                (await confirm({
+                  title: 'Passwort entfernen?',
+                  text: 'Danach geht die Anmeldung nur noch per Passkey.',
+                  confirmLabel: 'Entfernen',
+                  danger: true,
+                })) && removePassword.mutate()
               }
             >
               <Trash2 /> Passwort entfernen
@@ -145,6 +152,7 @@ function AccountSettings({ account, hasPasskey }: { account: Account; hasPasskey
 }
 
 function PasskeySettings({ list, loading, hasPassword }: { list: Passkey[] | undefined; loading: boolean; hasPassword: boolean }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [label, setLabel] = useState('');
@@ -195,7 +203,10 @@ function PasskeySettings({ list, loading, hasPassword }: { list: Passkey[] | und
                 aria-label="Löschen"
                 title={list.length <= 1 && !hasPassword ? 'Der letzte Passkey bleibt, solange es kein Passwort gibt' : 'Löschen'}
                 disabled={list.length <= 1 && !hasPassword}
-                onClick={() => window.confirm(`Passkey „${p.label}“ entfernen?`) && remove.mutate(p.id)}
+                onClick={async () =>
+                  (await confirm({ title: `Passkey „${p.label}“ entfernen?`, confirmLabel: 'Entfernen', danger: true })) &&
+                  remove.mutate(p.id)
+                }
               >
                 <Trash2 />
               </button>

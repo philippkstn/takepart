@@ -58,8 +58,10 @@ import { PauseControl } from './PauseControl.tsx';
 import { DisplayStatus, EndRehearsalDialog, InviteButton, RehearsalBadge, RehearsalControls } from './RehearsalPanel.tsx';
 import { PlanStatus, SlideCountdownButton } from './SchedulePanel.tsx';
 import './admin.css';
+import { askMinutes, useConfirm, usePrompt } from '../../components/ConfirmDialog.tsx';
 
 export default function ControlPage() {
+  const confirm = useConfirm();
   const runId = Number(useParams().runId);
   const { loading, loggedIn } = useRequireHost();
   const { view, status, offset, ink, sendInk } = useLive<HostView>(loggedIn ? `run=${runId}` : null);
@@ -141,12 +143,12 @@ export default function ControlPage() {
     const handoutNote = view.handoutUrl
       ? ''
       : '\n\nHinweis: Folien und Ergebnisse sind nicht freigegeben. Gibst du sie erst nach dem Ende frei, erreicht der Link die Teilnehmenden nicht mehr automatisch.';
-    if (
-      !window.confirm(
-        `Durchführung beenden? Teilnehmende können danach nicht mehr antworten. Die Ergebnisse bleiben gespeichert.${handoutNote}`,
-      )
-    )
-      return;
+    const ok = await confirm({
+      title: 'Durchführung beenden?',
+      text: `Teilnehmende können danach nicht mehr antworten. Die Ergebnisse bleiben gespeichert.${handoutNote}`,
+      confirmLabel: 'Beenden',
+    });
+    if (!ok) return;
     try {
       await api(`/api/runs/${runId}/end`, { body: {} });
       navigate(`/admin/runs/${runId}`);
@@ -213,7 +215,12 @@ export default function ControlPage() {
             title="Anzeige-Link erneuern (alter Link funktioniert dann nicht mehr)"
             aria-label="Anzeige-Link erneuern"
             onClick={async () => {
-              if (window.confirm('Neuen Anzeige-Link erzeugen? Geöffnete Beamer-Fenster werden getrennt.')) {
+              const ok = await confirm({
+                title: 'Neuen Anzeige-Link erzeugen?',
+                text: 'Geöffnete Beamer-Fenster werden getrennt.',
+                confirmLabel: 'Erneuern',
+              });
+              if (ok) {
                 await api(`/api/runs/${runId}/display-token`, { body: {} }).catch((err) => toast(errorMessage(err), 'error'));
               }
             }}
@@ -468,6 +475,7 @@ export default function ControlPage() {
 type Cmd = (cmd: HostCommand) => Promise<void>;
 
 function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: boolean }) {
+  const confirm = useConfirm();
   const slide = view.slide!;
   const clear = () => {
     const question =
@@ -484,7 +492,9 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
         : slide.type === 'qa'
           ? 'Alle Fragen dieser Durchführung löschen? Sie verschwinden von allen Fragen-Folien.'
           : 'Alle Antworten dieser Folie in dieser Durchführung löschen?';
-    if (window.confirm(question)) void command({ action: 'clear-responses', slideId: slide.id });
+    void confirm({ title: question, confirmLabel: 'Löschen', danger: true }).then((ok) => {
+      if (ok) void command({ action: 'clear-responses', slideId: slide.id });
+    });
   };
 
   switch (slide.type) {
@@ -573,8 +583,9 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
             )}
             <button
               className="btn btn-small btn-danger"
-              onClick={() =>
-                window.confirm('Satz auf den Anfang zurücksetzen?') && command({ action: 'sentence-reset', slideId: slide.id })
+              onClick={async () =>
+                (await confirm({ title: 'Satz auf den Anfang zurücksetzen?', confirmLabel: 'Zurücksetzen', danger: true })) &&
+                command({ action: 'sentence-reset', slideId: slide.id })
               }
             >
               <RotateCcw /> Neu beginnen
@@ -622,9 +633,13 @@ function Panel({ view, command, busy }: { view: HostView; command: Cmd; busy: bo
           <div className="row panel-footer">
             <button
               className="btn btn-small btn-danger"
-              onClick={() =>
-                window.confirm('Quizfrage zurücksetzen und alle Antworten dazu löschen?') &&
-                command({ action: 'clear-responses', slideId: slide.id })
+              onClick={async () =>
+                (await confirm({
+                  title: 'Quizfrage zurücksetzen?',
+                  text: 'Alle Antworten dazu werden gelöscht.',
+                  confirmLabel: 'Zurücksetzen',
+                  danger: true,
+                })) && command({ action: 'clear-responses', slideId: slide.id })
               }
             >
               <RotateCcw /> Frage zurücksetzen
@@ -800,6 +815,7 @@ function PostPanel({ view, command, onClear }: { view: HostView; command: Cmd; o
 
 /** Vortragsdauer, Ziel-Dauer und Uhrzeit für die Referentenansicht. */
 function PresenterClock({ view, offset, onReset }: { view: HostView; offset: number; onReset: () => void }) {
+  const confirm = useConfirm();
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -814,7 +830,7 @@ function PresenterClock({ view, offset, onReset }: { view: HostView; offset: num
     <span className={`presenter-clock ${over ? 'is-over' : ''}`}>
       <button
         className="clock-timer tabular"
-        onClick={() => window.confirm('Vortragszeit auf 0 setzen?') && onReset()}
+        onClick={async () => (await confirm({ title: 'Vortragszeit auf 0 setzen?', confirmLabel: 'Zurücksetzen' })) && onReset()}
         title="Vortragszeit – klicken zum Zurücksetzen"
       >
         <Timer size={15} />
@@ -867,6 +883,7 @@ function AutoCountdownToggle({ view, command }: { view: HostView; command: Cmd }
 
 /** Countdown für Arbeitsphasen und Pausen – erscheint auf Beamer und Handys. */
 function CountdownControl({ view, offset, command }: { view: HostView; offset: number; command: Cmd }) {
+  const prompt = usePrompt();
   const running = view.countdown;
   const start = (seconds: number) => void command({ action: 'countdown', seconds });
   const phase = currentPhase(running, Date.now() + offset);
@@ -906,12 +923,11 @@ function CountdownControl({ view, offset, command }: { view: HostView; offset: n
           className="select select-small"
           value=""
           aria-label="Countdown starten"
-          onChange={(e) => {
+          onChange={async (e) => {
             const v = e.target.value;
             if (v === 'custom') {
-              const input = window.prompt('Wie viele Minuten?', '15');
-              const minutes = input ? Number(input.replace(',', '.')) : NaN;
-              if (minutes > 0 && minutes <= 240) start(Math.round(minutes * 60));
+              const minutes = await askMinutes(prompt, 'Countdown – wie viele Minuten?', 240);
+              if (minutes !== null) start(Math.round(minutes * 60));
             } else if (v) start(Number(v) * 60);
           }}
         >

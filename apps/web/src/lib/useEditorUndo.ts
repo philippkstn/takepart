@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useRef } from 'react';
 import { useToast } from '../components/ui.tsx';
 import { api, ApiError, errorMessage } from './api.ts';
+import { useConfirm } from '../components/ConfirmDialog.tsx';
 
 /**
  * Rückgängig für strukturelle Änderungen im Editor (Löschen, Verschieben,
@@ -45,6 +46,7 @@ export function useEditorUndo({
   /** Folie nach dem Rückgängigmachen auswählen */
   select: (slideId: number) => void;
 }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const toast = useToast();
   const stack = useRef<Entry[]>([]);
@@ -83,7 +85,13 @@ export function useEditorUndo({
       const lost = live
         ? 'Antworten der laufenden Durchführung gehen dabei verloren'
         : 'Ergebnisse früherer Durchführungen gehen dabei verloren';
-      if (!window.confirm(`Folie löschen? ${lost} – auch „Rückgängig“ bringt sie nicht zurück.`)) return null;
+      const ok = await confirm({
+        title: 'Folie mit Ergebnissen löschen?',
+        text: `${lost} – auch „Rückgängig“ bringt sie nicht zurück.`,
+        confirmLabel: 'Löschen',
+        danger: true,
+      });
+      if (!ok) return null;
       return api<{ versionId: number | null }>(url(true), { method: 'DELETE' });
     }
   };

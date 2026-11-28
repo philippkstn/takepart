@@ -4,6 +4,7 @@ import { useState, type FormEvent } from 'react';
 import { Spinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { MIN_PASSWORD_LENGTH } from '../../lib/passkey.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 interface UserItem {
   id: number;
@@ -18,6 +19,7 @@ interface UserItem {
 
 /** Kontoverwaltung für Admins. Präsentationen bleiben privat – auch Admins sehen nur die eigenen. */
 export function UsersSettings({ ownId }: { ownId: number }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const toast = useToast();
   const list = useQuery({ queryKey: ['users'], queryFn: () => api<UserItem[]>('/api/users') });
@@ -124,10 +126,13 @@ export function UsersSettings({ ownId }: { ownId: number }) {
                       className="icon-btn"
                       aria-label="Konto löschen"
                       title="Konto löschen"
-                      onClick={() =>
-                        window.confirm(
-                          `Konto „${u.username}“ löschen? Seine ${u.presentations} Präsentationen mit allen Durchführungen und Ergebnissen werden ebenfalls gelöscht.`,
-                        ) && remove.mutate(u.id)
+                      onClick={async () =>
+                        (await confirm({
+                          title: `Konto „${u.username}“ löschen?`,
+                          text: `Die ${u.presentations} Präsentationen des Kontos mit allen Durchführungen und Ergebnissen werden ebenfalls gelöscht.`,
+                          confirmLabel: 'Löschen',
+                          danger: true,
+                        })) && remove.mutate(u.id)
                       }
                     >
                       <Trash2 />

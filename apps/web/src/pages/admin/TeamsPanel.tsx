@@ -1,6 +1,7 @@
 import type { HostCommand, HostView, TeamMember } from '@slides/shared';
 import { Shuffle, UserPlus, X } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type TeamsSlide = Extract<NonNullable<HostView['slide']>, { type: 'teams' }>;
@@ -10,6 +11,7 @@ type TeamsSlide = Extract<NonNullable<HostView['slide']>, { type: 'teams' }>;
  * Kennzeichnung mischen, Nachzügler verteilen und einzelne Personen verschieben.
  */
 export function TeamsPanel({ view, command, busy }: { view: HostView; command: Cmd; busy: boolean }) {
+  const confirm = useConfirm();
   const slide = view.slide as TeamsSlide;
   const teams = view.teams ?? { groups: [], unassigned: [], unnamed: 0 };
   const { tags } = slide.config;
@@ -25,8 +27,12 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
   const made = teams.groups.length > 0;
   const tagOf = (m: TeamMember) => (m.tag === null ? null : (tags[m.tag] ?? null));
 
-  const make = () => {
-    if (made && !window.confirm('Gruppen neu mischen? Die bisherige Einteilung geht verloren.')) return;
+  const make = async () => {
+    if (
+      made &&
+      !(await confirm({ title: 'Gruppen neu mischen?', text: 'Die bisherige Einteilung geht verloren.', confirmLabel: 'Neu mischen' }))
+    )
+      return;
     const pools =
       strategy === 'same'
         ? Object.fromEntries(poolKeys.map((k, i) => [k, i]))
@@ -207,7 +213,10 @@ export function TeamsPanel({ view, command, busy }: { view: HostView; command: C
           <button
             className="btn btn-small btn-danger"
             disabled={busy}
-            onClick={() => window.confirm('Einteilung verwerfen?') && command({ action: 'teams-clear', slideId: slide.id })}
+            onClick={async () =>
+              (await confirm({ title: 'Einteilung verwerfen?', confirmLabel: 'Verwerfen', danger: true })) &&
+              command({ action: 'teams-clear', slideId: slide.id })
+            }
           >
             <X /> Einteilung verwerfen
           </button>

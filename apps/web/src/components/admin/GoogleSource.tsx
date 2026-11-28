@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useEscape } from '../../lib/useEscape.ts';
 import { api, ApiError, errorMessage } from '../../lib/api.ts';
 import { syncFromGoogle, type SyncProgress, type SyncResult } from '../../lib/googleSync.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 export interface SourceInfo {
   kind: 'google';
@@ -38,6 +39,7 @@ export function useGoogleSync(
   data: { slides: Slide[]; sources: Record<string, { key: string | null; hash: string | null }>; source: SourceInfo | null } | undefined,
   onDone: (result: SyncResult) => void,
 ) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [progress, setProgress] = useState<SyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,9 +59,12 @@ export function useGoogleSync(
         setProgress,
         manual
           ? (count, total) =>
-              window.confirm(
-                `In Google Slides fehlen ${count} von ${total} Folien. Diese Folien hier entfernen (Folien mit Ergebnissen bleiben)?`,
-              )
+              confirm({
+                title: `${count} von ${total} Folien entfernen?`,
+                text: `In Google Slides fehlen ${count} von ${total} Folien. Folien mit Ergebnissen bleiben hier erhalten.`,
+                confirmLabel: 'Entfernen',
+                danger: true,
+              })
           : undefined,
         force,
       );
@@ -110,6 +115,7 @@ export function GoogleSourceDialog({
   live: boolean;
   onClose: () => void;
 }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [url, setUrl] = useState(source?.url ?? '');
   const [autoSync, setAutoSync] = useState(source?.autoSync ?? true);
@@ -219,8 +225,13 @@ export function GoogleSourceDialog({
               <button
                 className="btn btn-ghost"
                 disabled={busy}
-                onClick={() => {
-                  if (window.confirm('Verknüpfung lösen? Die Folien bleiben, werden aber nicht mehr aktualisiert.')) unlink.mutate();
+                onClick={async () => {
+                  const ok = await confirm({
+                    title: 'Verknüpfung lösen?',
+                    text: 'Die Folien bleiben, werden aber nicht mehr aktualisiert.',
+                    confirmLabel: 'Lösen',
+                  });
+                  if (ok) unlink.mutate();
                 }}
               >
                 <Unlink /> Lösen

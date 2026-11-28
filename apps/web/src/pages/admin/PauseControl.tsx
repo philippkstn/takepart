@@ -3,6 +3,7 @@ import { Coffee, Square } from 'lucide-react';
 import { CountdownBadge } from '../../components/Countdown.tsx';
 import { isBoolean, usePref } from '../../lib/prefs.ts';
 import '../../components/pause.css';
+import { askMinutes, usePrompt } from '../../components/ConfirmDialog.tsx';
 
 const DURATIONS = [5, 10, 15, 20, 30];
 
@@ -14,6 +15,7 @@ const formatAverage = (n: number) => n.toLocaleString('de-DE', { minimumFraction
  * Taste Z startet eine 10-Minuten-Pause bzw. beendet sie (presenterKeys.ts).
  */
 export function PauseControl({ view, offset, command }: { view: HostView; offset: number; command: (cmd: HostCommand) => Promise<void> }) {
+  const prompt = usePrompt();
   const [question, setQuestion] = usePref('pause-question', true, isBoolean);
   const pause = view.pause;
   const stats = view.pauseStats;
@@ -74,12 +76,11 @@ export function PauseControl({ view, offset, command }: { view: HostView; offset
           className="select select-small"
           value=""
           aria-label="Pause starten"
-          onChange={(e) => {
+          onChange={async (e) => {
             const v = e.target.value;
             if (v === 'custom') {
-              const input = window.prompt('Wie viele Minuten Pause?', '15');
-              const minutes = input ? Number(input.replace(',', '.')) : NaN;
-              if (minutes >= 1 && minutes <= 240) start(minutes);
+              const minutes = await askMinutes(prompt, 'Wie viele Minuten Pause?', 240);
+              if (minutes !== null) start(Math.max(1, minutes));
             } else if (v) start(Number(v));
           }}
         >

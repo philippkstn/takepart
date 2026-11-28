@@ -70,6 +70,7 @@ import { onParkedConflict, useSyncedField } from '../../lib/syncedField.ts';
 import { ApiError } from '../../lib/api.ts';
 import { useEditorUndo } from '../../lib/useEditorUndo.ts';
 import { authStatus } from '../../lib/passkey.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 interface Presentation {
   id: number;
@@ -108,6 +109,7 @@ interface RunItem {
 }
 
 export default function EditorPage() {
+  const confirm = useConfirm();
   const id = Number(useParams().id);
   const queryClient = useQueryClient();
   const toast = useToast();
@@ -615,8 +617,14 @@ export default function EditorPage() {
             runs={runs.data.filter((r) => r.rehearsal)}
             open={showRehearsals}
             onToggle={() => setShowRehearsals((v) => !v)}
-            onRemoveAll={() => {
-              if (window.confirm('Alle Probeläufe dieser Präsentation löschen – auch einen laufenden?')) removeRehearsals.mutate();
+            onRemoveAll={async () => {
+              const ok = await confirm({
+                title: 'Alle Probeläufe löschen?',
+                text: 'Auch ein gerade laufender Probelauf wird beendet und gelöscht.',
+                confirmLabel: 'Löschen',
+                danger: true,
+              });
+              if (ok) removeRehearsals.mutate();
             }}
           />
         </section>

@@ -23,6 +23,7 @@ import './turns.css';
 import { TagChips, TieMark, tiedSet, topTieText } from '../../components/board/BoardMarks.tsx';
 import { ChooseControls } from './ChooseControls.tsx';
 import { RateControls } from './RateControls.tsx';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type Cmd = (cmd: HostCommand) => Promise<void>;
 type BoardHostSlide = Extract<NonNullable<HostView['slide']>, { type: 'board' }>;
@@ -191,6 +192,7 @@ function CardRow({
 /* ───────────── Clustern ───────────── */
 
 function ClusterControls({ view, op, command }: { view: HostView; op: (o: BoardOp) => void; command: Cmd }) {
+  const confirm = useConfirm();
   const board = view.board!;
   const byGroup = cardsByGroup(view.posts);
   const hidden = view.posts.filter((p) => p.status === 'hidden');
@@ -268,7 +270,13 @@ function ClusterControls({ view, op, command }: { view: HostView; op: (o: BoardO
               className="icon-btn"
               aria-label="Gruppe auflösen"
               title="Gruppe auflösen – Karten kommen zurück in die Ablage"
-              onClick={() => window.confirm(`Gruppe „${g.name}“ auflösen?`) && op({ op: 'group-delete', groupId: g.id })}
+              onClick={async () =>
+                (await confirm({
+                  title: `Gruppe „${g.name}“ auflösen?`,
+                  text: 'Die Karten kommen zurück in die Ablage.',
+                  confirmLabel: 'Auflösen',
+                })) && op({ op: 'group-delete', groupId: g.id })
+              }
             >
               <Trash2 />
             </button>

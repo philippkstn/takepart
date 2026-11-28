@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { api, ApiError, errorMessage } from '../../lib/api.ts';
 import { useEscape } from '../../lib/useEscape.ts';
 import { SlideIcon } from '../slideIcons.tsx';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type Reason = 'auto' | 'named' | 'import' | 'images' | 'google' | 'run' | 'restore' | 'delete';
 
@@ -156,6 +157,7 @@ export function VersionsDialog({
   onClose: () => void;
   onRestored: (message: string) => void;
 }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const key = ['versions', presentationId];
   const list = useQuery({
@@ -203,11 +205,13 @@ export function VersionsDialog({
         if (!plan) throw err;
         const lost = plan.removed.filter((s) => s.results > 0);
         const items = lost.map((s) => `• ${s.title || SLIDE_TYPE_LABELS[s.type]} (${s.results} Einträge)`).join('\n');
-        if (
-          !window.confirm(
-            `Diese Folien gibt es in der Version nicht. Ihre Ergebnisse aus früheren Durchführungen gingen verloren:\n\n${items}\n\nTrotzdem wiederherstellen?`,
-          )
-        ) {
+        const ok = await confirm({
+          title: 'Trotzdem wiederherstellen?',
+          text: `Diese Folien gibt es in der Version nicht. Ihre Ergebnisse aus früheren Durchführungen gingen verloren:\n\n${items}`,
+          confirmLabel: 'Wiederherstellen',
+          danger: true,
+        });
+        if (!ok) {
           return null;
         }
         return api(`/api/presentations/${presentationId}/versions/${vid}/restore`, { body: { dropResults: true } });
@@ -390,14 +394,13 @@ export function VersionsDialog({
                                   className="btn"
                                   disabled={live || busy}
                                   title={live ? 'Erst nach der Durchführung bzw. dem Probelauf' : undefined}
-                                  onClick={() => {
-                                    if (
-                                      window.confirm(
-                                        'Die ganze Version wiederherstellen? Der jetzige Stand wird vorher als Version gesichert.',
-                                      )
-                                    ) {
-                                      restore.mutate(v.id);
-                                    }
+                                  onClick={async () => {
+                                    const ok = await confirm({
+                                      title: 'Die ganze Version wiederherstellen?',
+                                      text: 'Der jetzige Stand wird vorher als Version gesichert.',
+                                      confirmLabel: 'Wiederherstellen',
+                                    });
+                                    if (ok) restore.mutate(v.id);
                                   }}
                                 >
                                   <RotateCcw /> {restore.isPending ? 'Stellt wieder her …' : 'Ganze Version wiederherstellen'}

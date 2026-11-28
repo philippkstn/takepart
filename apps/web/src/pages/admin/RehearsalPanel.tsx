@@ -3,6 +3,7 @@ import { FlaskConical, MessageSquareShare, Monitor, MonitorOff, Shuffle, Trash2,
 import { useState } from 'react';
 import { formatCode, joinHost, joinUrl, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 /**
  * Bausteine fürs Steuerpult: Probelauf (Hinweis, Testteilnehmende, Beenden mit
@@ -121,6 +122,7 @@ export function DisplayStatus({ displays }: { displays: HostView['displays'] | u
 
 /** Testteilnehmende im Probelauf: simuliertes Publikum an/aus, weitere anlegen, sofort antworten lassen, entfernen. */
 export function RehearsalControls({ runId, view }: { runId: number; view: HostView }) {
+  const confirm = useConfirm();
   const toast = useToast();
   const [count, setCount] = useState(10);
   const [withAnswers, setWithAnswers] = useState(true);
@@ -148,7 +150,13 @@ export function RehearsalControls({ runId, view }: { runId: number; view: HostVi
   };
 
   const remove = async () => {
-    if (!window.confirm('Alle Testteilnehmenden samt ihrer Antworten und Karten entfernen?')) return;
+    const ok = await confirm({
+      title: 'Alle Testteilnehmenden entfernen?',
+      text: 'Ihre Antworten und Karten werden ebenfalls gelöscht.',
+      confirmLabel: 'Entfernen',
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       await api(`/api/runs/${runId}/rehearsal/fake`, { method: 'DELETE' });

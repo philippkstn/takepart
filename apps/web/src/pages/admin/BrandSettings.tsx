@@ -5,6 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { Spinner, useToast } from '../../components/ui.tsx';
 import { api, errorMessage } from '../../lib/api.ts';
 import { brandStyle, contrast } from '../../lib/brand.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type Brand = BrandView & { id: number; used: number };
 
@@ -97,6 +98,7 @@ function BrandForm({ initial, onDone }: { initial?: Brand; onDone: () => void })
 }
 
 function BrandCard({ brand }: { brand: Brand }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [editing, setEditing] = useState(false);
@@ -170,9 +172,14 @@ function BrandCard({ brand }: { brand: Brand }) {
           className="icon-btn"
           title="Löschen"
           aria-label="Löschen"
-          onClick={() => {
-            const note = brand.used > 0 ? ` ${brand.used} Präsentation(en) laufen danach ohne Branding.` : '';
-            if (window.confirm(`Branding „${brand.name}“ löschen?${note}`)) remove.mutate();
+          onClick={async () => {
+            const ok = await confirm({
+              title: `Branding „${brand.name}“ löschen?`,
+              text: brand.used > 0 ? `${brand.used} Präsentation(en) laufen danach ohne Branding.` : undefined,
+              confirmLabel: 'Löschen',
+              danger: true,
+            });
+            if (ok) remove.mutate();
           }}
         >
           <Trash2 />

@@ -4,6 +4,7 @@ import { Trash2, UserPlus, X } from 'lucide-react';
 import { useState } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useEscape } from '../../lib/useEscape.ts';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 type ShareRole = 'view' | 'edit' | 'host';
 const SHARE_ROLES: ShareRole[] = ['view', 'edit', 'host'];
@@ -19,6 +20,7 @@ interface Share {
  * Wer bearbeiten darf, arbeitet gleichzeitig im selben Editor.
  */
 export function ShareDialog({ presentationId, onClose }: { presentationId: number; onClose: () => void }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const key = ['shares', presentationId];
   const shares = useQuery({ queryKey: key, queryFn: () => api<Share[]>(`/api/presentations/${presentationId}/shares`) });
@@ -107,8 +109,9 @@ export function ShareDialog({ presentationId, onClose }: { presentationId: numbe
                 <button
                   className="icon-btn"
                   aria-label={`Freigabe für ${s.username} entfernen`}
-                  onClick={() => {
-                    if (window.confirm(`${s.username} den Zugriff entziehen?`)) remove.mutate(s.userId);
+                  onClick={async () => {
+                    if (await confirm({ title: `${s.username} den Zugriff entziehen?`, confirmLabel: 'Entziehen', danger: true }))
+                      remove.mutate(s.userId);
                   }}
                 >
                   <Trash2 />

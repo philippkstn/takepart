@@ -16,6 +16,7 @@ import { Blocks, Trash2, X } from 'lucide-react';
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { api, errorMessage } from '../../lib/api.ts';
 import { useToast } from '../ui.tsx';
+import { useConfirm } from '../../components/ConfirmDialog.tsx';
 
 /**
  * Übungsbausteine im Editor: vordefinierte Folienfolgen (aus `blocks.ts`) und
@@ -55,6 +56,7 @@ export function InsertPicker({
 }
 
 function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled: boolean; onInsert: (slides: BatchSlide[]) => void }) {
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const toast = useToast();
   const custom = useQuery({ queryKey: ['blocks'], queryFn: () => api<CustomBlock[]>('/api/blocks') });
@@ -110,8 +112,9 @@ function BlockPicker({ slides, disabled, onInsert }: { slides: Slide[]; disabled
             className="icon-btn"
             aria-label={`Baustein „${block.name}“ löschen`}
             title="Baustein löschen"
-            onClick={() => {
-              if (window.confirm(`Eigenen Baustein „${block.name}“ löschen?`)) remove.mutate(block.id);
+            onClick={async () => {
+              if (await confirm({ title: `Eigenen Baustein „${block.name}“ löschen?`, confirmLabel: 'Löschen', danger: true }))
+                remove.mutate(block.id);
             }}
           >
             <Trash2 />
